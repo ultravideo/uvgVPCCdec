@@ -13,6 +13,9 @@ public:
     static uint32_t read(uint8_t bits, const std::string &name = "");
     static uint32_t read_ue(const std::string &name = "");
     static void advance_bitstream(std::size_t bits);
+
+    /* Advance to the next full byte. If already at the start of a byte, do nothing */
+    static void align_bitstream();
     static void initializeStaticParameters(const uvgvpcc_dec::Parameters& param);
     static void parseV3CSampleStream(const std::vector<uint8_t> &data);
 

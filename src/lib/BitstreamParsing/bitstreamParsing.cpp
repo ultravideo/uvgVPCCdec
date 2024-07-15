@@ -3,7 +3,7 @@
 #include <cstring>
 
 /* In debug mode print out some extra info */
-#define BITSTREAM_DEBUG true
+#define BITSTREAM_DEBUG false
 
 static const uint8_t* cbuf_;
 static bitstream_position pos_;
@@ -14,6 +14,15 @@ void BitstreamParsing::advance_bitstream(std::size_t bits)
     std::size_t bytes = bits / 8 + (pos_.bits + bits % 8) / 8;
     pos_.bytes += bytes;
     pos_.bits = (pos_.bits + bits % 8) % 8;
+}
+
+/* TODO: make sure this function works in all cases */
+void BitstreamParsing::align_bitstream()
+{
+    if(pos_.bits != 0) {
+        pos_.bytes++;
+        pos_.bits = 0;
+    }
 }
 
 /* NOTE -------------------- Straight from TMC2 -------------------- */
@@ -118,7 +127,6 @@ void BitstreamParsing::parseV3CSampleStream(const std::vector<uint8_t> &data)
                 std::cout << "error" << std::endl;
                 break;
         }
-        break;
     }
     std::cout << "File parsed" << std::endl;
 }
@@ -126,8 +134,6 @@ void BitstreamParsing::parseV3CSampleStream(const std::vector<uint8_t> &data)
 void BitstreamParsing::read_v3c_parameter_set(std::size_t v3c_payload_size_bytes)
 {
     std::cout << "Reading V3C parameter set, len " << v3c_payload_size_bytes << std::endl;
-    //advance_bitstream(v3c_payload_size_bytes * 8); ----------------------------
-
     // profile_tier_level
     v3c_parameter_set vps;
     read_profile_tier_level(vps.ptl);
@@ -246,6 +252,10 @@ void BitstreamParsing::read_v3c_parameter_set(std::size_t v3c_payload_size_bytes
             vps.vps_miv_extension_present_flag = read(1, "vps_miv_extension_present_flag");
             vps.vps_extension_6bits = read(6, "vps_extension_6bits");
         }
+        std::cout << "bytes " << (uint32_t)pos_.bytes << ", bits " << (uint32_t)pos_.bits << std::endl;
+        align_bitstream();
+        std::cout << "bytes " << (uint32_t)pos_.bytes << ", bits " << (uint32_t)pos_.bits << std::endl;
+
         // No packing information
         // No MIV extension
         // No VPS extension
