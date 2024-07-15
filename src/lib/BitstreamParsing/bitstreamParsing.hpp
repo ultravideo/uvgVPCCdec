@@ -20,6 +20,9 @@ private:
     static uint32_t read_bits(uint8_t bits);
     static uint32_t read_bits_ue();
     static void read_v3c_parameter_set(std::size_t v3c_payload_size_bytes);
+    static void read_profile_tier_level(profile_tier_level &ptl);
+
+
     static void read_atlas_sub_bitstream(std::size_t v3c_payload_size_bytes);
     static void read_video_sub_bitstream(std::size_t v3c_payload_size_bytes);
 };
