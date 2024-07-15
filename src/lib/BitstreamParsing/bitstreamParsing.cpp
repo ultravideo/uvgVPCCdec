@@ -59,19 +59,20 @@ void BitstreamParsing::parseV3CSampleStream(const std::vector<uint8_t> &data)
         // Next 4 bytes are the V3C unit header
         uint8_t vuh_unit_type = read(5);
         std::cout << "-- vuh_unit_type: " << (uint32_t)vuh_unit_type << std::endl;
+        advance_bitstream(4 * 8 - 5); // skip the reat of v3c header for now
 
+        std::size_t v3c_unit_payload_size_bytes = v3c_unit_size - 4;
         switch(vuh_unit_type) {
             case V3C_UNIT_TYPE::V3C_VPS:
-                advance_bitstream(v3c_unit_size * 8 - 5);
-                // handle vps function () TODO
+                readV3CParameterSet(v3c_unit_payload_size_bytes);
                 break;
             case V3C_UNIT_TYPE::V3C_AD:
-                advance_bitstream(v3c_unit_size * 8 - 5);
+                readAtlasData(v3c_unit_payload_size_bytes);
                 break;
             case V3C_UNIT_TYPE::V3C_OVD:
             case V3C_UNIT_TYPE::V3C_GVD:
             case V3C_UNIT_TYPE::V3C_AVD:
-                advance_bitstream(v3c_unit_size * 8 - 5);
+                readVideoData(v3c_unit_payload_size_bytes);
                 break;
             default: 
                 std::cout << "error" << std::endl;
@@ -79,4 +80,22 @@ void BitstreamParsing::parseV3CSampleStream(const std::vector<uint8_t> &data)
         }
     }
     std::cout << "File parsed" << std::endl;
+}
+
+void BitstreamParsing::readV3CParameterSet(std::size_t v3c_payload_size_bytes)
+{
+    std::cout << "Reading V3C parameter set " << std::endl;
+    advance_bitstream(v3c_payload_size_bytes * 8);
+}
+
+void BitstreamParsing::readAtlasData(std::size_t v3c_payload_size_bytes)
+{
+    std::cout << "Reading Atlas data " << std::endl;
+    advance_bitstream(v3c_payload_size_bytes * 8);
+}
+
+void BitstreamParsing::readVideoData(std::size_t v3c_payload_size_bytes)
+{
+    std::cout << "Reading video data " << std::endl;
+    advance_bitstream(v3c_payload_size_bytes * 8);
 }

@@ -13,4 +13,9 @@ public:
     static void advance_bitstream(std::size_t bits);
     static void initializeStaticParameters(const uvgvpcc_dec::Parameters& param);
     static void parseV3CSampleStream(const std::vector<uint8_t> &data);
+
+private:
+    static void readV3CParameterSet(std::size_t v3c_payload_size_bytes);
+    static void readAtlasData(std::size_t v3c_payload_size_bytes);
+    static void readVideoData(std::size_t v3c_payload_size_bytes);
 };
