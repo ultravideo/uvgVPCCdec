@@ -32,5 +32,12 @@ private:
     static void read_atlas_nal_unit(NAL_UNIT_TYPE nal_unit_type, std::size_t nal_unit_size);
     static void read_asps(atlas_sequence_parameter_set &asps);
     static void read_afps(atlas_frame_parameter_set &afps);
+    static void read_atlas_rbsp(atlas_tile_layer_rbsp &rbsp, NAL_UNIT_TYPE nalu_t);
+
+    static void read_atlas_tile_data_unit(atlas_tile_data_unit &atdu, atlas_tile_header &ath);
+    static void read_patch_information_data(atlas_tile_header &ath, patch_information_data &pid);
+    static void read_patch_data_unit(atlas_tile_header &ath, patch_data_unit &pdu);
+    static void read_atlas_tile_header(atlas_tile_header &ath, NAL_UNIT_TYPE nalu_t);
+
     static void read_video_sub_bitstream(std::size_t v3c_payload_size_bytes);
 };

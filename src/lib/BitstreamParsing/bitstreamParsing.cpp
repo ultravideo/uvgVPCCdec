@@ -7,6 +7,10 @@
 static const uint8_t* cbuf_;
 static bitstream_position pos_;
 
+v3c_parameter_set saved_vps_;
+atlas_sequence_parameter_set saved_asps_;
+atlas_frame_parameter_set saved_afps_;
+
 /* TODO: make sure this function works in all cases */
 void BitstreamParsing::advance_bitstream(std::size_t bits)
 {
@@ -399,16 +403,188 @@ void BitstreamParsing::read_afps(atlas_frame_parameter_set &afps)
     std::cout << "bytes " << (uint32_t)pos_.bytes << ", bits " << (uint32_t)pos_.bits << std::endl;
 }
 
+void BitstreamParsing::read_atlas_rbsp(atlas_tile_layer_rbsp &rbsp, NAL_UNIT_TYPE nalu_t)
+{
+    read_atlas_tile_header(rbsp.ath, nalu_t);
+    read_atlas_tile_data_unit(rbsp.atdu, rbsp.ath);
+}
+
+void BitstreamParsing::read_atlas_tile_header(atlas_tile_header &ath, NAL_UNIT_TYPE nalu_t)
+{
+    if(nalu_t >= NAL_GBLA_W_LP && nalu_t <= NAL_RSV_IRAP_ACL_29) {
+        ath.ath_no_output_of_prior_atlas_frames_flag = read(1, "ath_no_output_of_prior_atlas_frames_flag");
+    }
+    ath.ath_atlas_frame_parameter_set_id = read_ue("ath_atlas_frame_parameter_set_id");
+    ath.ath_atlas_adaptation_parameter_set_id = read_ue("ath_atlas_adaptation_parameter_set_id");
+    //ath.ath_id = read("ath_id"); TODO: Figure out the dynamic bit length for this field
+    uint16_t tileID = ath.ath_id; // default 0
+    ath.ath_type = static_cast<ATH_TYPE>(read_ue("ath_type"));
+
+    if(saved_afps_.afps_output_flag_present_flag) {
+        ath.ath_atlas_output_flag = read(1, "ath_atlas_output_flag");
+    }
+    size_t Log2MaxAtlasFrmOrderCntLsb = saved_asps_.asps_log2_max_atlas_frame_order_cnt_lsb_minus4 + 4;
+    ath.ath_atlas_frm_order_cnt_lsb = read(uint8_t(Log2MaxAtlasFrmOrderCntLsb), "ath_atlas_frm_order_cnt_lsb"); //u(v)
+
+    if(saved_asps_.asps_num_ref_atlas_frame_lists_in_asps > 0) {
+        ath.ath_ref_atlas_frame_list_asps_flag = read(1, "ath_ref_atlas_frame_list_asps_flag");
+    }
+    if(ath.ath_ref_atlas_frame_list_asps_flag == 0) {
+        std::cout << "ERROR: NOT IMPLEMENTED" << std::endl;
+        return;
+    }
+    else if (saved_asps_.asps_num_ref_atlas_frame_lists_in_asps > 1) {
+        size_t bit_len = std::ceil(std::log2(saved_asps_.asps_num_ref_atlas_frame_lists_in_asps));
+        ath.ath_ref_atlas_frame_list_idx = read(uint8_t(bit_len), "ath_ref_atlas_frame_list_idx");
+    }
+
+    size_t NumLtrAtlasFrmEntries = 0; // default value, ref list is from ASPS TODO: dynamic
+    ath.ath_additional_afoc_lsb_present_flag.resize(NumLtrAtlasFrmEntries);
+    ath.ath_additional_afoc_lsb_val.resize(NumLtrAtlasFrmEntries);
+    for (size_t j = 0; j < NumLtrAtlasFrmEntries; j++) {
+        ath.ath_additional_afoc_lsb_present_flag.at(j) = read(1, "ath_additional_afoc_lsb_present_flag");
+        if(ath.ath_additional_afoc_lsb_present_flag.at(j)) {
+            ath.ath_additional_afoc_lsb_val.at(j) = read(saved_afps_.afps_additional_lt_afoc_lsb_len, "ath_additional_afoc_lsb_val");
+        }
+    }
+    if(ath.ath_type != SKIP_TILE) {
+        if(saved_asps_.asps_normal_axis_limits_quantization_enabled_flag) {
+            ath.ath_pos_min_d_quantizer = read(5, "ath_pos_min_d_quantizer");
+            if(saved_asps_.asps_normal_axis_max_delta_value_enabled_flag) {
+                ath.ath_pos_delta_max_d_quantizer = read(5, "ath_pos_delta_max_d_quantizer");
+            }
+        }
+        if(saved_asps_.asps_patch_size_quantizer_present_flag) {
+            ath.ath_patch_size_x_info_quantizer = read(3, "ath_patch_size_x_info_quantizer");
+            ath.ath_patch_size_y_info_quantizer = read(3, "ath_patch_size_y_info_quantizer");
+        }
+        if(saved_afps_.afps_raw_3d_offset_bit_count_explicit_mode_flag) {
+            size_t bit_len = std::floor(std::log2(saved_asps_.asps_geometry_3d_bit_depth_minus1 + 1));
+            ath.ath_raw_3d_offset_axis_bit_count_minus1 = read(uint8_t(bit_len), "ath_raw_3d_offset_axis_bit_count_minus1");
+        }
+        if( ath.ath_type == ATH_TYPE::P_TILE && NumLtrAtlasFrmEntries > 1 ) {
+            ath.ath_num_ref_idx_active_override_flag = read(1, "ath_num_ref_idx_active_override_flag");
+            if(ath.ath_num_ref_idx_active_override_flag) {
+                ath.ath_num_ref_idx_active_minus1 = read_ue("ath_num_ref_idx_active_minus1");
+            }
+        }
+    }
+    std::cout << "bytes " << (uint32_t)pos_.bytes << ", bits " << (uint32_t)pos_.bits << std::endl;
+    align_bitstream();
+    std::cout << "bytes " << (uint32_t)pos_.bytes << ", bits " << (uint32_t)pos_.bits << std::endl;
+}
+
+void BitstreamParsing::read_patch_information_data(atlas_tile_header &ath, patch_information_data &pid)
+{
+    if (ath.ath_type == SKIP_TILE) {
+        // skip mode: currently not supported but added it for convenience. Could
+        // easily be removed
+    } else if (ath.ath_type == P_TILE) {
+        if (pid.patchMode == P_SKIP) {
+            // skip mode: currently not supported but added it for convenience. Could
+            // easily be removed
+            //skipPatchDataUnit(bitstream);
+        } else if (pid.patchMode == P_MERGE) {
+            auto &mpdu = pid.merge;
+            //mergePatchDataUnit(mpdu, ath, syntax, bitstream);
+        } else if (pid.patchMode == P_INTRA) {
+            auto& pdu = pid.patch;
+            //patchDataUnit(pdu, ath, syntax, bitstream);
+        } else if (pid.patchMode == P_INTER) {
+            auto& ipdu = pid.inter;
+            //interPatchDataUnit(ipdu, ath, syntax, bitstream);
+        } else if (pid.patchMode == P_RAW) {
+            auto& rpdu = pid.raw;
+            //rawPatchDataUnit(rpdu, ath, syntax, bitstream);
+        } else if (pid.patchMode == P_EOM) {
+            auto& epdu = pid.eom;
+            //eomPatchDataUnit(epdu, ath, syntax, bitstream);
+        }
+    }
+    else if (ath.ath_type == I_TILE) { // currently only use I_TILE types
+        if (pid.patchMode == I_INTRA) {
+            auto& pdu = pid.patch;
+            read_patch_data_unit(ath, pdu);
+            //patchDataUnit(pdu, ath, syntax, bitstream);
+        } else if (pid.patchMode == I_RAW) {
+            auto& rpdu = pid.raw;
+            //rawPatchDataUnit(rpdu, ath, syntax, bitstream);
+        } else if (pid.patchMode == I_EOM) {
+            auto& epdu = pid.eom;
+            //eomPatchDataUnit(epdu, ath, syntax, bitstream);
+        }
+    }
+}
+
+void BitstreamParsing::read_patch_data_unit(atlas_tile_header &ath, patch_data_unit &pdu)
+{
+    pdu.pdu_2d_pos_x = read_ue("pdu_2d_pos_x");
+    pdu.pdu_2d_pos_y = read_ue("pdu_2d_pos_y");
+    pdu.pdu_2d_size_x_minus1 = read_ue("pdu_2d_size_x_minus1");
+    pdu.pdu_2d_size_y_minus1 = read_ue("pdu_2d_size_y_minus1");
+
+    pdu.pdu_3d_offset_u = read(saved_asps_.asps_geometry_3d_bit_depth_minus1 + 1, "pdu_3d_offset_u");
+    pdu.pdu_3d_offset_v = read(saved_asps_.asps_geometry_3d_bit_depth_minus1 + 1, "pdu_3d_offset_v");
+    pdu.pdu_3d_offset_d = read(saved_asps_.asps_geometry_3d_bit_depth_minus1 - ath.ath_pos_min_d_quantizer + 1, "pdu_3d_offset_d");
+
+    if(saved_asps_.asps_normal_axis_max_delta_value_enabled_flag) {
+        uint32_t rangeDBitDepth = std::min(saved_asps_.asps_geometry_2d_bit_depth_minus1, saved_asps_.asps_geometry_3d_bit_depth_minus1) + 1;
+        pdu.pdu_3d_range_d = read(rangeDBitDepth - ath.ath_pos_delta_max_d_quantizer, "pdu_3d_range_d");
+    }
+    pdu.pdu_projection_id = read(ceil(log2(6)), "pdu_projection_id");
+    pdu.pdu_orientation_index = read(false ? 3 : 1, "pdu_orientation_index");
+
+    if(saved_afps_.afps_lod_mode_enabled_flag) {
+        pdu.pdu_lod_enabled_flag = read(1, "pdu_lod_enabled_flag");
+        if(pdu.pdu_lod_enabled_flag) {
+
+            pdu.pdu_lod_scale_x_minus1 = read_ue("pdu_lod_scale_x_minus1");
+            pdu.pdu_lod_scale_y_idc = read_ue("pdu_lod_scale_y_idc");
+        }
+    }
+    // if( asps_plr_enabled_flag )               == false
+    // if( asps_miv_extension_present_flag )     == false
+}
+
+
+void BitstreamParsing::read_atlas_tile_data_unit(atlas_tile_data_unit &atdu, atlas_tile_header &ath)
+{
+    uint16_t tileID = ath.ath_id;
+    if (ath.ath_type == SKIP_TILE) {
+        //skipPatchDataUnit(bitstream);
+        // This is just empty?
+    }
+    else {
+        while (true ) {
+            atdu.atdu_patch_mode = read_ue("atdu_patch_mode");
+            if(atdu.atdu_patch_mode == ATDU_PATCH_MODE_I_TILE::I_END
+                || atdu.atdu_patch_mode == ATDU_PATCH_MODE_P_TILE::P_END) {
+                break;
+            }
+            patch_information_data pid;
+            read_patch_information_data(ath, pid);
+            atdu.patches_vec.push_back(pid);
+
+        }
+    }
+}
+
 void BitstreamParsing::read_atlas_nal_unit(NAL_UNIT_TYPE nal_unit_type, std::size_t nal_unit_size)
 {                
     atlas_sequence_parameter_set asps;
     atlas_frame_parameter_set afps;
+    atlas_tile_layer_rbsp rbsp;
     switch(nal_unit_type) {
             case NAL_UNIT_TYPE::NAL_ASPS:
                 read_asps(asps);
+                saved_asps_ = asps;
                 break;
             case NAL_UNIT_TYPE::NAL_AFPS:
                 read_afps(afps);
+                saved_afps_ = afps;
+                break;
+            case NAL_UNIT_TYPE::NAL_IDR_N_LP:
+                read_atlas_rbsp(rbsp, nal_unit_type);
                 break;
             default: 
                 std::cout << "error nal type" << std::endl;

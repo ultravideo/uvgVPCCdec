@@ -70,22 +70,23 @@ struct patch_information_data {
     uint8_t patchMode;
 
     // From specification
-    patch_data_unit patch_data_unit_;
-    inter_patch_data_unit inter_patch_data_unit_;
-    merge_patch_data_unit merge_patch_data_unit_;
-    skip_patch_data_unit skip_patch_data_unit_;
-    raw_patch_data_unit raw_patch_data_unit_;
-    eom_patch_data_unit eom_patch_data_unit_;
+    patch_data_unit patch;
+    inter_patch_data_unit inter;
+    merge_patch_data_unit merge;
+    skip_patch_data_unit skip;
+    raw_patch_data_unit raw;
+    eom_patch_data_unit eom;
 };
 
 struct atlas_tile_data_unit {
     // from specification
-    std::vector<patch_information_data> patch_information_data_;
+    uint32_t atdu_patch_mode = 0;
+    std::vector<patch_information_data> patches_vec;
 };
 
 struct atlas_tile_layer_rbsp {
-    atlas_tile_header ath_;
-    atlas_tile_data_unit atdu_;
+    atlas_tile_header ath;
+    atlas_tile_data_unit atdu;
 };
 
 struct atlas_frame_tile_information {
