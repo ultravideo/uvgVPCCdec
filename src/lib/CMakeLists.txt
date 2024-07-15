@@ -6,6 +6,7 @@ configure_file(version.cpp.in version.cpp)
 
 add_subdirectory(utils)
 add_subdirectory(BitstreamParsing)
+add_subdirectory(FormatConversion)
 add_subdirectory(PreReconstruction)
 add_subdirectory(Reconstruction)
 add_subdirectory(PostReconstruction)

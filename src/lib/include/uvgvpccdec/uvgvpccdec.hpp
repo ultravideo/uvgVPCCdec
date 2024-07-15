@@ -13,6 +13,7 @@ struct Parameters {
 namespace API
 {
     void initializeDecoder(const Parameters& param);
+    void decodeV3CSampleStream(const std::string filename);
 } // namespace API
 
 } // namespace uvgvpcc_dec
