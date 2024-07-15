@@ -11,7 +11,7 @@
 
 #include "chrono.hpp"
 
-namespace uvgvpccdec {
+namespace uvgvpcc_dec {
 
 #define RED "\x1B[31m"
 #define GRN "\x1B[32m"
@@ -78,4 +78,4 @@ std::string Logger::vprintfStrToStdStr(const char* fmt, va_list args) {
     return (std::string)str;
 }
 
-}  // namespace uvgvpccdec
+}  // namespace uvgvpcc_dec

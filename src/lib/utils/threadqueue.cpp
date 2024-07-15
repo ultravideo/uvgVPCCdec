@@ -2,7 +2,7 @@
 #include "uvgvpccdec/threadqueue.hpp"
 #include "uvgvpccdec/log.hpp"
 
-namespace uvgvpccdec
+namespace uvgvpcc_dec
 {
 
 const std::string jobStateToStr (threadqueue_job_state s) {
@@ -166,4 +166,4 @@ void ThreadQueue::workerThread() {
     }
 }
 
-} // namespace uvgvpccdec
+} // namespace uvgvpcc_dec

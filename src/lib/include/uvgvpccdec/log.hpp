@@ -3,7 +3,7 @@
 #include <iostream>
 #include <string>
 
-namespace uvgvpccdec {
+namespace uvgvpcc_dec {
 enum class LogLevel { FATAL, ERROR, WARNING, INFO, PROFILING, TRACE, DEBUG };
 
 // stringify table for LogLevel
@@ -20,4 +20,4 @@ class Logger {
    private:
     static LogLevel logLevel;
 };
-}  // namespace uvgvpccdec
+}  // namespace uvgvpcc_dec

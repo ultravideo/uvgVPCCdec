@@ -181,7 +181,7 @@ opts_t opts_parse(const int argc, const char* const argv[]) {
 
     if (opts.inputGeoPrecision == 0) {
         opts.inputGeoPrecision = select_voxel_size_auto(opts.inputPath);
-        uvgvpccdec::Logger::log(uvgvpccdec::LogLevel::INFO, "APPLICATION", "Detected geometry precision from file name: " + std::to_string(opts.inputGeoPrecision) + ".\n");
+        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::INFO, "APPLICATION", "Detected geometry precision from file name: " + std::to_string(opts.inputGeoPrecision) + ".\n");
         if (opts.inputGeoPrecision == 0) {
             throw std::runtime_error("Input error: Geometry precision is set to zero");
         }
@@ -189,7 +189,7 @@ opts_t opts_parse(const int argc, const char* const argv[]) {
 
     if (opts.frames == 0) {
         opts.frames = select_frame_count_auto(opts.inputPath);
-        uvgvpccdec::Logger::log(uvgvpccdec::LogLevel::INFO, "APPLICATION",
+        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::INFO, "APPLICATION",
                              "Detected frame count from file name: " + std::to_string(opts.frames) + ".\n");
         if (opts.frames == 0) {
             throw std::runtime_error("Input error: Frame count is zero");
@@ -198,7 +198,7 @@ opts_t opts_parse(const int argc, const char* const argv[]) {
 
     if (opts.startFrame == std::numeric_limits<uint32_t>::max()) {
         opts.startFrame = select_start_frame_auto(opts.inputPath);
-        uvgvpccdec::Logger::log(uvgvpccdec::LogLevel::INFO, "APPLICATION",
+        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::INFO, "APPLICATION",
                              "Detected start frame from file name: " + std::to_string(opts.startFrame) + ".\n");
         if (opts.startFrame == std::numeric_limits<uint32_t>::max()) {
             throw std::runtime_error("Input error: Frame count is zero");
@@ -213,7 +213,7 @@ void print_usage(void) {
               << "       --help for more information" << std::endl;
 }
 
-void print_version(void) { std::cout << "uvgvpccdec " << uvgvpccdec::get_version() << std::endl; }
+void print_version(void) { std::cout << "uvgvpccdec " << uvgvpcc_dec::get_version() << std::endl; }
 
 void print_help(void) {
     fprintf(stdout,

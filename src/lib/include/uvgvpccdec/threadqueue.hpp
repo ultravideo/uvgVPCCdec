@@ -11,7 +11,7 @@
 #include <cassert>
 #include <map>
 
-namespace uvgvpccdec
+namespace uvgvpcc_dec
 {
 
 enum threadqueue_job_state {
@@ -98,4 +98,4 @@ private:
 
 const std::string jobStateToStr (threadqueue_job_state s);
 
-} // namespace uvgvpccdec
+} // namespace uvgvpcc_dec
