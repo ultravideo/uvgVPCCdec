@@ -1,9 +1,8 @@
 #include "bitstreamParsing.hpp"
-#include "bitstream_common.hpp"
 #include <cstring>
 
 /* In debug mode print out some extra info */
-#define BITSTREAM_DEBUG false
+#define BITSTREAM_DEBUG true
 
 static const uint8_t* cbuf_;
 static bitstream_position pos_;
@@ -128,7 +127,7 @@ void BitstreamParsing::parseV3CSampleStream(const std::vector<uint8_t> &data)
                 break;
         }
     }
-    std::cout << "File parsed" << std::endl;
+    std::cout << "File parsed, pos bytes at " << pos_.bytes << std::endl;
 }
 
 void BitstreamParsing::read_v3c_parameter_set(std::size_t v3c_payload_size_bytes)
@@ -285,6 +284,123 @@ void BitstreamParsing::read_profile_tier_level(profile_tier_level &ptl)
     // TODO: Parse PTC
 }
 
+void BitstreamParsing::read_asps(atlas_sequence_parameter_set &asps)
+{
+    asps.asps_atlas_sequence_parameter_set_id = read_ue("asps_atlas_sequence_parameter_set_id");
+    asps.asps_frame_width = read_ue("asps_frame_width");
+    asps.asps_frame_height = read_ue("asps_frame_height");
+    asps.asps_geometry_3d_bit_depth_minus1 = read(5, "asps_geometry_3d_bit_depth_minus1");
+    asps.asps_geometry_2d_bit_depth_minus1 = read(5, "asps_geometry_2d_bit_depth_minus1");
+    asps.asps_log2_max_atlas_frame_order_cnt_lsb_minus4 = read_ue("asps_log2_max_atlas_frame_order_cnt_lsb_minus4");
+    asps.asps_max_dec_atlas_frame_buffering_minus1 = read_ue("asps_max_dec_atlas_frame_buffering_minus1");
+
+    asps.asps_long_term_ref_atlas_frames_flag = read(1, "asps_long_term_ref_atlas_frames_flag");
+    asps.asps_num_ref_atlas_frame_lists_in_asps = read_ue("asps_num_ref_atlas_frame_lists_in_asps");
+
+    asps.ref_lists.resize(asps.asps_num_ref_atlas_frame_lists_in_asps);
+    std::size_t Log2MaxAtlasFrmOrderCntLsb = asps.asps_log2_max_atlas_frame_order_cnt_lsb_minus4 + 4;
+    for( uint32_t rlsIdx = 0; rlsIdx < asps.asps_num_ref_atlas_frame_lists_in_asps; rlsIdx++ ) {
+        ref_list_struct &ref = asps.ref_lists.at(rlsIdx);
+        ref.num_ref_entries = read_ue("num_ref_entries");
+
+        ref.st_ref_atlas_frame_flag.resize(ref.num_ref_entries);
+        ref.abs_delta_afoc_st.resize(ref.num_ref_entries);
+        ref.straf_entry_sign_flag.resize(ref.num_ref_entries);
+        ref.afoc_lsb_lt.resize(ref.num_ref_entries);
+
+        for (uint32_t i = 0; i < ref.num_ref_entries; ++i) {
+            if(asps.asps_long_term_ref_atlas_frames_flag) {
+                ref.st_ref_atlas_frame_flag.at(i) = read(1, "st_ref_atlas_frame_flag");
+            }
+            if(ref.st_ref_atlas_frame_flag.at(i)) {
+                ref.abs_delta_afoc_st.at(i) = read_ue("abs_delta_afoc_st");
+                if(ref.abs_delta_afoc_st.at(i) > 0) {
+                    ref.straf_entry_sign_flag.at(i) = read(1, "straf_entry_sign_flag");
+                }
+            }
+            else {
+                ref.afoc_lsb_lt.at(i) = read(Log2MaxAtlasFrmOrderCntLsb, "afoc_lsb_lt");
+            }
+        }
+    }
+    asps.asps_use_eight_orientations_flag = read(1, "asps_use_eight_orientations_flag");
+    asps.asps_extended_projection_enabled_flag = read(1, "asps_extended_projection_enabled_flag");
+
+    if( asps.asps_extended_projection_enabled_flag ) {
+        asps.asps_max_number_projections_minus1 = read_ue("asps_max_number_projections_minus1");
+    }
+
+    asps.asps_normal_axis_limits_quantization_enabled_flag = read(1, "asps_normal_axis_limits_quantization_enabled_flag");
+    asps.asps_normal_axis_max_delta_value_enabled_flag = read(1, "asps_normal_axis_max_delta_value_enabled_flag");
+    asps.asps_patch_precedence_order_flag = read(1, "asps_patch_precedence_order_flag");
+    asps.asps_log2_patch_packing_block_size = read(3, "asps_log2_patch_packing_block_size");
+    asps.asps_patch_size_quantizer_present_flag = read(1, "asps_patch_size_quantizer_present_flag");
+    asps.asps_map_count_minus1 = read(4, "asps_map_count_minus1");
+    asps.asps_pixel_deinterleaving_enabled_flag = read(1, "asps_pixel_deinterleaving_enabled_flag");
+
+    if(asps.asps_pixel_deinterleaving_enabled_flag) {
+        asps.asps_map_pixel_deinterleaving_flag.resize(asps.asps_map_count_minus1 + 1);
+        for (size_t j = 0; j < asps.asps_map_count_minus1; ++j) {
+            asps.asps_map_pixel_deinterleaving_flag.at(j) = read(1, "asps_map_pixel_deinterleaving_flag");
+        }
+    }
+    asps.asps_raw_patch_enabled_flag = read(1, "asps_raw_patch_enabled_flag");
+    asps.asps_eom_patch_enabled_flag = read(1, "asps_eom_patch_enabled_flag");
+
+    if(asps.asps_eom_patch_enabled_flag && asps.asps_map_count_minus1 == 0) {
+        asps.asps_eom_fix_bit_count_minus1 = read(4, "asps_eom_fix_bit_count_minus1");
+    }
+    if (asps.asps_raw_patch_enabled_flag || asps.asps_eom_patch_enabled_flag) {
+        asps.asps_auxiliary_video_enabled_flag = read(1, "asps_auxiliary_video_enabled_flag");
+    }
+    asps.asps_plr_enabled_flag = read(1, "asps_plr_enabled_flag");
+    if( asps.asps_plr_enabled_flag ) {
+        std::cout << "error not implemented ASPS PLR enabled" << std::endl;
+    }
+    asps.asps_vui_parameters_present_flag = read(1, "asps_vui_parameters_present_flag");
+    if( asps.asps_vui_parameters_present_flag ) {
+        std::cout << "error not implemented ASPS VUI enabled" << std::endl;
+    }
+    asps.asps_extension_present_flag = read(1, "asps_extension_present_flag");
+
+    if(asps.asps_extension_present_flag) {
+        asps.asps_vpcc_extension_present_flag = read(1, "asps_vpcc_extension_present_flag");
+        asps.asps_miv_extension_present_flag = read(1, "asps_miv_extension_present_flag");
+        asps.asps_extension_6bits = read(6, "asps_extension_6bits");
+    }
+    if (asps.asps_vpcc_extension_present_flag) {
+        asps.asps_vpcc_remove_duplicate_point_enabled_flag = read(1, "asps_vpcc_remove_duplicate_point_enabled_flag");
+        if(asps.asps_pixel_deinterleaving_enabled_flag || asps.asps_plr_enabled_flag) {
+            asps.asps_vpcc_surface_thickness_minus1 = read_ue("asps_vpcc_surface_thickness_minus1");
+        }
+    }
+    std::cout << "bytes " << (uint32_t)pos_.bytes << ", bits " << (uint32_t)pos_.bits << std::endl;
+    align_bitstream();
+    std::cout << "bytes " << (uint32_t)pos_.bytes << ", bits " << (uint32_t)pos_.bits << std::endl;
+}
+
+void BitstreamParsing::read_afps()
+{
+
+}
+
+void BitstreamParsing::read_atlas_nal_unit(NAL_UNIT_TYPE nal_unit_type, std::size_t nal_unit_size)
+{                
+    atlas_sequence_parameter_set asps;
+    switch(nal_unit_type) {
+            case NAL_UNIT_TYPE::NAL_ASPS:
+                read_asps(asps);
+                break;
+            case NAL_UNIT_TYPE::NAL_AFPS:
+                read_afps();
+                advance_bitstream(nal_unit_size * 8 - 16); // skip the rest of NAL unit for now 
+                break;
+            default: 
+                std::cout << "error nal type" << std::endl;
+                advance_bitstream(nal_unit_size * 8 - 16); // skip the rest of NAL unit for now 
+                break;
+        }
+}
 
 void BitstreamParsing::read_atlas_sub_bitstream(std::size_t v3c_payload_size_bytes)
 {
@@ -309,10 +425,10 @@ void BitstreamParsing::read_atlas_sub_bitstream(std::size_t v3c_payload_size_byt
         std::cout << "--- Current NAL unit location " << pos_.bytes << ", size " << nal_unit_size << std::endl;
         
         read(1, "nal_forbidden_zero_bit");
-        // Next 2 bytes are the NAL unit header
-        uint8_t nal_unit_type = read(6, "nal_unit_type");
-        std::cout << "--- NAL unit type " << uint32_t(nal_unit_type) << std::endl;
-        advance_bitstream(nal_unit_size * 8 - 7); // skip the rest of NAL unit for now
+        NAL_UNIT_TYPE nal_unit_type = static_cast<NAL_UNIT_TYPE>(read(6, "nal_unit_type"));
+        uint8_t nal_layer_id = read(6, "nal_layer_id");
+        uint8_t nal_temporal_id_plus1 = read(3, "nal_temporal_id_plus1");
+        read_atlas_nal_unit(nal_unit_type, nal_unit_size);
     }
 }
 
