@@ -1,5 +1,7 @@
-#include "uvgvpccdec/uvgvpccdec.hpp"
 #include <fstream>
+
+#include "uvgvpccdec/uvgvpccdec.hpp"
+#include "BitstreamParsing/bitstreamParsing.hpp"
 
 namespace uvgvpcc_dec
 {
@@ -15,6 +17,9 @@ void API::decodeV3CSampleStream(const std::string filename)
 {
     std::vector<uint8_t> data;
     readFile(filename, data);
+    
+    BitstreamParsing::parseV3CSampleStream(data);
+
 }
 
 void readFile(const std::string filename, std::vector<uint8_t> &data)
