@@ -289,7 +289,31 @@ void BitstreamParsing::read_profile_tier_level(profile_tier_level &ptl)
 void BitstreamParsing::read_atlas_sub_bitstream(std::size_t v3c_payload_size_bytes)
 {
     std::cout << "Reading atlas data " << v3c_payload_size_bytes << std::endl;
-    advance_bitstream(v3c_payload_size_bytes * 8);
+
+    std::size_t end_ptr = pos_.bytes + v3c_payload_size_bytes;
+    //advance_bitstream(v3c_payload_size_bytes * 8);
+    // 3 bits for nAL unit size precision - 1 and 5 reserved
+    uint8_t nal_size_precision_bytes = read(3, "nal_size_precision_in_bytes") + 1;
+    std::cout << "--- NAL size precision in bytes: " << uint32_t(nal_size_precision_bytes) << std::endl;
+    std::size_t nal_unit_precision_bits = nal_size_precision_bytes * 8;
+
+    advance_bitstream(5);
+
+    while (true) {
+        if (pos_.bytes >= end_ptr) {
+            break;
+        }
+        std::size_t nal_unit_size = read(nal_unit_precision_bits, "nal unit size");
+
+        // Inside nal unit now
+        std::cout << "--- Current NAL unit location " << pos_.bytes << ", size " << nal_unit_size << std::endl;
+        
+        read(1, "nal_forbidden_zero_bit");
+        // Next 2 bytes are the NAL unit header
+        uint8_t nal_unit_type = read(6, "nal_unit_type");
+        std::cout << "--- NAL unit type " << uint32_t(nal_unit_type) << std::endl;
+        advance_bitstream(nal_unit_size * 8 - 7); // skip the rest of NAL unit for now
+    }
 }
 
 void BitstreamParsing::read_video_sub_bitstream(std::size_t v3c_payload_size_bytes)
