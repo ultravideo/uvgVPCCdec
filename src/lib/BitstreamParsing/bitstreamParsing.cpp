@@ -379,21 +379,36 @@ void BitstreamParsing::read_asps(atlas_sequence_parameter_set &asps)
     std::cout << "bytes " << (uint32_t)pos_.bytes << ", bits " << (uint32_t)pos_.bits << std::endl;
 }
 
-void BitstreamParsing::read_afps()
+void BitstreamParsing::read_afps(atlas_frame_parameter_set &afps)
 {
+    afps.afps_atlas_frame_parameter_set_id = read_ue("afps_atlas_frame_parameter_set_id");
+    afps.afps_atlas_sequence_parameter_set_id = read_ue("afps_atlas_sequence_parameter_set_id");
+    afps.afti.afti_single_tile_in_atlas_frame_flag = read(1, "afti_single_tile_in_atlas_frame_flag");
+    afps.afti.afti_signalled_tile_id_flag = read(1, "afti_signalled_tile_id_flag");
+    afps.afps_output_flag_present_flag = read(1, "afps_output_flag_present_flag");
+    afps.afps_num_ref_idx_default_active_minus1 = read_ue("afps_num_ref_idx_default_active_minus1");
+    afps.afps_additional_lt_afoc_lsb_len = read_ue("afps_additional_lt_afoc_lsb_len");
+    afps.afps_lod_mode_enabled_flag = read(1, "afps_lod_mode_enabled_flag");
+    afps.afps_raw_3d_offset_bit_count_explicit_mode_flag = read(1, "afps_raw_3d_offset_bit_count_explicit_mode_flag");
+    afps.afps_extension_present_flag = read(1, "afps_extension_present_flag");
+    afps.afps_miv_extension_present_flag = read(1, "afps_miv_extension_present_flag");
+    afps.afps_extension_7bits = read(7, "afps_extension_7bits");
 
+    std::cout << "bytes " << (uint32_t)pos_.bytes << ", bits " << (uint32_t)pos_.bits << std::endl;
+    align_bitstream();
+    std::cout << "bytes " << (uint32_t)pos_.bytes << ", bits " << (uint32_t)pos_.bits << std::endl;
 }
 
 void BitstreamParsing::read_atlas_nal_unit(NAL_UNIT_TYPE nal_unit_type, std::size_t nal_unit_size)
 {                
     atlas_sequence_parameter_set asps;
+    atlas_frame_parameter_set afps;
     switch(nal_unit_type) {
             case NAL_UNIT_TYPE::NAL_ASPS:
                 read_asps(asps);
                 break;
             case NAL_UNIT_TYPE::NAL_AFPS:
-                read_afps();
-                advance_bitstream(nal_unit_size * 8 - 16); // skip the rest of NAL unit for now 
+                read_afps(afps);
                 break;
             default: 
                 std::cout << "error nal type" << std::endl;
