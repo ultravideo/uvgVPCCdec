@@ -658,7 +658,7 @@ void BitstreamParsing::convert_video_sub_bitstream(std::size_t v3c_payload_size_
     file.close();
 }
 
-void BitstreamParsing::decode_video_sub_bitstream(std::string input_path, std::string output_path, std::vector<picture>* map)
+void BitstreamParsing::decode_video_sub_bitstream(std::string input_path, std::string output_path, video_map* map)
 {
     std::stringstream cmd;
     cmd << ffmpeg_path << " -f hevc -i " << input_path;
@@ -679,6 +679,8 @@ void BitstreamParsing::decode_video_sub_bitstream(std::string input_path, std::s
 
     uint32_t width = 1280;
     uint32_t height = 1280;
+    map->width = width;
+    map->height = height;
     uint32_t frameSize = width * height * 3;
 
     while (decompressed_video.peek() != EOF) {
@@ -687,17 +689,26 @@ void BitstreamParsing::decode_video_sub_bitstream(std::string input_path, std::s
         frame.U.resize(width * height);
         frame.V.resize(width * height);
 
+        std::size_t data_read = 0;
         // Read Y plane
         decompressed_video.read(reinterpret_cast<char*>(frame.Y.data()), width * height);
+        data_read += decompressed_video.gcount();
+
         // Read U plane
         decompressed_video.read(reinterpret_cast<char*>(frame.U.data()), width * height);
+        data_read += decompressed_video.gcount();
+
         // Read V plane
         decompressed_video.read(reinterpret_cast<char*>(frame.V.data()), width * height);
+        data_read += decompressed_video.gcount();
 
-        if (decompressed_video.gcount() == frameSize) {
-            map->push_back(std::move(frame));
+        std::cout << "framesize " << frameSize << ", data read " << data_read << std::endl;
+        if (data_read == frameSize) {
+            map->data.push_back(std::move(frame));
+            map->frame_count++;
         }
         else {
+            std::cout << "ERROR" << std::endl;
             break;
         }
     }

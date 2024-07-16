@@ -38,5 +38,5 @@ private:
     static void read_atlas_tile_header(atlas_tile_header &ath, NAL_UNIT_TYPE nalu_t);
 
     static void convert_video_sub_bitstream(std::size_t v3c_payload_size_bytes, std::string output_path);
-    static void decode_video_sub_bitstream(std::string input_path, std::string output_path, std::vector<picture>* map);
+    static void decode_video_sub_bitstream(std::string input_path, std::string output_path, video_map* map);
 };

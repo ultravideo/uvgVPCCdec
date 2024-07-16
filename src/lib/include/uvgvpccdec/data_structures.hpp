@@ -263,13 +263,20 @@ struct picture {
     std::vector<uint8_t> V;
 };
 
+struct video_map {
+    size_t height = 0;
+    size_t width = 0;
+    size_t frame_count = 0;
+    std::vector<picture> data = {};
+};
+
 struct decompressed_data { // of a gof currently
     v3c_parameter_set vps;
     atlas_sequence_parameter_set asps;
     atlas_frame_parameter_set afps;
     std::vector<std::unique_ptr<atlas_tile_layer_rbsp>> rbsp_vec = {};
 
-    std::vector<picture> occupancy_map = {};
-    std::vector<picture> geometry_map = {};
-    std::vector<picture> attribute_map = {};
+    video_map occupancy_map = {};
+    video_map geometry_map = {};
+    video_map attribute_map = {};
 };
