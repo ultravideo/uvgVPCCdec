@@ -20,7 +20,7 @@ public:
     /* Advance to the next full byte. If already at the start of a byte, do nothing */
     static void align_bitstream();
     static void initializeStaticParameters(const uvgvpcc_dec::Parameters& param);
-    static void parseV3CSampleStream(const std::vector<uint8_t> &data);
+    static void decompressV3CSampleStream(const std::vector<uint8_t> &data, uvgvpcc_dec::decompressed_data* output);
 
 private:
     static uint32_t read_bits(uint8_t bits);

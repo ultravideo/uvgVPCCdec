@@ -2,7 +2,7 @@
 
 using namespace uvgvpcc_dec;
 
-void FormatConversion::convertToNominalFormat()
+void FormatConversion::convertToNominalFormat(uvgvpcc_dec::decompressed_data* data)
 {
     Logger::log(LogLevel::INFO, "FormatConversion", "Converting data to nominal format \n");
     /*

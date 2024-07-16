@@ -18,9 +18,11 @@ void API::decodeV3CSampleStream(const std::string filename)
 {
     std::vector<uint8_t> data;
     readFile(filename, data);
+
+    decompressed_data decompressed;
     
-    BitstreamParsing::parseV3CSampleStream(data);
-    FormatConversion::convertToNominalFormat();
+    BitstreamParsing::decompressV3CSampleStream(data, &decompressed);
+    FormatConversion::convertToNominalFormat(&decompressed);
 
 }
 

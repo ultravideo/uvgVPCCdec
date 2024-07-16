@@ -4,6 +4,6 @@
 
 class FormatConversion {
 public: 
-    static void convertToNominalFormat();
+    static void convertToNominalFormat(uvgvpcc_dec::decompressed_data* data);
 
 };

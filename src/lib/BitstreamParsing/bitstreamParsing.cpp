@@ -97,7 +97,7 @@ void BitstreamParsing::initializeStaticParameters(const uvgvpcc_dec::Parameters&
     int x = param.hello;
 }
 
-void BitstreamParsing::parseV3CSampleStream(const std::vector<uint8_t> &data)
+void BitstreamParsing::decompressV3CSampleStream(const std::vector<uint8_t> &data, uvgvpcc_dec::decompressed_data* output)
 {
     cbuf_ = data.data();
     //std::size_t ptr = 0
