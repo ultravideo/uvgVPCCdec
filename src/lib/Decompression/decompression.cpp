@@ -702,6 +702,6 @@ void BitstreamParsing::decode_video_sub_bitstream(std::string input_path, std::s
         }
     }
 
-    //std::remove(input_path.c_str());
-    //std::remove(output_path.c_str());
+    std::remove(input_path.c_str());
+    std::remove(output_path.c_str());
 }
