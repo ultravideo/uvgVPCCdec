@@ -1,7 +1,7 @@
 #include <fstream>
 
 #include "uvgvpccdec/uvgvpccdec.hpp"
-#include "BitstreamParsing/bitstreamParsing.hpp"
+#include "Decompression/decompression.hpp"
 #include "FormatConversion/formatConversion.hpp"
 
 namespace uvgvpcc_dec

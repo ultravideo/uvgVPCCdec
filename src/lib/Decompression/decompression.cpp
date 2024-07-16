@@ -1,4 +1,4 @@
-#include "bitstreamParsing.hpp"
+#include "decompression.hpp"
 #include <cstring>
 #include <sstream>
 #include <fstream>

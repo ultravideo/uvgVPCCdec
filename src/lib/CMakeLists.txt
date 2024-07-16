@@ -5,7 +5,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/incl
 configure_file(version.cpp.in version.cpp)
 
 add_subdirectory(utils)
-add_subdirectory(BitstreamParsing)
+add_subdirectory(Decompression)
 add_subdirectory(FormatConversion)
 add_subdirectory(PreReconstruction)
 add_subdirectory(Reconstruction)
@@ -24,8 +24,8 @@ else()
 endif()
 
 target_link_libraries(uvgvpccdec
+    decompressionLibrary
     formatConversionLibrary
-    bitstreamParsingLibrary
     utilsLibrary
     logLibrary
 )
