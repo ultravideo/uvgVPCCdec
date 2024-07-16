@@ -702,13 +702,13 @@ void BitstreamParsing::decode_video_sub_bitstream(std::string input_path, std::s
         decompressed_video.read(reinterpret_cast<char*>(frame.V.data()), width * height);
         data_read += decompressed_video.gcount();
 
-        std::cout << "framesize " << frameSize << ", data read " << data_read << std::endl;
         if (data_read == frameSize) {
             map->data.push_back(std::move(frame));
             map->frame_count++;
         }
         else {
             std::cout << "ERROR" << std::endl;
+            std::cout << "framesize " << frameSize << ", data read " << data_read << std::endl;
             break;
         }
     }

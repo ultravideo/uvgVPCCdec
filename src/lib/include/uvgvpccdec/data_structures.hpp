@@ -270,12 +270,34 @@ struct video_map {
     std::vector<picture> data = {};
 };
 
+struct patch {
+    uint32_t TilePatch2dPosX;
+    uint32_t TilePatch2dPosY;
+    uint32_t TilePatch3dOffsetU;
+    uint32_t TilePatch3dOffsetV;
+    uint32_t TilePatch3dOffsetD;
+    uint32_t TilePatch3dRangeD;
+    uint32_t TilePatchProjectionID;
+    uint32_t TilePatchOrientationIndex;
+    uint32_t TilePatchLoDScaleX;
+    uint32_t offsetY;
+    uint32_t TilePatchLoDScaleY;
+    uint32_t TilePatch2dSizeX;
+    uint32_t TilePatch2dSizeY;
+};
+
+struct decoded_atlas_data {
+    uint32_t NumDecAtlasFrames = 0;
+    std::vector<uint32_t> DecAtlasOutOrdIdx = {}; //size of NumDecAtlasFrames
+    std::vector<uint32_t> DecAtlasCompTime = {}; //size of NumDecAtlasFrames
+    std::vector<patch> patches_map = {};
+};
+
 struct decompressed_data { // of a gof currently
     v3c_parameter_set vps;
     atlas_sequence_parameter_set asps;
     atlas_frame_parameter_set afps;
     std::vector<std::unique_ptr<atlas_tile_layer_rbsp>> rbsp_vec = {};
-
     video_map occupancy_map = {};
     video_map geometry_map = {};
     video_map attribute_map = {};

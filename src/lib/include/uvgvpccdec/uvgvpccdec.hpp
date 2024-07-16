@@ -6,7 +6,7 @@
 
 namespace uvgvpcc_dec
 {
-    
+
 struct Parameters {
     int hello = 0;
 };
