@@ -2,7 +2,7 @@
 #include <cstring>
 
 /* In debug mode print out some extra info */
-#define BITSTREAM_DEBUG true
+#define BITSTREAM_DEBUG false
 
 static const uint8_t* cbuf_;
 static bitstream_position pos_;
@@ -255,9 +255,7 @@ void BitstreamParsing::read_v3c_parameter_set(std::size_t v3c_payload_size_bytes
             vps.vps_miv_extension_present_flag = read(1, "vps_miv_extension_present_flag");
             vps.vps_extension_6bits = read(6, "vps_extension_6bits");
         }
-        std::cout << "bytes " << (uint32_t)pos_.bytes << ", bits " << (uint32_t)pos_.bits << std::endl;
         align_bitstream();
-        std::cout << "bytes " << (uint32_t)pos_.bytes << ", bits " << (uint32_t)pos_.bits << std::endl;
 
         // No packing information
         // No MIV extension
@@ -378,9 +376,7 @@ void BitstreamParsing::read_asps(atlas_sequence_parameter_set &asps)
             asps.asps_vpcc_surface_thickness_minus1 = read_ue("asps_vpcc_surface_thickness_minus1");
         }
     }
-    std::cout << "bytes " << (uint32_t)pos_.bytes << ", bits " << (uint32_t)pos_.bits << std::endl;
     align_bitstream();
-    std::cout << "bytes " << (uint32_t)pos_.bytes << ", bits " << (uint32_t)pos_.bits << std::endl;
 }
 
 void BitstreamParsing::read_afps(atlas_frame_parameter_set &afps)
@@ -398,15 +394,14 @@ void BitstreamParsing::read_afps(atlas_frame_parameter_set &afps)
     afps.afps_miv_extension_present_flag = read(1, "afps_miv_extension_present_flag");
     afps.afps_extension_7bits = read(7, "afps_extension_7bits");
 
-    std::cout << "bytes " << (uint32_t)pos_.bytes << ", bits " << (uint32_t)pos_.bits << std::endl;
     align_bitstream();
-    std::cout << "bytes " << (uint32_t)pos_.bytes << ", bits " << (uint32_t)pos_.bits << std::endl;
 }
 
 void BitstreamParsing::read_atlas_rbsp(atlas_tile_layer_rbsp &rbsp, NAL_UNIT_TYPE nalu_t)
 {
     read_atlas_tile_header(rbsp.ath, nalu_t);
     read_atlas_tile_data_unit(rbsp.atdu, rbsp.ath);
+    align_bitstream();
 }
 
 void BitstreamParsing::read_atlas_tile_header(atlas_tile_header &ath, NAL_UNIT_TYPE nalu_t)
@@ -469,9 +464,7 @@ void BitstreamParsing::read_atlas_tile_header(atlas_tile_header &ath, NAL_UNIT_T
             }
         }
     }
-    std::cout << "bytes " << (uint32_t)pos_.bytes << ", bits " << (uint32_t)pos_.bits << std::endl;
     align_bitstream();
-    std::cout << "bytes " << (uint32_t)pos_.bytes << ", bits " << (uint32_t)pos_.bits << std::endl;
 }
 
 void BitstreamParsing::read_patch_information_data(atlas_tile_header &ath, patch_information_data &pid)
@@ -562,6 +555,7 @@ void BitstreamParsing::read_atlas_tile_data_unit(atlas_tile_data_unit &atdu, atl
                 break;
             }
             patch_information_data pid;
+            pid.patchMode = atdu.atdu_patch_mode;
             read_patch_information_data(ath, pid);
             atdu.patches_vec.push_back(pid);
 
