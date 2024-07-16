@@ -136,15 +136,15 @@ void BitstreamParsing::decompressV3CSampleStream(const std::vector<uint8_t> &dat
                 break;
             case V3C_UNIT_TYPE::V3C_OVD:
                 convert_video_sub_bitstream(v3c_unit_payload_size_bytes, o_hevc);
-                decode_video_sub_bitstream(o_hevc, o_yuv);
+                decode_video_sub_bitstream(o_hevc, o_yuv, &output->occupancy_map);
                 break;
             case V3C_UNIT_TYPE::V3C_GVD:
                 convert_video_sub_bitstream(v3c_unit_payload_size_bytes, g_hevc);
-                decode_video_sub_bitstream(g_hevc, g_yuv);
+                decode_video_sub_bitstream(g_hevc, g_yuv, &output->geometry_map);
                 break;
             case V3C_UNIT_TYPE::V3C_AVD:
                 convert_video_sub_bitstream(v3c_unit_payload_size_bytes, a_hevc);
-                decode_video_sub_bitstream(a_hevc, a_yuv);
+                decode_video_sub_bitstream(a_hevc, a_yuv, &output->attribute_map);
                 break;
             default: 
                 std::cout << "error" << std::endl;
@@ -658,7 +658,7 @@ void BitstreamParsing::convert_video_sub_bitstream(std::size_t v3c_payload_size_
     file.close();
 }
 
-void BitstreamParsing::decode_video_sub_bitstream(std::string input_path, std::string output_path)
+void BitstreamParsing::decode_video_sub_bitstream(std::string input_path, std::string output_path, std::vector<picture>* map)
 {
     std::stringstream cmd;
     cmd << ffmpeg_path << " -f hevc -i " << input_path;
@@ -670,6 +670,38 @@ void BitstreamParsing::decode_video_sub_bitstream(std::string input_path, std::s
             cmd.str());
         return;
     }
+
+    // Read decompressed video into a map
+    std::ifstream decompressed_video(output_path, std::ios::binary);
+    if(!decompressed_video.is_open()) {
+        throw std::runtime_error("Bitstream writing : Could not open output file " + output_path);
+    }
+
+    uint32_t width = 1280;
+    uint32_t height = 1280;
+    uint32_t frameSize = width * height * 3;
+
+    while (decompressed_video.peek() != EOF) {
+        picture frame;
+        frame.Y.resize(width * height);
+        frame.U.resize(width * height);
+        frame.V.resize(width * height);
+
+        // Read Y plane
+        decompressed_video.read(reinterpret_cast<char*>(frame.Y.data()), width * height);
+        // Read U plane
+        decompressed_video.read(reinterpret_cast<char*>(frame.U.data()), width * height);
+        // Read V plane
+        decompressed_video.read(reinterpret_cast<char*>(frame.V.data()), width * height);
+
+        if (decompressed_video.gcount() == frameSize) {
+            map->push_back(std::move(frame));
+        }
+        else {
+            break;
+        }
+    }
+
     //std::remove(input_path.c_str());
     //std::remove(output_path.c_str());
 }

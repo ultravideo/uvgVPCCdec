@@ -257,12 +257,19 @@ struct v3c_parameter_set {
     uint8_t vps_extension_data_byte;
 };
 
+struct picture {
+    std::vector<uint8_t> Y;
+    std::vector<uint8_t> U;
+    std::vector<uint8_t> V;
+};
+
 struct decompressed_data { // of a gof currently
     v3c_parameter_set vps;
     atlas_sequence_parameter_set asps;
     atlas_frame_parameter_set afps;
     std::vector<std::unique_ptr<atlas_tile_layer_rbsp>> rbsp_vec = {};
-    std::string occupancy_map_path;
-    std::string geometry_map_path;
-    std::string attribute_map_path;
+
+    std::vector<picture> occupancy_map = {};
+    std::vector<picture> geometry_map = {};
+    std::vector<picture> attribute_map = {};
 };
