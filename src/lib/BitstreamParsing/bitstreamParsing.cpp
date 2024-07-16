@@ -132,7 +132,7 @@ void BitstreamParsing::decompressV3CSampleStream(const std::vector<uint8_t> &dat
                 read_v3c_parameter_set(&output->vps);
                 break;
             case V3C_UNIT_TYPE::V3C_AD:
-                read_atlas_sub_bitstream(v3c_unit_payload_size_bytes);
+                read_atlas_sub_bitstream(v3c_unit_payload_size_bytes, output);
                 break;
             case V3C_UNIT_TYPE::V3C_OVD:
                 convert_video_sub_bitstream(v3c_unit_payload_size_bytes, o_hevc);
@@ -416,10 +416,10 @@ void BitstreamParsing::read_afps(atlas_frame_parameter_set &afps)
     align_bitstream();
 }
 
-void BitstreamParsing::read_atlas_rbsp(atlas_tile_layer_rbsp &rbsp, NAL_UNIT_TYPE nalu_t)
+void BitstreamParsing::read_atlas_rbsp(atlas_tile_layer_rbsp* rbsp, NAL_UNIT_TYPE nalu_t)
 {
-    read_atlas_tile_header(rbsp.ath, nalu_t);
-    read_atlas_tile_data_unit(rbsp.atdu, rbsp.ath);
+    read_atlas_tile_header(rbsp->ath, nalu_t);
+    read_atlas_tile_data_unit(rbsp->atdu, rbsp->ath);
     align_bitstream();
 }
 
@@ -582,23 +582,22 @@ void BitstreamParsing::read_atlas_tile_data_unit(atlas_tile_data_unit &atdu, atl
     }
 }
 
-void BitstreamParsing::read_atlas_nal_unit(NAL_UNIT_TYPE nal_unit_type, std::size_t nal_unit_size)
+void BitstreamParsing::read_atlas_nal_unit(NAL_UNIT_TYPE nal_unit_type, std::size_t nal_unit_size, decompressed_data* output)
 {                
-    atlas_sequence_parameter_set asps;
-    atlas_frame_parameter_set afps;
-    atlas_tile_layer_rbsp rbsp;
     switch(nal_unit_type) {
             case NAL_UNIT_TYPE::NAL_ASPS:
-                read_asps(asps);
-                saved_asps_ = asps;
+                read_asps(output->asps);
+                saved_asps_ = output->asps;
                 break;
             case NAL_UNIT_TYPE::NAL_AFPS:
-                read_afps(afps);
-                saved_afps_ = afps;
+                read_afps(output->afps);
+                saved_afps_ = output->afps;
                 break;
-            case NAL_UNIT_TYPE::NAL_IDR_N_LP:
-                read_atlas_rbsp(rbsp, nal_unit_type);
-                break;
+            case NAL_UNIT_TYPE::NAL_IDR_N_LP: {
+                auto rbsp = std::make_unique<atlas_tile_layer_rbsp>();
+                read_atlas_rbsp(rbsp.get(), nal_unit_type);
+                output->rbsp_vec.push_back(std::move(rbsp));
+                break; }
             default: 
                 std::cout << "Unsupported NAL type" << std::endl;
                 advance_bitstream(nal_unit_size * 8 - 16); // skip the rest of NAL unit for now 
@@ -606,7 +605,7 @@ void BitstreamParsing::read_atlas_nal_unit(NAL_UNIT_TYPE nal_unit_type, std::siz
         }
 }
 
-void BitstreamParsing::read_atlas_sub_bitstream(std::size_t v3c_payload_size_bytes)
+void BitstreamParsing::read_atlas_sub_bitstream(std::size_t v3c_payload_size_bytes, decompressed_data* output)
 {
     std::cout << "Reading atlas data " << v3c_payload_size_bytes << std::endl;
 
@@ -632,7 +631,7 @@ void BitstreamParsing::read_atlas_sub_bitstream(std::size_t v3c_payload_size_byt
         NAL_UNIT_TYPE nal_unit_type = static_cast<NAL_UNIT_TYPE>(read(6, "nal_unit_type"));
         uint8_t nal_layer_id = read(6, "nal_layer_id");
         uint8_t nal_temporal_id_plus1 = read(3, "nal_temporal_id_plus1");
-        read_atlas_nal_unit(nal_unit_type, nal_unit_size);
+        read_atlas_nal_unit(nal_unit_type, nal_unit_size, output);
     }
 }
 
