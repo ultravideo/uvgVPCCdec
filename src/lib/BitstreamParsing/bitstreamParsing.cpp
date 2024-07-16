@@ -664,7 +664,7 @@ void BitstreamParsing::decode_video_sub_bitstream(std::string input_path, std::s
 {
     std::stringstream cmd;
     cmd << ffmpeg_path << " -f hevc -i " << input_path;
-    cmd << " -pix_fmt yuv420p"; // to get 8bit depth > " --OutputBitDepth=8 --OutputBitDepthC=8";
+    cmd << " -pix_fmt yuv444p"; // to get 8bit depth > " --OutputBitDepth=8 --OutputBitDepthC=8";
     cmd << " " << output_path;
     std::cout << cmd.str() << '\n';
     if (std::system(cmd.str().c_str()) != 0) {

@@ -20,6 +20,7 @@ void API::decodeV3CSampleStream(const std::string filename)
     readFile(filename, data);
     
     BitstreamParsing::parseV3CSampleStream(data);
+    FormatConversion::convertToNominalFormat();
 
 }
 
