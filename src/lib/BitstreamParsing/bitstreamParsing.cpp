@@ -1,6 +1,8 @@
 #include "bitstreamParsing.hpp"
 #include <cstring>
+#include <sstream>
 #include <fstream>
+#include <cstdio>
 
 /* In debug mode print out some extra info */
 #define BITSTREAM_DEBUG false
@@ -12,9 +14,15 @@ v3c_parameter_set saved_vps_;
 atlas_sequence_parameter_set saved_asps_;
 atlas_frame_parameter_set saved_afps_;
 
-std::string o_map = "OCCUPANCY-MAP.hevc";
-std::string g_map = "GEOMETRY-MAP.hevc";
-std::string a_map = "ATTRIBUTE-MAP.hevc";
+std::string ffmpeg_path = "ffmpeg";
+
+std::string o_hevc = "OCCUPANCY.hevc";
+std::string g_hevc = "GEOMETRY.hevc";
+std::string a_hevc = "ATTRIBUTE.hevc";
+
+std::string o_yuv = "OCCUPANCY-MAP-640x640-8bit.yuv";
+std::string g_yuv = "GEOMETRY-MAP-1280x1280-8bit.yuv";
+std::string a_yuv = "ATTRIBUTE-MAP-1280x1280-8bit.yuv";
 
 /* TODO: make sure this function works in all cases */
 void BitstreamParsing::advance_bitstream(std::size_t bits)
@@ -127,13 +135,16 @@ void BitstreamParsing::parseV3CSampleStream(const std::vector<uint8_t> &data)
                 read_atlas_sub_bitstream(v3c_unit_payload_size_bytes);
                 break;
             case V3C_UNIT_TYPE::V3C_OVD:
-                read_video_sub_bitstream(v3c_unit_payload_size_bytes, o_map);
+                convert_video_sub_bitstream(v3c_unit_payload_size_bytes, o_hevc);
+                decode_video_sub_bitstream(o_hevc, o_yuv);
                 break;
             case V3C_UNIT_TYPE::V3C_GVD:
-                read_video_sub_bitstream(v3c_unit_payload_size_bytes, g_map);
+                convert_video_sub_bitstream(v3c_unit_payload_size_bytes, g_hevc);
+                decode_video_sub_bitstream(g_hevc, g_yuv);
                 break;
             case V3C_UNIT_TYPE::V3C_AVD:
-                read_video_sub_bitstream(v3c_unit_payload_size_bytes, a_map);
+                convert_video_sub_bitstream(v3c_unit_payload_size_bytes, a_hevc);
+                decode_video_sub_bitstream(a_hevc, a_yuv);
                 break;
             default: 
                 std::cout << "error" << std::endl;
@@ -626,13 +637,41 @@ void BitstreamParsing::read_atlas_sub_bitstream(std::size_t v3c_payload_size_byt
     }
 }
 
-void BitstreamParsing::read_video_sub_bitstream(std::size_t v3c_payload_size_bytes, std::string output_path)
+void BitstreamParsing::convert_video_sub_bitstream(std::size_t v3c_payload_size_bytes, std::string output_path)
 {
     std::cout << "Reading video data " << v3c_payload_size_bytes << std::endl;
     std::ofstream file(output_path, std::ios::binary);
     if(!file.is_open()) {
         throw std::runtime_error("Bitstream writing : Could not open output file " + output_path);
     }
-    file.write(reinterpret_cast<const char*>(&cbuf_[pos_.bytes]), v3c_payload_size_bytes);
-    advance_bitstream(v3c_payload_size_bytes * 8);
+    std::size_t end_point = pos_.bytes + v3c_payload_size_bytes;
+    const char hevc_start_code[4] = {0x00, 0x00, 0x00, 0x01};
+    while (true) {
+        if (pos_.bytes >= end_point) {
+            break;
+        }
+        std::size_t nalu_size = read(32, "hevc nal unit size");
+        std::cout << "Current HEVC NAL unit location " << pos_.bytes << ", size " << nalu_size << std::endl;
+        
+        file.write(hevc_start_code, 4);
+        file.write(reinterpret_cast<const char*>(&cbuf_[pos_.bytes]), nalu_size);
+        advance_bitstream(nalu_size * 8);
+    }
+    file.close();
+}
+
+void BitstreamParsing::decode_video_sub_bitstream(std::string input_path, std::string output_path)
+{
+    std::stringstream cmd;
+    cmd << ffmpeg_path << " -f hevc -i " << input_path;
+    cmd << " -pix_fmt yuv420p"; // to get 8bit depth > " --OutputBitDepth=8 --OutputBitDepthC=8";
+    cmd << " " << output_path;
+    std::cout << cmd.str() << '\n';
+    if (std::system(cmd.str().c_str()) != 0) {
+        throw std::runtime_error("During the encoding of the sequence, an error occured while executing the following command: " +
+            cmd.str());
+        return;
+    }
+    //std::remove(input_path.c_str());
+    //std::remove(output_path.c_str());
 }
