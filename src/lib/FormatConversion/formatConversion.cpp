@@ -6,30 +6,11 @@ void FormatConversion::convertToNominalFormat(decompressed_data* data)
 {
     Logger::log(LogLevel::INFO, "FormatConversion", "Converting data to nominal format \n");
     /*
-    Nominal format:
-    Bit depth
-    Resolution
-    Chroma format
-    Composition time
-
-    OccBitDepthNF, is set equal to
-    oi_occupancy_2d_bit_depth_minus1[ ConvAtlasID ] + 1 or to
-    pin_occupancy_2d_bit_depth_minus1[ ConvAtlasID ] + 1, if pin_occupancy_present_flag[ ConvAtlasID ]
-    equal to 1. The nominal bit depth for each geometry video component, GeoBitDepthNF, is set equal to
-    gi_geometry_2d_bit_depth_minus1[ ConvAtlasID ] + 1 or
-    pin_geometry_2d_bit_depth_minus1[ ConvAtlasID ] + 1, if pin_geometry_present_flag[ ConvAtlasID ]
-    equal to 1. Finally, the nominal bit depth for each attribute video component with attribute index attrIdx,
-    AttrBitDepthNF[ attrIdx ], is set equal to ai_attribute_2d_bit_depth_minus1[ ConvAtlasID ][ attrIdx ] + 1
-    or pin_attribute_2d_bit_depth_minus1[ ConvAtlasID ][ attrIdx ], if
-    pin_attribute_present_flag[ ConvAtlasID ] equal to 1.
-
-    The nominal frame resolution for non-auxiliary video components is defined by the nominal width,
-    VideoWidthNF, set equal to asps_frame_width, and the nominal height, VideoHeightNF, set equal to
-    asps_frame_height. The nominal frame resolution for auxiliary video components is defined by the
-    nominal width and height specified by the variables AuxVideoWidthNF and AuxVideoHeightNF,
-    respectively.
-
-    The nominal chroma format is defined to be 4:4:4.
+        Nominal format:
+        Bit depth - specified in VPS - correct from FFMPEG (FOR CURRENT FILE)
+        Resolution - specified in ASPS - correct from FFMPEG (FOR CURRENT FILE)
+        Chroma format - 4:4:4 - correct from FFMPEG
+        Composition time - yeah ok
     */
 
     int ConvAtlasID = 0;
