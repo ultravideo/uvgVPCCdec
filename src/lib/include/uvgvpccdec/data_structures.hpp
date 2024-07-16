@@ -212,7 +212,6 @@ struct geometry_information {
 };
 
 struct attribute_information {
-    uint8_t ai_attribute_count = 0;
     std::vector<uint8_t> ai_attribute_type_id = {};
     std::vector<uint8_t> ai_attribute_codec_id = {};
     std::vector<uint8_t> ai_auxiliary_attribute_codec_id = {};
@@ -247,6 +246,7 @@ struct v3c_parameter_set {
     std::vector<bool> vps_attribute_video_present_flag;
     std::vector<occupancy_information> occupancy_info;
     std::vector<geometry_information> geometry_info;
+    uint8_t ai_attribute_count = 0;
     std::vector<attribute_information> attribute_info;
     
     bool vps_extension_present_flag;

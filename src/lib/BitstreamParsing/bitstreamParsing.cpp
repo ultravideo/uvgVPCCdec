@@ -158,7 +158,7 @@ void BitstreamParsing::read_v3c_parameter_set(v3c_parameter_set* vps)
 {
     std::cout << "Reading V3C parameter set" << std::endl;
     // profile_tier_level
-    read_profile_tier_level(vps->ptl);
+    read_profile_tier_level(&vps->ptl);
     
     vps->vps_v3c_parameter_set_id = read(4, "vps_v3c_parameter_set_id");
     uint8_t vps_reserved_zero_8bits = read(8, "vps_reserved_zero_8bits");
@@ -213,20 +213,20 @@ void BitstreamParsing::read_v3c_parameter_set(v3c_parameter_set* vps)
         }
 
         if (vps->vps_attribute_video_present_flag.at(j)) {
-            vps->attribute_info.at(j).ai_attribute_count = read(7, "ai_attribute_count");
+            vps->ai_attribute_count = read(7, "ai_attribute_count");
 
-            vps->attribute_info.at(j).ai_attribute_type_id.resize(vps->attribute_info.at(j).ai_attribute_count);
-            vps->attribute_info.at(j).ai_attribute_codec_id.resize(vps->attribute_info.at(j).ai_attribute_count);
-            vps->attribute_info.at(j).ai_auxiliary_attribute_codec_id.resize(vps->attribute_info.at(j).ai_attribute_count);
-            vps->attribute_info.at(j).ai_attribute_map_absolute_coding_persistence_flag.resize(vps->attribute_info.at(j).ai_attribute_count);
-            vps->attribute_info.at(j).ai_attribute_dimension_minus1.resize(vps->attribute_info.at(j).ai_attribute_count);
-            vps->attribute_info.at(j).ai_attribute_dimension_partitions_minus1.resize(vps->attribute_info.at(j).ai_attribute_count);
-            vps->attribute_info.at(j).ai_attribute_partition_channels_minus1.resize(vps->attribute_info.at(j).ai_attribute_count);
-            vps->attribute_info.at(j).ai_attribute_2d_bit_depth_minus1.resize(vps->attribute_info.at(j).ai_attribute_count);
-            vps->attribute_info.at(j).ai_attribute_MSB_align_flag.resize(vps->attribute_info.at(j).ai_attribute_count);
+            vps->attribute_info.at(j).ai_attribute_type_id.resize(vps->ai_attribute_count);
+            vps->attribute_info.at(j).ai_attribute_codec_id.resize(vps->ai_attribute_count);
+            vps->attribute_info.at(j).ai_auxiliary_attribute_codec_id.resize(vps->ai_attribute_count);
+            vps->attribute_info.at(j).ai_attribute_map_absolute_coding_persistence_flag.resize(vps->ai_attribute_count);
+            vps->attribute_info.at(j).ai_attribute_dimension_minus1.resize(vps->ai_attribute_count);
+            vps->attribute_info.at(j).ai_attribute_dimension_partitions_minus1.resize(vps->ai_attribute_count);
+            vps->attribute_info.at(j).ai_attribute_partition_channels_minus1.resize(vps->ai_attribute_count);
+            vps->attribute_info.at(j).ai_attribute_2d_bit_depth_minus1.resize(vps->ai_attribute_count);
+            vps->attribute_info.at(j).ai_attribute_MSB_align_flag.resize(vps->ai_attribute_count);
 
 
-            for (uint8_t i = 0; i < vps->attribute_info.at(j).ai_attribute_count; ++i) {
+            for (uint8_t i = 0; i < vps->ai_attribute_count; ++i) {
                 vps->attribute_info.at(j).ai_attribute_type_id.at(i) = read(4, "ai_attribute_type_id");
                 vps->attribute_info.at(j).ai_attribute_codec_id.at(i) = read(8, "ai_attribute_codec_id");
 
@@ -284,21 +284,21 @@ void BitstreamParsing::read_v3c_parameter_set(v3c_parameter_set* vps)
     }
 }
 
-void BitstreamParsing::read_profile_tier_level(profile_tier_level &ptl)
+void BitstreamParsing::read_profile_tier_level(profile_tier_level* ptl)
 {
-    ptl.ptl_profile_toolset_idc = read(8, "ptl_profile_toolset_idc");
-    ptl.ptl_tier_flag = read(1, "ptl_tier_flag");
-    ptl.ptl_profile_codec_group_idc = read(7, "ptl_profile_codec_group_idc");
-    ptl.ptl_profile_reconstruction_idc = read(8, "ptl_profile_reconstruction_idc");
+    ptl->ptl_profile_toolset_idc = read(8, "ptl_profile_toolset_idc");
+    ptl->ptl_tier_flag = read(1, "ptl_tier_flag");
+    ptl->ptl_profile_codec_group_idc = read(7, "ptl_profile_codec_group_idc");
+    ptl->ptl_profile_reconstruction_idc = read(8, "ptl_profile_reconstruction_idc");
     uint16_t ptl_reserved_zero_16bits = read(16, "ptl_reserved_zero_16bits");
-    ptl.ptl_max_decodes_idc = read(4, "ptl_max_decodes_idc");
+    ptl->ptl_max_decodes_idc = read(4, "ptl_max_decodes_idc");
     uint16_t ptl_reserved_0xfff_12bits = read(12, "ptl_reserved_0xfff_12bits");
-    ptl.ptl_level_idc = read(8, "ptl_level_idc");
-    ptl.ptl_num_sub_profiles = read(6, "ptl_num_sub_profiles");
-    ptl.ptl_extended_sub_profile_flag = read(1, "ptl_extended_sub_profile_flag");
-    ptl.ptl_toolset_constraints_present_flag = read(1, "ptl_toolset_constraints_present_flag");
+    ptl->ptl_level_idc = read(8, "ptl_level_idc");
+    ptl->ptl_num_sub_profiles = read(6, "ptl_num_sub_profiles");
+    ptl->ptl_extended_sub_profile_flag = read(1, "ptl_extended_sub_profile_flag");
+    ptl->ptl_toolset_constraints_present_flag = read(1, "ptl_toolset_constraints_present_flag");
 
-    if(ptl.ptl_toolset_constraints_present_flag) {
+    if(ptl->ptl_toolset_constraints_present_flag) {
         std::cout << "ERROR CANT HANDLE PTC" << std::endl;
         return;
     }
