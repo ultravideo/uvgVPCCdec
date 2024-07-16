@@ -26,6 +26,7 @@ endif()
 target_link_libraries(uvgvpccdec
     decompressionLibrary
     formatConversionLibrary
+    reconstructionLibrary
     utilsLibrary
     logLibrary
 )
