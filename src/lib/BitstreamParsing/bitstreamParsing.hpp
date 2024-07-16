@@ -1,6 +1,7 @@
 #pragma once
 
 #include "uvgvpccdec/uvgvpccdec.hpp"
+#include "uvgvpccdec/log.hpp"
 #include "bitstream_common.hpp"
 #include "atlas_data_structures.hpp"
 #include "vps.hpp"

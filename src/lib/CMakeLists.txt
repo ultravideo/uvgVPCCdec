@@ -24,6 +24,7 @@ else()
 endif()
 
 target_link_libraries(uvgvpccdec
+    formatConversionLibrary
     bitstreamParsingLibrary
     utilsLibrary
     logLibrary

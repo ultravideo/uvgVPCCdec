@@ -2,6 +2,7 @@
 
 #include "uvgvpccdec/uvgvpccdec.hpp"
 #include "BitstreamParsing/bitstreamParsing.hpp"
+#include "FormatConversion/formatConversion.hpp"
 
 namespace uvgvpcc_dec
 {
