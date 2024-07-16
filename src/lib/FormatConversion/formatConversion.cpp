@@ -2,7 +2,7 @@
 
 using namespace uvgvpcc_dec;
 
-void FormatConversion::convertToNominalFormat(uvgvpcc_dec::decompressed_data* data)
+void FormatConversion::convertToNominalFormat(decompressed_data* data)
 {
     Logger::log(LogLevel::INFO, "FormatConversion", "Converting data to nominal format \n");
     /*
@@ -46,7 +46,7 @@ void FormatConversion::convertToNominalFormat(uvgvpcc_dec::decompressed_data* da
     int asps_frame_width = 0;
     int asps_frame_height = 0;
 
-    uint32_t VideoWidthNF = asps_frame_width;
+    uint32_t VideoWidthNF = data->asps.asps_frame_width;
     uint32_t VideoHeightNF = asps_frame_height;
 
     std::string chromaFormat = "4:4:4";

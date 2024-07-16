@@ -2,9 +2,6 @@
 
 #include "uvgvpccdec/uvgvpccdec.hpp"
 #include "uvgvpccdec/log.hpp"
-#include "bitstream_common.hpp"
-#include "atlas_data_structures.hpp"
-#include "vps.hpp"
 
 struct bitstream_position {
   uint64_t bytes = 0;
@@ -20,12 +17,12 @@ public:
     /* Advance to the next full byte. If already at the start of a byte, do nothing */
     static void align_bitstream();
     static void initializeStaticParameters(const uvgvpcc_dec::Parameters& param);
-    static void decompressV3CSampleStream(const std::vector<uint8_t> &data, uvgvpcc_dec::decompressed_data* output);
+    static void decompressV3CSampleStream(const std::vector<uint8_t> &data, decompressed_data* output);
 
 private:
     static uint32_t read_bits(uint8_t bits);
     static uint32_t read_bits_ue();
-    static void read_v3c_parameter_set(std::size_t v3c_payload_size_bytes);
+    static void read_v3c_parameter_set(v3c_parameter_set* vps);
     static void read_profile_tier_level(profile_tier_level &ptl);
 
 
