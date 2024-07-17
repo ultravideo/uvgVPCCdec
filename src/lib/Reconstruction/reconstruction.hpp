@@ -4,6 +4,6 @@
 
 class Reconstruction {
 public: 
-    static void reconstructPointCloud(decompressed_data* data);
+    static void reconstructPointCloud(decompressed_data* data, point_set* reconstruct);
 
 };

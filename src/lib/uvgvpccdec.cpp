@@ -3,6 +3,7 @@
 #include "uvgvpccdec/uvgvpccdec.hpp"
 #include "Decompression/decompression.hpp"
 #include "FormatConversion/formatConversion.hpp"
+#include "Reconstruction/reconstruction.hpp"
 
 namespace uvgvpcc_dec
 {
@@ -20,9 +21,11 @@ void API::decodeV3CSampleStream(const std::string filename)
     readFile(filename, data);
 
     decompressed_data decompressed;
+    point_set reconstructed_point_cloud;
     
     BitstreamParsing::decompressV3CSampleStream(data, &decompressed);
     FormatConversion::convertToNominalFormat(&decompressed);
+    Reconstruction::reconstructPointCloud(&decompressed, &reconstructed_point_cloud);
 
 }
 

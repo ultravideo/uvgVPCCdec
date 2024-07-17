@@ -81,7 +81,7 @@ struct patch_information_data {
 struct atlas_tile_data_unit {
     // from specification
     uint32_t atdu_patch_mode = 0;
-    std::vector<patch_information_data> patches_vec;
+    std::vector<patch_information_data> pid_vec;
 };
 
 struct atlas_tile_layer_rbsp {
@@ -286,10 +286,20 @@ struct patch {
     uint32_t TilePatch2dSizeY;
 };
 
-struct decoded_atlas_data {
-    uint32_t NumDecAtlasFrames = 0;
-    std::vector<uint32_t> DecAtlasOutOrdIdx = {}; //size of NumDecAtlasFrames
-    std::vector<uint32_t> DecAtlasCompTime = {}; //size of NumDecAtlasFrames
+struct point3d {
+    uint16_t pos3D[3] = {0, 0, 0};
+
+    uint16_t r;
+    uint16_t g;
+    uint16_t b;
+};
+
+struct point_set {
+
+    std::vector<point3d> points = {};
+};
+
+struct atlas_tile {
     std::vector<patch> patches_map = {};
 };
 
@@ -297,7 +307,10 @@ struct decompressed_data { // of a gof currently
     v3c_parameter_set vps;
     atlas_sequence_parameter_set asps;
     atlas_frame_parameter_set afps;
-    std::vector<std::unique_ptr<atlas_tile_layer_rbsp>> rbsp_vec = {};
+    std::vector<atlas_tile> atlas_frames_tiles; // frames or tiles? currently 1 tile per frame
+
+    std::vector<std::unique_ptr<atlas_tile_layer_rbsp>> rbsp_vec = {}; // to be removed?
+    
     video_map occupancy_map = {};
     video_map geometry_map = {};
     video_map attribute_map = {};

@@ -571,12 +571,13 @@ void BitstreamParsing::read_atlas_tile_data_unit(atlas_tile_data_unit &atdu, atl
             atdu.atdu_patch_mode = read_ue("atdu_patch_mode");
             if(atdu.atdu_patch_mode == ATDU_PATCH_MODE_I_TILE::I_END
                 || atdu.atdu_patch_mode == ATDU_PATCH_MODE_P_TILE::P_END) {
+                //std::cout << "Patches in current NAL unit: " << atdu.pid_vec.size() << std::endl;
                 break;
             }
             patch_information_data pid;
             pid.patchMode = atdu.atdu_patch_mode;
             read_patch_information_data(ath, pid);
-            atdu.patches_vec.push_back(pid);
+            atdu.pid_vec.push_back(pid);
 
         }
     }
@@ -634,6 +635,29 @@ void BitstreamParsing::read_atlas_sub_bitstream(std::size_t v3c_payload_size_byt
         read_atlas_nal_unit(nal_unit_type, nal_unit_size, output);
     }
 }
+
+void BitstreamParsing::fill_atlas_tile(atlas_tile* tile, atlas_tile_layer_rbsp* rbsp)
+{
+    std::size_t pid_count = rbsp->atdu.pid_vec.size();
+    for(std::size_t i = 0; i < pid_count; ++i) {
+        const patch_data_unit &pdu = rbsp->atdu.pid_vec.at(i).patch;
+        patch new_patch;
+        // ---fill patch
+        tile->patches_map.push_back(new_patch);
+    }
+}
+
+
+void BitstreamParsing::create_atlas_frames(decompressed_data* data)
+{
+    std::size_t frame_count = data->rbsp_vec.size();
+    data->atlas_frames_tiles.resize(frame_count);
+
+    for (std::size_t frame_index = 0; frame_index < frame_count; ++frame_index) {
+        fill_atlas_tile(&data->atlas_frames_tiles.at(frame_index), data->rbsp_vec.at(frame_index).get());
+    }
+}
+
 
 void BitstreamParsing::convert_video_sub_bitstream(std::size_t v3c_payload_size_bytes, std::string output_path)
 {
