@@ -272,11 +272,11 @@ struct video_map {
 
 struct patch {
 
-    size_t index_;          // patch index
-    size_t originalIndex_;  // patch original index
-    size_t frameIndex_;     // Frame index
-    size_t tileIndex_;      // Tile index
-    size_t indexInFrame_;   // index in frame
+    size_t index_ = 0;          // patch index
+    size_t originalIndex_ = 0;  // patch original index
+    size_t frameIndex_ = 0;     // Frame index
+    size_t tileIndex_ = 0;      // Tile index
+    size_t indexInFrame_ = 0;   // index in frame
 
     uint32_t TilePatchType = 0; // Should be PROJECTED
     uint32_t TilePatch2dPosX = 0; // u0 location in packed image (n*occupancyResolution_)
@@ -292,6 +292,8 @@ struct patch {
     uint32_t TilePatchOrientationIndex = 0;
     uint32_t TilePatchLoDScaleX = 1;
     uint32_t TilePatchLoDScaleY = 1;
+
+    size_t occupancy_resolution = 0; //helper var tmc2
 
     /*
 uint32_t offsetY; // whats this?
@@ -322,20 +324,20 @@ uint32_t offsetY; // whats this?
 struct point3d {
     uint16_t pos3D[3] = {0, 0, 0};
 
-    uint16_t r;
-    uint16_t g;
-    uint16_t b;
 };
 
-struct point_set {
-
-    std::vector<point3d> points = {};
+struct point_cloud_frame {
+    std::vector<point3d> positions = {};
 };
 
 struct atlas_frame {
     // As we only currently support one tile per atlas frame, the frame directly contains the patch map
     // otherwise tiles would be in between frame and patch
     std::vector<patch> patches_map = {};
+
+    // These are here for now as only 1 tile per frame. TODO; FIX
+    size_t tile_width = 0;
+    size_t tile_height = 0;
 };
 
 struct decompressed_data { // of a gof currently

@@ -641,10 +641,18 @@ void BitstreamParsing::read_atlas_sub_bitstream(std::size_t v3c_payload_size_byt
 
 void BitstreamParsing::decode_atlas_frame(atlas_frame* frame, atlas_tile_layer_rbsp* rbsp)
 {
+    // 1 tile per frame: TODO fix this placeholder
+    frame->tile_width = saved_asps_.asps_frame_width;
+    frame->tile_height = saved_asps_.asps_frame_height;
+
     std::size_t pid_count = rbsp->atdu.pid_vec.size();
     for(std::size_t i = 0; i < pid_count; ++i) {
         const patch_data_unit &pdu = rbsp->atdu.pid_vec.at(i).patch;
         patch new_patch;
+
+        // helper var tmc2
+        new_patch.occupancy_resolution = (size_t(1) << saved_asps_.asps_log2_patch_packing_block_size);
+
         // --------------- if problems come, check if this is correct  ------------------
         // is this correct? tmc2 vs spec
         uint32_t PatchPackingBlockSize = pow(double(2), double(saved_asps_.asps_log2_patch_packing_block_size));
