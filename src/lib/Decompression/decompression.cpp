@@ -595,11 +595,10 @@ void BitstreamParsing::read_atlas_nal_unit(NAL_UNIT_TYPE nal_unit_type, std::siz
                 saved_afps_ = output->afps;
                 break;
             case NAL_UNIT_TYPE::NAL_IDR_N_LP: {
-                auto rbsp = std::make_unique<atlas_tile_layer_rbsp>();
-                read_atlas_rbsp(rbsp.get(), nal_unit_type);
+                atlas_tile_layer_rbsp rbsp;
+                read_atlas_rbsp(&rbsp, nal_unit_type);
                 auto frame = std::make_unique<atlas_tile>();
-                decode_atlas_frame(frame.get(),rbsp.get());
-                output->rbsp_vec.push_back(std::move(rbsp));
+                decode_atlas_frame(frame.get(), &rbsp);
                 output->atlas_frames_tiles.push_back(std::move(frame));
 
                 break; }

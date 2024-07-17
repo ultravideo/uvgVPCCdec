@@ -341,9 +341,6 @@ struct decompressed_data { // of a gof currently
     atlas_sequence_parameter_set asps;
     atlas_frame_parameter_set afps;
     std::vector<std::unique_ptr<atlas_tile>> atlas_frames_tiles; // frames or tiles? currently 1 tile per frame
-
-    std::vector<std::unique_ptr<atlas_tile_layer_rbsp>> rbsp_vec = {}; // to be removed?
-    
     video_map occupancy_map = {};
     video_map geometry_map = {};
     video_map attribute_map = {};
