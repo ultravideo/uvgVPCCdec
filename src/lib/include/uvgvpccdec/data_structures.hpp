@@ -271,19 +271,52 @@ struct video_map {
 };
 
 struct patch {
-    uint32_t TilePatch2dPosX;
-    uint32_t TilePatch2dPosY;
-    uint32_t TilePatch3dOffsetU;
-    uint32_t TilePatch3dOffsetV;
-    uint32_t TilePatch3dOffsetD;
-    uint32_t TilePatch3dRangeD;
-    uint32_t TilePatchProjectionID;
-    uint32_t TilePatchOrientationIndex;
-    uint32_t TilePatchLoDScaleX;
-    uint32_t offsetY;
-    uint32_t TilePatchLoDScaleY;
-    uint32_t TilePatch2dSizeX;
-    uint32_t TilePatch2dSizeY;
+
+    size_t index_;          // patch index
+    size_t originalIndex_;  // patch original index
+    size_t frameIndex_;     // Frame index
+    size_t tileIndex_;      // Tile index
+    size_t indexInFrame_;   // index in frame
+
+    uint32_t TilePatchType = 0; // Should be PROJECTED
+    uint32_t TilePatch2dPosX = 0; // u0 location in packed image (n*occupancyResolution_)
+    uint32_t TilePatch2dPosY = 0; // v0 location in packed image (n*occupancyResolution_)
+    uint32_t TilePatch2dSizeX = 1; // sizeU0 size of occupancy map (n*occupancyResolution_)
+    uint32_t TilePatch2dSizeY = 1; // sizeV0 size of occupancy map (n*occupancyResolution_)
+    uint32_t TilePatch3dOffsetU = 0; // u1 tangential shift
+    uint32_t TilePatch3dOffsetV = 0; // v1 bitangential shift
+    uint32_t TilePatch3dOffsetD = 0; // d1 depth shift
+
+    uint32_t TilePatch3dRangeD = 0; // sizeD size for depth??
+    uint32_t TilePatchProjectionID = 0;
+    uint32_t TilePatchOrientationIndex = 0;
+    uint32_t TilePatchLoDScaleX = 1;
+    uint32_t TilePatchLoDScaleY = 1;
+
+    /*
+uint32_t offsetY; // whats this?
+    size_t                  u1_;             // tangential shift
+    size_t                  v1_;             // bitangential shift
+    size_t                  d1_;             // depth shift
+    size_t                  sizeD_;          // size for depth
+    size_t                  sizeDPixel_;     // Size D pixel
+    size_t                  sizeU_;          // size for depth
+    size_t                  sizeV_;          // size for depth
+    size_t                  u0_;             // location in packed image (n*occupancyResolution_)
+    size_t                  v0_;             // location in packed image (n*occupancyResolution_)
+    size_t                  sizeU0_;         // size of occupancy map (n*occupancyResolution_)
+    size_t                  sizeV0_;         // size of occupancy map (n*occupancyResolution_)
+    size_t                  size2DXInPixel_;
+    size_t                  size2DYInPixel_;
+    size_t                  occupancyResolution_;  // occupancy map resolution
+    size_t                  projectionMode_;       // 0: related to the min depth value; 1: related to the max value
+    size_t                  levelOfDetailX_;
+    size_t                  levelOfDetailY_;
+    size_t                  normalAxis_;     // x
+    size_t                  tangentAxis_;    // y
+    size_t                  bitangentAxis_;  // z
+    std::vector<int16_t>    depth_[2];       // depth
+    std::vector<bool>       occupancy_;      // occupancy map*/
 };
 
 struct point3d {
@@ -307,7 +340,7 @@ struct decompressed_data { // of a gof currently
     v3c_parameter_set vps;
     atlas_sequence_parameter_set asps;
     atlas_frame_parameter_set afps;
-    std::vector<atlas_tile> atlas_frames_tiles; // frames or tiles? currently 1 tile per frame
+    std::vector<std::unique_ptr<atlas_tile>> atlas_frames_tiles; // frames or tiles? currently 1 tile per frame
 
     std::vector<std::unique_ptr<atlas_tile_layer_rbsp>> rbsp_vec = {}; // to be removed?
     

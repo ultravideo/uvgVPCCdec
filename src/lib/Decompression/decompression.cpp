@@ -597,7 +597,11 @@ void BitstreamParsing::read_atlas_nal_unit(NAL_UNIT_TYPE nal_unit_type, std::siz
             case NAL_UNIT_TYPE::NAL_IDR_N_LP: {
                 auto rbsp = std::make_unique<atlas_tile_layer_rbsp>();
                 read_atlas_rbsp(rbsp.get(), nal_unit_type);
+                auto frame = std::make_unique<atlas_tile>();
+                decode_atlas_frame(frame.get(),rbsp.get());
                 output->rbsp_vec.push_back(std::move(rbsp));
+                output->atlas_frames_tiles.push_back(std::move(frame));
+
                 break; }
             default: 
                 std::cout << "Unsupported NAL type" << std::endl;
@@ -636,28 +640,39 @@ void BitstreamParsing::read_atlas_sub_bitstream(std::size_t v3c_payload_size_byt
     }
 }
 
-void BitstreamParsing::fill_atlas_tile(atlas_tile* tile, atlas_tile_layer_rbsp* rbsp)
+void BitstreamParsing::decode_atlas_frame(atlas_tile* tile, atlas_tile_layer_rbsp* rbsp)
 {
     std::size_t pid_count = rbsp->atdu.pid_vec.size();
     for(std::size_t i = 0; i < pid_count; ++i) {
         const patch_data_unit &pdu = rbsp->atdu.pid_vec.at(i).patch;
         patch new_patch;
-        // ---fill patch
+        // --------------- if problems come, check if this is correct  ------------------
+        // is this correct? tmc2 vs spec
+        uint32_t PatchPackingBlockSize = pow(double(2), double(saved_asps_.asps_log2_patch_packing_block_size));
+        uint32_t PatchSizeXQuantizer = 1 << rbsp->ath.ath_patch_size_x_info_quantizer;
+        uint32_t PatchSizeYQuantizer = 1 << rbsp->ath.ath_patch_size_y_info_quantizer;
+
+        new_patch.TilePatch2dPosX = pdu.pdu_2d_pos_x * PatchPackingBlockSize;
+        new_patch.TilePatch2dPosY = pdu.pdu_2d_pos_y * PatchPackingBlockSize;
+        new_patch.TilePatch3dOffsetU = pdu.pdu_3d_offset_u;
+        new_patch.TilePatch3dOffsetV = pdu.pdu_3d_offset_v;
+
+        uint32_t Pdu3dOffsetD = pdu.pdu_3d_offset_d << rbsp->ath.ath_pos_min_d_quantizer;
+        new_patch.TilePatch3dOffsetD = Pdu3dOffsetD;
+        const size_t minLevel       = pow( 2., double(rbsp->ath.ath_pos_min_d_quantizer)); // this line from TMC2
+        uint32_t Pdu3dRangeD = pdu.pdu_3d_range_d == 0 ? 0 : (pdu.pdu_3d_range_d * minLevel - 1); // this line from TMC2
+        new_patch.TilePatch3dRangeD = Pdu3dRangeD;
+        new_patch.TilePatchProjectionID = pdu.pdu_projection_id;
+        new_patch.TilePatchOrientationIndex = pdu.pdu_orientation_index;
+        new_patch.TilePatchLoDScaleX = pdu.pdu_lod_enabled_flag ? pdu.pdu_lod_scale_x_minus1 + 1 : 1;
+        uint32_t offsetY = ((pdu.pdu_lod_scale_x_minus1 > 0) ? 1 : 2);
+        new_patch.TilePatchLoDScaleY = pdu.pdu_lod_enabled_flag ? pdu.pdu_lod_scale_y_idc + offsetY : 1;
+        new_patch.TilePatch2dSizeX = (pdu.pdu_2d_size_x_minus1 + 1) * PatchSizeXQuantizer;
+        new_patch.TilePatch2dSizeY = (pdu.pdu_2d_size_y_minus1 + 1) * PatchSizeYQuantizer;
+
         tile->patches_map.push_back(new_patch);
     }
 }
-
-
-void BitstreamParsing::create_atlas_frames(decompressed_data* data)
-{
-    std::size_t frame_count = data->rbsp_vec.size();
-    data->atlas_frames_tiles.resize(frame_count);
-
-    for (std::size_t frame_index = 0; frame_index < frame_count; ++frame_index) {
-        fill_atlas_tile(&data->atlas_frames_tiles.at(frame_index), data->rbsp_vec.at(frame_index).get());
-    }
-}
-
 
 void BitstreamParsing::convert_video_sub_bitstream(std::size_t v3c_payload_size_bytes, std::string output_path)
 {
