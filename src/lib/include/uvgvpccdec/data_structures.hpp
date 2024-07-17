@@ -342,6 +342,7 @@ struct decompressed_data { // of a gof currently
     v3c_parameter_set vps;
     atlas_sequence_parameter_set asps;
     atlas_frame_parameter_set afps;
+    size_t frame_count = 0; // this is fetched from the number of atlas frames
     std::vector<std::unique_ptr<atlas_frame>> atlas_map; // frames or tiles? currently 1 tile per frame
     video_map occupancy_map = {};
     video_map geometry_map = {};

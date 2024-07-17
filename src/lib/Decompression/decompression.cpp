@@ -600,6 +600,7 @@ void BitstreamParsing::read_atlas_nal_unit(NAL_UNIT_TYPE nal_unit_type, std::siz
                 auto frame = std::make_unique<atlas_frame>();
                 decode_atlas_frame(frame.get(), &rbsp);
                 output->atlas_map.push_back(std::move(frame));
+                output->frame_count++;
                 break; }
             default: 
                 std::cout << "Unsupported NAL type" << std::endl;
