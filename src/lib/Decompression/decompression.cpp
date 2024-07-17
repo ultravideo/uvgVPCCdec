@@ -597,10 +597,9 @@ void BitstreamParsing::read_atlas_nal_unit(NAL_UNIT_TYPE nal_unit_type, std::siz
             case NAL_UNIT_TYPE::NAL_IDR_N_LP: {
                 atlas_tile_layer_rbsp rbsp;
                 read_atlas_rbsp(&rbsp, nal_unit_type);
-                auto frame = std::make_unique<atlas_tile>();
+                auto frame = std::make_unique<atlas_frame>();
                 decode_atlas_frame(frame.get(), &rbsp);
-                output->atlas_frames_tiles.push_back(std::move(frame));
-
+                output->atlas_map.push_back(std::move(frame));
                 break; }
             default: 
                 std::cout << "Unsupported NAL type" << std::endl;
@@ -639,7 +638,7 @@ void BitstreamParsing::read_atlas_sub_bitstream(std::size_t v3c_payload_size_byt
     }
 }
 
-void BitstreamParsing::decode_atlas_frame(atlas_tile* tile, atlas_tile_layer_rbsp* rbsp)
+void BitstreamParsing::decode_atlas_frame(atlas_frame* frame, atlas_tile_layer_rbsp* rbsp)
 {
     std::size_t pid_count = rbsp->atdu.pid_vec.size();
     for(std::size_t i = 0; i < pid_count; ++i) {
@@ -669,7 +668,7 @@ void BitstreamParsing::decode_atlas_frame(atlas_tile* tile, atlas_tile_layer_rbs
         new_patch.TilePatch2dSizeX = (pdu.pdu_2d_size_x_minus1 + 1) * PatchSizeXQuantizer;
         new_patch.TilePatch2dSizeY = (pdu.pdu_2d_size_y_minus1 + 1) * PatchSizeYQuantizer;
 
-        tile->patches_map.push_back(new_patch);
+        frame->patches_map.push_back(new_patch);
     }
 }
 

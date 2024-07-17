@@ -332,7 +332,9 @@ struct point_set {
     std::vector<point3d> points = {};
 };
 
-struct atlas_tile {
+struct atlas_frame {
+    // As we only currently support one tile per atlas frame, the frame directly contains the patch map
+    // otherwise tiles would be in between frame and patch
     std::vector<patch> patches_map = {};
 };
 
@@ -340,7 +342,7 @@ struct decompressed_data { // of a gof currently
     v3c_parameter_set vps;
     atlas_sequence_parameter_set asps;
     atlas_frame_parameter_set afps;
-    std::vector<std::unique_ptr<atlas_tile>> atlas_frames_tiles; // frames or tiles? currently 1 tile per frame
+    std::vector<std::unique_ptr<atlas_frame>> atlas_map; // frames or tiles? currently 1 tile per frame
     video_map occupancy_map = {};
     video_map geometry_map = {};
     video_map attribute_map = {};
