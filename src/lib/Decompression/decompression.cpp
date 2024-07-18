@@ -5,7 +5,7 @@
 #include <cstdio>
 
 /* In debug mode print out some extra info */
-#define BITSTREAM_DEBUG false
+#define BITSTREAM_DEBUG true
 
 static const uint8_t* cbuf_;
 static bitstream_position pos_;
@@ -173,6 +173,7 @@ void BitstreamParsing::read_v3c_parameter_set(v3c_parameter_set* vps)
     vps->vps_map_count_minus1.resize(vps->vps_atlas_count_minus1 + 1);
 
     vps->vps_multiple_map_streams_present_flag.resize(vps->vps_atlas_count_minus1 + 1);
+    vps->vps_map_absolute_coding_enabled_flag.resize(vps->vps_atlas_count_minus1 + 1);
     vps->vps_auxiliary_video_present_flag.resize(vps->vps_atlas_count_minus1 + 1);
     vps->vps_occupancy_video_present_flag.resize(vps->vps_atlas_count_minus1 + 1);
     vps->vps_geometry_video_present_flag.resize(vps->vps_atlas_count_minus1 + 1);
@@ -191,7 +192,7 @@ void BitstreamParsing::read_v3c_parameter_set(v3c_parameter_set* vps)
         if (vps->vps_map_count_minus1.at(j) > 0) {
             vps->vps_multiple_map_streams_present_flag.at(j) = read(1, "vps_multiple_map_streams_present_flag");
         }
-        vps->vps_map_absolute_coding_enabled_flag.at(j).resize(vps->vps_map_count_minus1.at(j));
+        vps->vps_map_absolute_coding_enabled_flag.at(j).resize(vps->vps_map_count_minus1.at(j) + 1);
         for (uint8_t i = 1; i <= vps->vps_map_count_minus1.at(j); i++) {
             if(vps->vps_multiple_map_streams_present_flag.at(j)) {
                 vps->vps_map_absolute_coding_enabled_flag.at(j).at(i) = read(1, "vps_map_absolute_coding_enabled_flag");
