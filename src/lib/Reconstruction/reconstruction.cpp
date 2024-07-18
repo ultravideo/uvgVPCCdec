@@ -227,10 +227,8 @@ void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_
     //for(data->frame_count) only 1 frame at first ------------------------------
     auto current_atlas_frame = data->atlas_map.front().get();
     picture current_occupancy_frame = data->occupancy_map.pictures.front();
-
     size_t tileWidth = current_atlas_frame->tile_width;
     size_t tileHeight = current_atlas_frame->tile_height;
-
     // only one atlas = one VPS frame width
     uint32_t occupancyPrecision = data->vps.vps_frame_width.front() / data->occupancy_map.width;
     std::cout << "occupancyPrecision " << occupancyPrecision << std::endl;
@@ -246,6 +244,8 @@ void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_
             current_atlas_frame, &current_occupancy_frame,
             size_t( 1 ) << data->asps.asps_log2_patch_packing_block_size, occupancyPrecision);
 
+    // Above this belong to decoding instead of reconstruction??
+    /* --------------------------- this should work (UNTESTED) --------------------------- */
     if(true) { // if ( !params.pbfEnableFlag_ ) TODO ----------------------
         occupancyMap.resize( tileWidth * tileHeight, 0 );
         for ( size_t v = 0; v < tileHeight; ++v ) {
@@ -256,104 +256,54 @@ void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_
         }
     }
     std::cout << "occupancyMap.size() " << occupancyMap.size() << std::endl;
-
+    // Size quantiazation in this spot, needed? TODO check ------------------------
+    
+    /* ------------------------ reconstruction ------------------------ */
     auto &blockToPatch = current_atlas_frame->block_to_patch;
-    for ( std::size_t patch_index = 0; patch_index < current_atlas_frame->patches_map.size(); patch_index++ ) {
-        const patch &current_patch = current_atlas_frame->patches_map.at(patch_index);
-        //std::cout << "Patch index " << patch_index << std::endl;
-        for ( size_t v0 = 0; v0 < current_patch.TilePatch2dPosY; ++v0 ) {
-            //std::cout << "loop Y" << std::endl;
-            for ( size_t u0 = 0; u0 < current_patch.TilePatch2dPosX; ++u0 ) {
-                //std::cout << "loop X" << std::endl;
-                // implement TODO
-                const size_t blockIndex = 0;//patch.patchBlock2CanvasBlock( u0, v0, blockToPatchWidth, blockToPatchHeight );
-                if ( blockToPatch[blockIndex] == (patch_index + 1) ) {
-                    for ( size_t v1 = 0; v1 < current_patch.occupancy_resolution; ++v1 ) {
-                        const size_t v = v0 * current_patch.occupancy_resolution + v1;
-                        for ( size_t u1 = 0; u1 < current_patch.occupancy_resolution; ++u1 ) {
-                            const size_t u = u0 * current_patch.occupancy_resolution + u1;
-                            size_t   x;
-                            size_t   y;
-                            bool     occupancy     = false;
-                            size_t   canvasIndex = patch_to_canvas(u, v, tileWidth, tileHeight, x, y, current_patch);
-                            size_t   xInVideoFrame = x + 0; // tile.getLeftTopXInFrame(); is 0 for singletile
-                            size_t   yInVideoFrame = y + 0; // tile.getLeftTopYInFrame(); is 0 for singletile
-                            bool     isBoundary    = false;
-                            /*if ( params.pbfEnableFlag_ ) {
+    uint32_t patchIndex = 0;
+    const bool patchPrecedenceOrderFlag = data->asps.asps_patch_precedence_order_flag;
+    const size_t totalPatchCount       = current_atlas_frame->patches_map.size();
+    bool bDecoder = true; // Whats this? tmc2
+
+    size_t occupancyResolution_ = 2;
+    std::cout << "NOTE: HARD CODED OCCUPANCY RESOLUTION, MAKE DYNAMIC" << std::endl;
+    const size_t blockToPatchWidth     = tileWidth / occupancyResolution_;
+    const size_t blockToPatchHeight    = tileHeight / occupancyResolution_;
+
+    for ( std::size_t index = 0; index < current_atlas_frame->patches_map.size(); index++ ) {
+        patchIndex                     = ( bDecoder && patchPrecedenceOrderFlag ) ? ( totalPatchCount - index - 1 ) : index;
+        const size_t patchIndexPlusOne = patchIndex + 1;
+        auto& patch             = current_atlas_frame->patches_map[patchIndex];
+        for ( size_t v0 = 0; v0 < patch.getSizeV0(); ++v0 ) {
+            for ( size_t u0 = 0; u0 < patch.getSizeU0(); ++u0 ) {
+                const size_t blockIndex = patchBlock2CanvasBlock(u0, v0, blockToPatchWidth, blockToPatchHeight, patch);
+                if ( blockToPatch[blockIndex] == patchIndexPlusOne ) {
+                    for ( size_t v1 = 0; v1 < patch.occupancy_resolution; ++v1 ) {
+                        const size_t v = v0 * patch.occupancy_resolution + v1;
+                        for ( size_t u1 = 0; u1 < patch.occupancy_resolution; ++u1 ) {
+                            /*const size_t u = u0 * patch.getOccupancyResolution() + u1;
+                            size_t       x;
+                            size_t       y;
+                            bool         occupancy     = false;
+                            size_t       canvasIndex   = patch.patch2Canvas( u, v, tileWidth, tileHeight, x, y );
+                            size_t       xInVideoFrame = x + tile.getLeftTopXInFrame();
+                            size_t       yInVideoFrame = y + tile.getLeftTopYInFrame();
+                            bool         isBoundary    = false;
+                            if ( params.pbfEnableFlag_ ) {
                                 occupancy = patch.getOccupancyMap( u, v ) != 0;
                                 if ( occupancy ) { isBoundary = patch.isBorder( u, v ); }
-                            } else {*/
-                            occupancy = occupancyMap[canvasIndex] != 0; // TODO: -------------------
-
-                            // ------------------- no enhanced occupancy map code -------------------
-                            std::vector<point3d> createdPoints;
-                            /*if ( params.pointLocalReconstruction_ ) { // false
-                            auto& mode =
-                                context.getPointLocalReconstructionMode( patch.getPointLocalReconstructionMode( u0, v0 ) );
-                            createdPoints = generatePoints( params, tile, videoGeometryMultiple, videoFrameIndex, patchIndex, u,
-                                                            v, xInVideoFrame, yInVideoFrame, mode.interpolate_, mode.filling_,
-                                                            mode.minD1_, mode.neighbor_ );
-                            }*/
-
-                            bool test = occupancy;
+                            } else {
+                                occupancy = occupancyMap[canvasIndex] != 0;
+                            }
+                            if ( !occupancy ) { continue; }
+                            std::vector<PCCPoint3D> createdPoints;
                             Logger::log(LogLevel::INFO, "Reconstruction", "Generate point positions \n");
-                            createdPoints = generate_points( /*params, tile, videoGeometryMultiple, videoFrameIndex, patchIndex, u,
-                                v, xInVideoFrame, yInVideoFrame*/ );
+                            createdPoints = generatePoints( params, tile, videoGeometryMultiple, videoFrameIndex, patchIndex, u,
+                                                            v, xInVideoFrame, yInVideoFrame );*/
                         }
                     }
                 }
             }
-        }   
-    }
+        }
+    }         
 }
-                    /*
-                    // not params.enhancedOccupancyMapCode_
-                        
-                        if ( !createdPoints.empty() ) {
-                        for ( size_t i = 0; i < createdPoints.size(); i++ ) {
-                            if ( ( !params.removeDuplicatePoints_ ) ||
-                                ( ( i == 0 ) || ( createdPoints[i] != createdPoints[0] ) ) ) {
-                            size_t pointindex = 0;
-                            if ( patch.getAxisOfAdditionalPlane() == 0 ) {
-                                pointindex = reconstruct.addPoint( createdPoints[i] );
-                                reconstruct.setPointPatchIndex( pointindex, tileIndex, patchIndex );
-                            } else {
-                                PCCVector3D tmp;
-                                inverseRotatePosition45DegreeOnAxis( patch.getAxisOfAdditionalPlane(),
-                                                                    params.geometryBitDepth3D_, createdPoints[i], tmp );
-                                pointindex = reconstruct.addPoint( tmp );
-                                reconstruct.setPointPatchIndex( pointindex, tileIndex, patchIndex );
-                            }
-                            const size_t pointindex_1 = pointindex;
-                            reconstruct.setColor( pointindex_1, color );
-                            if ( params.pbfEnableFlag_ ) { reconstruct.setBoundaryPointType( pointindex_1, isBoundary ); }
-                            if ( PCC_SAVE_POINT_TYPE == 1 ) {
-                                if ( params.singleMapPixelInterleaving_ ) {
-                                size_t flag;
-                                flag = ( i == 0 ) ? ( x + y ) % 2 : ( i == 1 ) ? ( x + y + 1 ) % 2 : g_intermediateLayerIndex;
-                                reconstruct.setType( pointindex_1, flag == 0 ? POINT_D0 : flag == 1 ? POINT_D1 : POINT_DF );
-                                } else {
-                                reconstruct.setType( pointindex_1, i == 0 ? POINT_D0 : i == 1 ? POINT_D1 : POINT_DF );
-                                }
-                            }
-                            partition.push_back( uint32_t( patchIndex ) );
-                            if ( params.singleMapPixelInterleaving_ ) {
-                                pointToPixel.emplace_back(
-                                    x, y,
-                                    i == 0 ? ( static_cast<size_t>( x + y ) % 2 )
-                                        : i == 1 ? ( static_cast<size_t>( x + y + 1 ) % 2 ) : g_intermediateLayerIndex );
-                            } else if ( params.pointLocalReconstruction_ ) {
-                                pointToPixel.emplace_back(
-                                    x, y, i == 0 ? 0 : i == 1 ? g_intermediateLayerIndex : g_intermediateLayerIndex + 1 );
-                            } else {
-                        pointToPixel.emplace_back( x, y, i < 2 ? i : g_intermediateLayerIndex + 1 );
-                        }
-                    }
-                    }
-                }
-                }
-            }
-            }
-        }
-        }
-    */
