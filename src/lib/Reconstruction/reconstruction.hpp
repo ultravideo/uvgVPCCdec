@@ -15,17 +15,16 @@ public:
 
     static std::vector<point3d> generate_points( /*const GeneratePointCloudParameters&  params,*/
                                                   atlas_frame*                     tile,
-                                                  /*const std::vector<PCCVideoGeometry>& videoGeometryMultiple,*/
+                                                  std::vector<video_map>& videoGeometryMultiple,
                                                   const size_t                         videoFrameIndex,
                                                   const size_t                         patchIndex,
                                                   const size_t                         u,
                                                   const size_t                         v,
                                                   const size_t                         x,
                                                   const size_t                         y,
-                                                  const bool                           interpolate = 0,
-                                                  const bool                           filling = 0,
-                                                  const size_t                         minD1 = 0,
-                                                  const size_t                         neighbor = 0 );
+                                                  const size_t                         mapCountMinus1,
+                                                  const bool                           multipleStreams,
+                                                  const bool                           absoluteD1_);
 
     struct Tile {
         int minU;

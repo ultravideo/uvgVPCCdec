@@ -69,19 +69,43 @@ size_t Reconstruction::patch_to_canvas(const size_t u, const size_t v, size_t ca
 
 std::vector<point3d> Reconstruction::generate_points( /*const GeneratePointCloudParameters&  params,*/
                                                 atlas_frame*                     tile,
-                                                /*const std::vector<PCCVideoGeometry>& videoGeometryMultiple,*/
+                                                std::vector<video_map>& videoGeometryMultiple,
                                                 const size_t                         videoFrameIndex,
                                                 const size_t                         patchIndex,
                                                 const size_t                         u,
                                                 const size_t                         v,
                                                 const size_t                         x,
                                                 const size_t                         y,
-                                                const bool                           interpolate,
-                                                const bool                           filling,
-                                                const size_t                         minD1,
-                                                const size_t                         neighbor )
+                                                const size_t                         mapCountMinus1,
+                                                const bool                           multipleStreams,
+                                                const bool                           absoluteD1_)
 {
-    return {};
+    const auto& patch  = tile->patches_map.at(patchIndex); //.getPatch( patchIndex );
+    auto& frame0 = videoGeometryMultiple[0].pictures.at(videoFrameIndex);//.getFrame( videoFrameIndex );
+    std::vector<point3d> createdPoints;
+    point3d point0;
+    // if ( params.pbfEnableFlag_ ) { else 
+    //point0 = patch.generatePoint( u, v, frame0.getValue( 0, x, y ) );
+    point0 = patch.generatePoint( u, v, frame0.get_Y_value(x, y) );
+
+    createdPoints.push_back( point0 );
+    std::cout << "NOTE: hard coded no singleMapPixelInterleaving_ or pointLocalReconstruction_" << std::endl;
+    if ( mapCountMinus1 > 0 ) {
+      point3d  point1( point0 );
+      auto& frame1 = multipleStreams ? videoGeometryMultiple[1].pictures.at(videoFrameIndex) 
+                                            : videoGeometryMultiple[0].pictures.at( 1 + videoFrameIndex );
+      if ( absoluteD1_ ) {
+        point1 = patch.generatePoint( u, v, frame1.get_Y_value( x, y ) );
+      } else {
+        if ( patch.TilePatchProjectionID == 0 ) {
+          point1.data_[patch.normalAxis_] += frame1.get_Y_value( x, y );
+        } else {
+          point1.data_[patch.normalAxis_] -= frame1.get_Y_value( x, y );
+        }
+      }
+      createdPoints.push_back( point1 );
+    }  // if ( params.mapCountMinus1_ > 0 ) {
+    return createdPoints;
 }
 
 /* ------------------------ ripped from tmc2------------------------ */
@@ -299,12 +323,17 @@ void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_
                             bool         isBoundary    = false;
 
                             occupancy = occupancyMap[canvasIndex] != 0;
+                            std::cout << "NOTE: hard coded vps mapCountMinus1 and multipleStreams atlas index number" << std::endl;
+                            size_t mapCountMinus1_ = data->vps.vps_map_count_minus1.at(0);
+                            bool multipleStreams_ = data->vps.vps_multiple_map_streams_present_flag.at(0);
+                            std::cout << " test print" << std::endl;
+                            bool absoluteD1_ = data->vps.vps_map_count_minus1.at(0) == 0 || data->vps.vps_map_absolute_coding_enabled_flag.at(0).at(1);
                             
                             if ( !occupancy ) { continue; }
                             std::vector<point3d> createdPoints;
                             Logger::log(LogLevel::INFO, "Reconstruction", "Generate point positions \n");
-                            createdPoints = generate_points( /*params, */current_atlas_frame, /*videoGeometryMultiple, */videoFrameIndex, patchIndex, u,
-                                                v, xInVideoFrame, yInVideoFrame );
+                            createdPoints = generate_points( /*params, */current_atlas_frame, data->geometry_maps, videoFrameIndex, patchIndex, u,
+                                                v, xInVideoFrame, yInVideoFrame, mapCountMinus1_, multipleStreams_, absoluteD1_);
                         }
                     }
                 }

@@ -276,6 +276,11 @@ struct video_map {
     std::vector<picture> pictures = {};
 };
 
+struct point3d {
+    uint16_t data_[3];
+    uint16_t pos3D[3] = {0, 0, 0};
+};
+
 struct patch {
 
     size_t index_ = 0;          // patch index
@@ -307,6 +312,74 @@ struct patch {
     size_t size2DXInPixel_; // needed? tmc2
     size_t size2DYInPixel_; // needed? tmc2
 
+    size_t levelOfDetailX_; // TMC2, for point generation
+    size_t levelOfDetailY_; // TMC2, for point generation
+    size_t normalAxis_;     // x TMC2, for point generation
+    size_t tangentAxis_;    // y TMC2, for point generation
+    size_t bitangentAxis_;  // z TMC2, for point generation
+    size_t viewId_;
+    size_t axisOfAdditionalPlane_;
+
+    inline double generateNormalCoordinate( const uint16_t depth, const size_t projectionMode ) const {
+        uint32_t d1_ = TilePatch3dOffsetD;
+        double coord = 0;
+        if ( projectionMode == 0 ) {
+        coord = ( (double)depth + (double)d1_ );
+        } else {
+        double tmp_depth = double( d1_ ) - double( depth );
+        if ( tmp_depth > 0 ) { coord = tmp_depth; }
+        }
+        return coord;
+    }
+    point3d generatePoint( const size_t u, const size_t v, const uint16_t depth ) const {
+        point3d point0;
+        size_t u1_ = TilePatch3dOffsetU;
+        size_t v1_ = TilePatch3dOffsetV;
+        point0.data_[normalAxis_]    = generateNormalCoordinate( depth, TilePatchProjectionID );
+        point0.data_[tangentAxis_]   = ( double( u ) * (double)levelOfDetailX_ + u1_ );
+        point0.data_[bitangentAxis_] = ( double( v ) * (double)levelOfDetailY_ + v1_ );
+        return point0;
+    }
+    void setAxis( size_t axisOfAdditionalPlane,
+                size_t normalAxis,
+                size_t tangentAxis,
+                size_t bitangentAxis,
+                size_t projectionMode ) {
+        axisOfAdditionalPlane_ = axisOfAdditionalPlane;
+        normalAxis_            = normalAxis;
+        tangentAxis_           = tangentAxis;
+        bitangentAxis_         = bitangentAxis;
+        TilePatchProjectionID        = projectionMode;
+    }
+    void setViewId( size_t viewId ) {
+        viewId_ = viewId;
+        // now set the other variables according to the viewId
+        switch ( viewId_ ) {
+            case 0: setAxis( 0, 0, 2, 1, 0 ); break;
+            case 1: setAxis( 0, 1, 2, 0, 0 ); break;
+            case 2: setAxis( 0, 2, 0, 1, 0 ); break;
+            case 3: setAxis( 0, 0, 2, 1, 1 ); break;
+            case 4: setAxis( 0, 1, 2, 0, 1 ); break;
+            case 5: setAxis( 0, 2, 0, 1, 1 ); break;
+            case 6: setAxis( 1, 0, 2, 1, 0 ); break;
+            case 7: setAxis( 1, 2, 0, 1, 0 ); break;
+            case 8: setAxis( 1, 0, 2, 1, 1 ); break;
+            case 9: setAxis( 1, 2, 0, 1, 1 ); break;
+            case 10: setAxis( 2, 2, 0, 1, 0 ); break;
+            case 11: setAxis( 2, 1, 2, 0, 0 ); break;
+            case 12: setAxis( 2, 2, 0, 1, 1 ); break;
+            case 13: setAxis( 2, 1, 2, 0, 1 ); break;
+            case 14: setAxis( 3, 1, 2, 0, 0 ); break;
+            case 15: setAxis( 3, 0, 2, 1, 0 ); break;
+            case 16: setAxis( 3, 1, 2, 0, 1 ); break;
+            case 17: setAxis( 3, 0, 2, 1, 1 ); break;
+            default:
+            std::cout << "ViewId (" << viewId_ << ") not allowed... exiting" << std::endl;
+            exit( -1 );
+            break;
+        }
+    }
+
     /*
 uint32_t offsetY; // whats this?
     size_t                  u1_;             // tangential shift
@@ -331,11 +404,6 @@ uint32_t offsetY; // whats this?
     size_t                  bitangentAxis_;  // z
     std::vector<int16_t>    depth_[2];       // depth
     std::vector<bool>       occupancy_;      // occupancy map*/
-};
-
-struct point3d {
-    uint16_t pos3D[3] = {0, 0, 0};
-
 };
 
 struct point_cloud_frame {
@@ -363,6 +431,6 @@ struct decompressed_data { // of a gof currently
     size_t frame_count = 0; // this is fetched from the number of atlas frames
     std::vector<std::unique_ptr<atlas_frame>> atlas_map; // frames or tiles? currently 1 tile per frame
     video_map occupancy_map = {};
-    video_map geometry_map = {};
+    std::vector<video_map> geometry_maps = {};
     video_map attribute_map = {};
 };

@@ -40,7 +40,9 @@ void FormatConversion::convertToNominalFormat(decompressed_data* data)
 
     std::cout << "-- V-PCC frame count: " << data->frame_count << " frames" << std::endl;
     std::cout << "-- Occupancy map: " << data->occupancy_map.frame_count << " frames, " << data->occupancy_map.width << "x" << data->occupancy_map.height << std::endl;
-    std::cout << "-- Geometry map: " << data->geometry_map.frame_count << " frames, " << data->geometry_map.width << "x" << data->geometry_map.height << std::endl;
+    for (size_t i = 0; i < data->geometry_maps.size(); i++) {
+        std::cout << "-- Geometry map " << i << ": " << data->geometry_maps.at(i).frame_count << " frames, " << data->geometry_maps.at(i).width << "x" << data->geometry_maps.at(i).height << std::endl;
+    }
     std::cout << "-- Attribute map: " << data->attribute_map.frame_count << " frames, " << data->attribute_map.width << "x" << data->attribute_map.height << std::endl;
 
 }

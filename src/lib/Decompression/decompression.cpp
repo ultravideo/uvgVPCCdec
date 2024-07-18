@@ -138,10 +138,12 @@ void BitstreamParsing::decompressV3CSampleStream(const std::vector<uint8_t> &dat
                 convert_video_sub_bitstream(v3c_unit_payload_size_bytes, o_hevc);
                 decode_video_sub_bitstream(o_hevc, o_yuv, &output->occupancy_map);
                 break;
-            case V3C_UNIT_TYPE::V3C_GVD:
+            case V3C_UNIT_TYPE::V3C_GVD: {
                 convert_video_sub_bitstream(v3c_unit_payload_size_bytes, g_hevc);
-                decode_video_sub_bitstream(g_hevc, g_yuv, &output->geometry_map);
-                break;
+                video_map new_geo_map;
+                output->geometry_maps.push_back(new_geo_map);
+                decode_video_sub_bitstream(g_hevc, g_yuv, &output->geometry_maps.back());
+                break; }
             case V3C_UNIT_TYPE::V3C_AVD:
                 convert_video_sub_bitstream(v3c_unit_payload_size_bytes, a_hevc);
                 decode_video_sub_bitstream(a_hevc, a_yuv, &output->attribute_map);
@@ -189,6 +191,15 @@ void BitstreamParsing::read_v3c_parameter_set(v3c_parameter_set* vps)
         if (vps->vps_map_count_minus1.at(j) > 0) {
             vps->vps_multiple_map_streams_present_flag.at(j) = read(1, "vps_multiple_map_streams_present_flag");
         }
+        /*vps->vps_map_absolute_coding_enabled_flag.at(j).resize(vps->vps_map_count_minus1.at(j));
+        for (uint8_t i = 1; i <= vps->vps_map_count_minus1.at(j); i++) {
+            if(vps->vps_multiple_map_streams_present_flag.at(j)) {
+                vps->vps_map_absolute_coding_enabled_flag.at(j).at(i) = read(1, "vps_map_absolute_coding_enabled_flag");
+            }
+            else {
+                vps->vps_map_absolute_coding_enabled_flag.at(j).at(i) = true;
+            }
+        }*/
         vps->vps_auxiliary_video_present_flag.at(j) = read(1, "vps_auxiliary_video_present_flag");
         vps->vps_occupancy_video_present_flag.at(j) = read(1, "vps_occupancy_video_present_flag");
         vps->vps_geometry_video_present_flag.at(j) = read(1, "vps_geometry_video_present_flag");
@@ -692,16 +703,17 @@ void BitstreamParsing::decode_atlas_frame(atlas_frame* frame, atlas_tile_layer_r
           (size_t)lodEnableFlag, (size_t)p.TilePatchLoDScaleX, (size_t)p.TilePatchLoDScaleY, saved_asps_.asps_extended_projection_enabled_flag,
           (size_t)pdu.pdu_projection_id, size_t(0) );
 
-        /*if ( patch.getNormalAxis() == 0 ) { // DOES IGNORING THIS CAUSE ERRORS??
-            patch.setTangentAxis( 2 );
-            patch.setBitangentAxis( 1 );
-        } else if ( patch.getNormalAxis() == 1 ) {
-            patch.setTangentAxis( 2 );
-            patch.setBitangentAxis( 0 );
+        p.setViewId( pdu.pdu_projection_id );
+        if ( p.normalAxis_ == 0 ) {
+            p.tangentAxis_ = 2 ;
+            p.bitangentAxis_ = 1 ;
+        } else if ( p.normalAxis_ == 1 ) {
+            p.tangentAxis_ = 2;
+            p.bitangentAxis_ = 0;
         } else {
-            patch.setTangentAxis( 0 );
-            patch.setBitangentAxis( 1 );
-        }*/
+            p.tangentAxis_ = 0;
+            p.bitangentAxis_ = 1;
+        }
 
         /*// helper var tmc2 ----------------- my code
         new_patch.occupancy_resolution = (size_t(1) << saved_asps_.asps_log2_patch_packing_block_size);
