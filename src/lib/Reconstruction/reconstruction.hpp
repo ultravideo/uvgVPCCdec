@@ -8,6 +8,11 @@ public:
 
     static size_t patch_to_canvas(const size_t u, const size_t v, size_t canvasStride, size_t canvasHeight,
         size_t& x, size_t& y, const patch &p);
+    static void generateBlockToPatchFromOccupancyMapVideo(atlas_frame* frame, picture* occupancyMapImage,
+        const size_t occupancyResolution, const size_t occupancyPrecision );
+    static void generateOccupancyMap( atlas_frame* frame, picture* videoFrame,
+        std::vector<uint32_t>* occupancyMap, const size_t occupancyPrecision);
+
     static std::vector<point3d> generate_points( /*const GeneratePointCloudParameters&  params,
                                                   PCCFrameContext&                     tile,
                                                   const std::vector<PCCVideoGeometry>& videoGeometryMultiple,
@@ -21,5 +26,18 @@ public:
                                                   const bool                           filling,
                                                   const size_t                         minD1,
                                                   const size_t                         neighbor*/ );
+
+    struct Tile {
+        int minU;
+        int maxU;
+        int minV;
+        int maxV;
+        Tile() : minU( -1 ), maxU( -1 ), minV( -1 ), maxV( -1 ){};
+    };
+    static int patchBlock2CanvasBlock( const size_t uBlk,
+                                      const size_t vBlk,
+                                      size_t       canvasStrideBlk,
+                                      size_t       canvasHeightBlk,
+                                      const patch &p, const Tile tile = Tile() );
 
 };

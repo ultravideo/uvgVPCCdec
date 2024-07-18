@@ -258,16 +258,22 @@ struct v3c_parameter_set {
 };
 
 struct picture {
+    size_t height = 0;
+    size_t width = 0;
     std::vector<uint8_t> Y;
     std::vector<uint8_t> U;
     std::vector<uint8_t> V;
+
+    size_t get_Y_value(const size_t u, const size_t v ) { // Should be uint8_t??
+        return Y.at(v * width + u);
+    }
 };
 
 struct video_map {
     size_t height = 0;
     size_t width = 0;
     size_t frame_count = 0;
-    std::vector<picture> data = {};
+    std::vector<picture> pictures = {};
 };
 
 struct patch {
@@ -283,6 +289,10 @@ struct patch {
     uint32_t TilePatch2dPosY = 0; // v0 location in packed image (n*occupancyResolution_)
     uint32_t TilePatch2dSizeX = 1; // sizeU0 size of occupancy map (n*occupancyResolution_)
     uint32_t TilePatch2dSizeY = 1; // sizeV0 size of occupancy map (n*occupancyResolution_)
+
+    uint32_t getSizeU0() {return TilePatch2dSizeY;}
+    uint32_t getSizeV0() {return TilePatch2dSizeX;}
+
     uint32_t TilePatch3dOffsetU = 0; // u1 tangential shift
     uint32_t TilePatch3dOffsetV = 0; // v1 bitangential shift
     uint32_t TilePatch3dOffsetD = 0; // d1 depth shift
@@ -338,6 +348,10 @@ struct atlas_frame {
     // These are here for now as only 1 tile per frame. TODO; FIX
     size_t tile_width = 0;
     size_t tile_height = 0;
+
+    std::vector<size_t> block_to_patch;
+    size_t getLeftTopXInFrame() {return 0;}
+    size_t getLeftTopYInFrame() {return 0;}
 };
 
 struct decompressed_data { // of a gof currently

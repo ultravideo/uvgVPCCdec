@@ -731,6 +731,8 @@ void BitstreamParsing::decode_video_sub_bitstream(std::string input_path, std::s
 
     while (decompressed_video.peek() != EOF) {
         picture frame;
+        frame.width = width;
+        frame.height = height;
         frame.Y.resize(width * height);
         frame.U.resize(width * height);
         frame.V.resize(width * height);
@@ -749,7 +751,7 @@ void BitstreamParsing::decode_video_sub_bitstream(std::string input_path, std::s
         data_read += decompressed_video.gcount();
 
         if (data_read == frameSize) {
-            map->data.push_back(std::move(frame));
+            map->pictures.push_back(std::move(frame));
             map->frame_count++;
         }
         else {
