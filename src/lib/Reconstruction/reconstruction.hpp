@@ -13,19 +13,19 @@ public:
     static void generateOccupancyMap( atlas_frame* frame, picture* videoFrame,
         std::vector<uint32_t>* occupancyMap, const size_t occupancyPrecision);
 
-    static std::vector<point3d> generate_points( /*const GeneratePointCloudParameters&  params,
-                                                  PCCFrameContext&                     tile,
-                                                  const std::vector<PCCVideoGeometry>& videoGeometryMultiple,
+    static std::vector<point3d> generate_points( /*const GeneratePointCloudParameters&  params,*/
+                                                  atlas_frame*                     tile,
+                                                  /*const std::vector<PCCVideoGeometry>& videoGeometryMultiple,*/
                                                   const size_t                         videoFrameIndex,
                                                   const size_t                         patchIndex,
                                                   const size_t                         u,
                                                   const size_t                         v,
                                                   const size_t                         x,
                                                   const size_t                         y,
-                                                  const bool                           interpolate,
-                                                  const bool                           filling,
-                                                  const size_t                         minD1,
-                                                  const size_t                         neighbor*/ );
+                                                  const bool                           interpolate = 0,
+                                                  const bool                           filling = 0,
+                                                  const size_t                         minD1 = 0,
+                                                  const size_t                         neighbor = 0 );
 
     struct Tile {
         int minU;

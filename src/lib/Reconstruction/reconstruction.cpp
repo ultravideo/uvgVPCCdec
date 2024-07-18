@@ -67,9 +67,9 @@ size_t Reconstruction::patch_to_canvas(const size_t u, const size_t v, size_t ca
     return ( x + canvasStride * y );
 }
 
-std::vector<point3d> Reconstruction::generate_points( /*const GeneratePointCloudParameters&  params,
-                                                PCCFrameContext&                     tile,
-                                                const std::vector<PCCVideoGeometry>& videoGeometryMultiple,
+std::vector<point3d> Reconstruction::generate_points( /*const GeneratePointCloudParameters&  params,*/
+                                                atlas_frame*                     tile,
+                                                /*const std::vector<PCCVideoGeometry>& videoGeometryMultiple,*/
                                                 const size_t                         videoFrameIndex,
                                                 const size_t                         patchIndex,
                                                 const size_t                         u,
@@ -79,7 +79,7 @@ std::vector<point3d> Reconstruction::generate_points( /*const GeneratePointCloud
                                                 const bool                           interpolate,
                                                 const bool                           filling,
                                                 const size_t                         minD1,
-                                                const size_t                         neighbor*/ )
+                                                const size_t                         neighbor )
 {
     return {};
 }
@@ -270,6 +270,14 @@ void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_
     const size_t blockToPatchWidth     = tileWidth / occupancyResolution_;
     const size_t blockToPatchHeight    = tileHeight / occupancyResolution_;
 
+    size_t videoFrameIndex;
+    std::cout << "NOTE: HARD CODED ATLAS INDEX TO 0, MAKE DYNAMIC" << std::endl;
+    const size_t mapCount = data->vps.vps_map_count_minus1.at(0) + 1;
+    videoFrameIndex = 0 * mapCount;
+    std::cout << "NOTE: HARD CODED GEOMETRY MAP COUNT to 2, MAKE DYNAMIC" << std::endl;
+    size_t geoFrameCount = 2;
+    if ( geoFrameCount < ( videoFrameIndex + mapCount ) ) { std::cout << "ERROR before PC generation" << std::endl; return; }
+
     for ( std::size_t index = 0; index < current_atlas_frame->patches_map.size(); index++ ) {
         patchIndex                     = ( bDecoder && patchPrecedenceOrderFlag ) ? ( totalPatchCount - index - 1 ) : index;
         const size_t patchIndexPlusOne = patchIndex + 1;
@@ -281,25 +289,22 @@ void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_
                     for ( size_t v1 = 0; v1 < patch.occupancy_resolution; ++v1 ) {
                         const size_t v = v0 * patch.occupancy_resolution + v1;
                         for ( size_t u1 = 0; u1 < patch.occupancy_resolution; ++u1 ) {
-                            /*const size_t u = u0 * patch.getOccupancyResolution() + u1;
+                            const size_t u = u0 * patch.occupancy_resolution + u1;
                             size_t       x;
                             size_t       y;
                             bool         occupancy     = false;
-                            size_t       canvasIndex   = patch.patch2Canvas( u, v, tileWidth, tileHeight, x, y );
-                            size_t       xInVideoFrame = x + tile.getLeftTopXInFrame();
-                            size_t       yInVideoFrame = y + tile.getLeftTopYInFrame();
+                            size_t       canvasIndex = patch_to_canvas(u, v, tileWidth, tileHeight, x, y, patch);
+                            size_t       xInVideoFrame = x + current_atlas_frame->getLeftTopXInFrame();
+                            size_t       yInVideoFrame = y + current_atlas_frame->getLeftTopYInFrame();
                             bool         isBoundary    = false;
-                            if ( params.pbfEnableFlag_ ) {
-                                occupancy = patch.getOccupancyMap( u, v ) != 0;
-                                if ( occupancy ) { isBoundary = patch.isBorder( u, v ); }
-                            } else {
-                                occupancy = occupancyMap[canvasIndex] != 0;
-                            }
+
+                            occupancy = occupancyMap[canvasIndex] != 0;
+                            
                             if ( !occupancy ) { continue; }
-                            std::vector<PCCPoint3D> createdPoints;
+                            std::vector<point3d> createdPoints;
                             Logger::log(LogLevel::INFO, "Reconstruction", "Generate point positions \n");
-                            createdPoints = generatePoints( params, tile, videoGeometryMultiple, videoFrameIndex, patchIndex, u,
-                                                            v, xInVideoFrame, yInVideoFrame );*/
+                            createdPoints = generate_points( /*params, */current_atlas_frame, /*videoGeometryMultiple, */videoFrameIndex, patchIndex, u,
+                                                v, xInVideoFrame, yInVideoFrame );
                         }
                     }
                 }
