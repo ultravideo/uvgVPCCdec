@@ -290,8 +290,8 @@ struct patch {
     uint32_t TilePatch2dSizeX = 1; // sizeU0 size of occupancy map (n*occupancyResolution_)
     uint32_t TilePatch2dSizeY = 1; // sizeV0 size of occupancy map (n*occupancyResolution_)
 
-    uint32_t getSizeU0() {return TilePatch2dSizeY;}
-    uint32_t getSizeV0() {return TilePatch2dSizeX;}
+    uint32_t getSizeU0() {return TilePatch2dSizeX;}
+    uint32_t getSizeV0() {return TilePatch2dSizeY;}
 
     uint32_t TilePatch3dOffsetU = 0; // u1 tangential shift
     uint32_t TilePatch3dOffsetV = 0; // v1 bitangential shift
@@ -304,6 +304,8 @@ struct patch {
     uint32_t TilePatchLoDScaleY = 1;
 
     size_t occupancy_resolution = 0; //helper var tmc2
+    size_t size2DXInPixel_; // needed? tmc2
+    size_t size2DYInPixel_; // needed? tmc2
 
     /*
 uint32_t offsetY; // whats this?

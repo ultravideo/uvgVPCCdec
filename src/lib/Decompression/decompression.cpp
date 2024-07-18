@@ -646,11 +646,64 @@ void BitstreamParsing::decode_atlas_frame(atlas_frame* frame, atlas_tile_layer_r
     frame->tile_height = saved_asps_.asps_frame_height;
 
     std::size_t pid_count = rbsp->atdu.pid_vec.size();
+
+    const size_t minLevel = pow( 2., double(rbsp->ath.ath_pos_min_d_quantizer)); // this line from TMC2
+    int32_t quantizerSizeX = 1 << rbsp->ath.ath_patch_size_x_info_quantizer; // ath.getPatchSizeXinfoQuantizer(); // tmc2
+    int32_t quantizerSizeY = 1 << rbsp->ath.ath_patch_size_y_info_quantizer; //ath.getPatchSizeYinfoQuantizer(); // tmc2
+    int32_t packingBlockSize       = 1 << saved_asps_.asps_log2_patch_packing_block_size;
+    double  packingBlockSizeD      = static_cast<double>( packingBlockSize );
+
     for(std::size_t i = 0; i < pid_count; ++i) {
         const patch_data_unit &pdu = rbsp->atdu.pid_vec.at(i).patch;
-        patch new_patch;
+        patch p;
+        p.occupancy_resolution = size_t(1) << saved_asps_.asps_log2_patch_packing_block_size;
+        p.TilePatch2dPosX = pdu.pdu_2d_pos_x;
+        p.TilePatch2dPosY = pdu.pdu_2d_pos_y;
+        p.TilePatch3dOffsetU = pdu.pdu_3d_offset_u;
+        p.TilePatch3dOffsetV = pdu.pdu_3d_offset_v;
 
-        // helper var tmc2
+        bool lodEnableFlag = pdu.pdu_lod_enabled_flag;
+        if ( lodEnableFlag ) {
+            p.TilePatchLoDScaleX = pdu.pdu_lod_scale_x_minus1 + 1;
+            p.TilePatchLoDScaleY = pdu.pdu_lod_scale_y_idc + p.TilePatchLoDScaleX > 1 ? 1 : 2;
+        } else {
+            p.TilePatchLoDScaleX = 1;
+            p.TilePatchLoDScaleY = 1;
+        }
+        p.TilePatch3dRangeD = pdu.pdu_3d_range_d == 0 ? 0 : (pdu.pdu_3d_range_d * minLevel - 1);
+        if ( saved_asps_.asps_patch_size_quantizer_present_flag ) {
+            p.size2DXInPixel_ = (pdu.pdu_2d_size_x_minus1 + 1) * quantizerSizeX;
+            p.size2DYInPixel_ = (pdu.pdu_2d_size_y_minus1 + 1) * quantizerSizeY;
+            p.TilePatch2dSizeX = ceil( static_cast<double>( p.size2DXInPixel_ ) / packingBlockSizeD );
+            p.TilePatch2dSizeY = ceil( static_cast<double>( p.size2DYInPixel_ ) / packingBlockSizeD );
+        } else {
+            p.TilePatch2dSizeX = pdu.pdu_2d_size_x_minus1 + 1;
+            p.TilePatch2dSizeY = pdu.pdu_2d_size_y_minus1 + 1;
+        }
+        p.TilePatchOrientationIndex = pdu.pdu_orientation_index;
+        p.TilePatchProjectionID = pdu.pdu_projection_id;
+        p.TilePatch3dOffsetD = static_cast<int32_t>( pdu.pdu_3d_offset_d ) * minLevel;
+        printf(
+          "patch(Intra) %zu: UV0 %4zu %4zu UV1 %4zu %4zu D1=%4zu S=%4zu %4zu %4zu(%4zu) P=%zu O=%zu A=%u%u%u Lod "
+          "=(%zu) %zu,%zu 45=%d ProjId=%4zu Axis=%zu \n",
+          size_t(i), size_t(p.TilePatch2dPosX), size_t(p.TilePatch2dPosY), size_t(p.TilePatch3dOffsetU), size_t(p.TilePatch3dOffsetV), size_t(p.TilePatch3dOffsetD), size_t(p.TilePatch2dSizeX),
+          size_t(p.TilePatch2dSizeY), size_t(p.TilePatch3dRangeD), size_t(pdu.pdu_3d_range_d), size_t(p.TilePatchProjectionID),
+          size_t(p.TilePatchOrientationIndex), uint32_t(0), uint32_t(0), uint32_t(0),
+          (size_t)lodEnableFlag, (size_t)p.TilePatchLoDScaleX, (size_t)p.TilePatchLoDScaleY, saved_asps_.asps_extended_projection_enabled_flag,
+          (size_t)pdu.pdu_projection_id, size_t(0) );
+
+        /*if ( patch.getNormalAxis() == 0 ) { // DOES IGNORING THIS CAUSE ERRORS??
+            patch.setTangentAxis( 2 );
+            patch.setBitangentAxis( 1 );
+        } else if ( patch.getNormalAxis() == 1 ) {
+            patch.setTangentAxis( 2 );
+            patch.setBitangentAxis( 0 );
+        } else {
+            patch.setTangentAxis( 0 );
+            patch.setBitangentAxis( 1 );
+        }*/
+
+        /*// helper var tmc2 ----------------- my code
         new_patch.occupancy_resolution = (size_t(1) << saved_asps_.asps_log2_patch_packing_block_size);
 
         // --------------- if problems come, check if this is correct  ------------------
@@ -675,9 +728,9 @@ void BitstreamParsing::decode_atlas_frame(atlas_frame* frame, atlas_tile_layer_r
         uint32_t offsetY = ((pdu.pdu_lod_scale_x_minus1 > 0) ? 1 : 2);
         new_patch.TilePatchLoDScaleY = pdu.pdu_lod_enabled_flag ? pdu.pdu_lod_scale_y_idc + offsetY : 1;
         new_patch.TilePatch2dSizeX = (pdu.pdu_2d_size_x_minus1 + 1) * PatchSizeXQuantizer;
-        new_patch.TilePatch2dSizeY = (pdu.pdu_2d_size_y_minus1 + 1) * PatchSizeYQuantizer;
+        new_patch.TilePatch2dSizeY = (pdu.pdu_2d_size_y_minus1 + 1) * PatchSizeYQuantizer;*/
 
-        frame->patches_map.push_back(new_patch);
+        frame->patches_map.push_back(p);
     }
 }
 
