@@ -486,6 +486,8 @@ struct atlas_frame {
     size_t getLeftTopXInFrame() {return 0;}
     size_t getLeftTopYInFrame() {return 0;}
     std::vector<vector3d>& getPointToPixel() { return pointToPixel_; }
+    size_t totalNumberOfRegularPoints_ = 0;
+    void setTotalNumberOfRegularPoints( size_t numPoints ) { totalNumberOfRegularPoints_ = numPoints; }
 };
 
 struct decompressed_data { // of a gof currently

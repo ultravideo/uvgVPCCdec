@@ -5,7 +5,7 @@
 #include <cstdio>
 
 /* In debug mode print out some extra info */
-#define BITSTREAM_DEBUG true
+#define BITSTREAM_DEBUG false
 
 static const uint8_t* cbuf_;
 static bitstream_position pos_;

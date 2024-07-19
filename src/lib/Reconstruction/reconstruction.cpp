@@ -185,10 +185,10 @@ int Reconstruction::patchBlock2CanvasBlock( const size_t uBlk,
     if ( x >= canvasStrideBlk ) { return -1; }
     if ( y >= canvasHeightBlk ) { return -1; }
     if ( tile.minU != -1 ) {
-    if ( (int)x < tile.minU ) { return -1; }
-    if ( (int)y < tile.minV ) { return -1; }
-    if ( (int)x > tile.maxU ) { return -1; }
-    if ( (int)y > tile.maxV ) { return -1; }
+        if ( (int)x < tile.minU ) { return -1; }
+        if ( (int)y < tile.minV ) { return -1; }
+        if ( (int)x > tile.maxU ) { return -1; }
+        if ( (int)y > tile.maxV ) { return -1; }
     }
     return int( x + canvasStrideBlk * y );
 }
@@ -197,11 +197,10 @@ int Reconstruction::patchBlock2CanvasBlock( const size_t uBlk,
 void Reconstruction::generateBlockToPatchFromOccupancyMapVideo(atlas_frame* frame, picture* occupancyMapImage,
         const size_t occupancyResolution, const size_t occupancyPrecision )
 {
-    auto test = occupancyResolution;
     auto&        patches            = frame->patches_map;//tile.getPatches();
     const size_t patchCount         = patches.size();
-    const size_t blockToPatchWidth  = frame->tile_width; //tile.getWidth() / occupancyResolution;
-    const size_t blockToPatchHeight = frame->tile_height; //tile.getHeight() / occupancyResolution;
+    const size_t blockToPatchWidth  = frame->tile_width / occupancyResolution;
+    const size_t blockToPatchHeight = frame->tile_height / occupancyResolution;
     const size_t blockCount         = blockToPatchWidth * blockToPatchHeight;
     auto&        blockToPatch       = frame->block_to_patch; //tile.getBlockToPatch();
     blockToPatch.resize( blockCount );
@@ -312,14 +311,23 @@ void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_
     size_t geoFrameCount = 2;
     if ( geoFrameCount < ( videoFrameIndex + mapCount ) ) { std::cout << "ERROR before PC generation" << std::endl; return; }
 
+    size_t generatePointsCalled = 0;
+    size_t patchBlock2 = 0;
+    size_t patch2C = 0;
+    size_t if_true = 0;
+    size_t false_times = 0;
+    
     for ( std::size_t index = 0; index < current_atlas_frame->patches_map.size(); index++ ) {
         patchIndex                     = ( bDecoder && patchPrecedenceOrderFlag ) ? ( totalPatchCount - index - 1 ) : index;
         const size_t patchIndexPlusOne = patchIndex + 1;
         auto& patch             = current_atlas_frame->patches_map[patchIndex];
+        std::cout << "patchIndexPlusOne " << patchIndexPlusOne << ", blockToPatch.size " << blockToPatch.size() << std::endl;
         for ( size_t v0 = 0; v0 < patch.getSizeV0(); ++v0 ) {
             for ( size_t u0 = 0; u0 < patch.getSizeU0(); ++u0 ) {
                 const size_t blockIndex = patchBlock2CanvasBlock(u0, v0, blockToPatchWidth, blockToPatchHeight, patch);
+                patchBlock2++;
                 if ( blockToPatch[blockIndex] == patchIndexPlusOne ) {
+                    if_true++;
                     for ( size_t v1 = 0; v1 < patch.occupancy_resolution; ++v1 ) {
                         const size_t v = v0 * patch.occupancy_resolution + v1;
                         for ( size_t u1 = 0; u1 < patch.occupancy_resolution; ++u1 ) {
@@ -328,6 +336,7 @@ void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_
                             size_t       y;
                             bool         occupancy     = false;
                             size_t       canvasIndex = patch_to_canvas(u, v, tileWidth, tileHeight, x, y, patch);
+                            patch2C++;
                             size_t       xInVideoFrame = x + current_atlas_frame->getLeftTopXInFrame();
                             size_t       yInVideoFrame = y + current_atlas_frame->getLeftTopYInFrame();
                             bool         isBoundary    = false;
@@ -343,7 +352,7 @@ void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_
                             //Logger::log(LogLevel::INFO, "Reconstruction", "Generate point positions \n");
                             createdPoints = generate_points( /*params, */current_atlas_frame, data->geometry_maps, videoFrameIndex, patchIndex, u,
                                                 v, xInVideoFrame, yInVideoFrame, mapCountMinus1_, multipleStreams_, absoluteD1_);
-
+                            generatePointsCalled++;
                             if ( !createdPoints.empty() ) {
                                 for ( size_t i = 0; i < createdPoints.size(); i++ ) {
                                     if ( ( !removeDuplicatePoints_ ) || ( ( i == 0 ) || ( createdPoints[i] != createdPoints[0] ) ) ) {
@@ -383,9 +392,17 @@ void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_
                         }
                     }
                 }
+                else {false_times++;}
             }
         }
-    }      
+    }   
+    current_atlas_frame->setTotalNumberOfRegularPoints( reconstruct->getPointCount() );
+    printf( "frame %zu, tile %zu: regularPoints %zu\n", (size_t)0, (size_t)0, reconstruct->getPointCount() );
+    std::cout << "reconstruct->pointPatchIndexes_.size() " << reconstruct->pointPatchIndexes_.size() <<
+        " reconstruct->types_.size() " << reconstruct->types_.size() <<
+        " reconstruct->positions.size() " << reconstruct->positions.size() << std::endl;
+    std::cout << "patchBlock2 " << patchBlock2 << " if_true " << if_true << " false_times " << false_times <<
+        " patch2C " << patch2C << " generatePointsCalled " << generatePointsCalled << std::endl;
 }
 
 void Reconstruction::inverseRotatePosition45DegreeOnAxis( size_t axis, size_t lod, point3d input, point3d& output ) {
