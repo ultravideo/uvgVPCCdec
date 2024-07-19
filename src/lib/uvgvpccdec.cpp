@@ -22,10 +22,11 @@ void API::decodeV3CSampleStream(const std::string filename)
 
     decompressed_data decompressed;
     point_cloud_frame reconstructed_point_cloud_frame;
+    std::vector<uint32_t> partition_what_is_this = {};
     
     BitstreamParsing::decompressV3CSampleStream(data, &decompressed);
     FormatConversion::convertToNominalFormat(&decompressed);
-    Reconstruction::reconstructPointCloud(&decompressed, &reconstructed_point_cloud_frame);
+    Reconstruction::reconstructPointCloud(&decompressed, &reconstructed_point_cloud_frame, partition_what_is_this);
 
 }
 

@@ -4,7 +4,7 @@
 
 class Reconstruction {
 public: 
-    static void reconstructPointCloud(decompressed_data* data, point_cloud_frame* reconstruct);
+    static void reconstructPointCloud(decompressed_data* data, point_cloud_frame* reconstruct, std::vector<uint32_t>& partition);
 
     static size_t patch_to_canvas(const size_t u, const size_t v, size_t canvasStride, size_t canvasHeight,
         size_t& x, size_t& y, const patch &p);
@@ -38,5 +38,7 @@ public:
                                       size_t       canvasStrideBlk,
                                       size_t       canvasHeightBlk,
                                       const patch &p, const Tile tile = Tile() );
+
+    static void inverseRotatePosition45DegreeOnAxis( size_t Axis, size_t lod, point3d input, point3d& output ); 
 
 };

@@ -3,6 +3,10 @@
 #include <cmath>
 #include "uvgvpccdec/uvgvpccdec.hpp"
 #include "bitstream_common.hpp"
+#include <assert.h>
+
+const uint8_t PCC_SAVE_POINT_TYPE = 1; // TODO DYNAMIC
+enum PCCPointType { POINT_UNSET = 0, POINT_D0, POINT_D1, POINT_DF, POINT_SMOOTH, POINT_EOM, POINT_RAW };
 
 using std::size_t;
 
@@ -276,9 +280,30 @@ struct video_map {
     std::vector<picture> pictures = {};
 };
 
+struct vector3d {
+    size_t data_[3];
+
+    vector3d(const size_t x, size_t y, size_t z ) {
+        data_[0] = x;
+        data_[1] = y;
+        data_[2] = z;
+    }
+    vector3d()        = default;
+};
+
 struct point3d {
     uint16_t data_[3];
-    uint16_t pos3D[3] = {0, 0, 0};
+
+    bool operator==(const point3d &cmp) const {
+        return ( data_[0] == cmp.data_[0] && data_[1] == cmp.data_[1] && data_[2] == cmp.data_[2] );
+    };
+    bool operator!=(const point3d &cmp) const {
+        return ( data_[0] != cmp.data_[0] || data_[1] != cmp.data_[1] || data_[2] != cmp.data_[2] );
+    }
+
+    uint16_t&       x() { return data_[0]; }
+    uint16_t&       y() { return data_[1]; }
+    uint16_t&       z() { return data_[2]; }
 };
 
 struct patch {
@@ -408,12 +433,50 @@ uint32_t offsetY; // whats this?
 
 struct point_cloud_frame {
     std::vector<point3d> positions = {};
+    std::vector<std::pair<size_t, size_t>> pointPatchIndexes_;
+    std::vector<uint8_t> types_;
+
+    void   resize( const size_t size ) {
+        positions.resize( size );
+        /*if ( hasColors() ) {
+        colors_.resize( size );
+        colors16bit_.resize( size );
+        }
+        if ( hasReflectances() ) { reflectances_.resize( size ); }*/
+        if ( PCC_SAVE_POINT_TYPE ) { types_.resize( size ); }
+        /*if ( hasNormals() ) { normals_.resize( size ); }
+        boundaryPointTypes_.resize( size );*/
+        pointPatchIndexes_.resize( size );
+        //parentPointIndex_.resize( size );
+    }
+
+    size_t getPointCount() const { return positions.size(); }
+
+    size_t addPoint( const point3d& position ) {
+        const size_t index = getPointCount();
+        resize( index + 1 ); // NOTE - COSTLY OPERATION?
+        positions[index] = position;
+        return index;
+    }
+
+    void setType( const size_t index, const uint8_t type ) {
+        assert( index < types_.size() );
+        types_[index] = type;
+    }
+
+    // Is this func ok?
+    void setPointPatchIndex( const size_t index, const uint32_t tileIndex, const uint32_t patchIndex ) {
+        assert( index < pointPatchIndexes_.size() );
+        pointPatchIndexes_[index].first  = tileIndex;
+        pointPatchIndexes_[index].second = patchIndex;
+    }
 };
 
 struct atlas_frame {
     // As we only currently support one tile per atlas frame, the frame directly contains the patch map
     // otherwise tiles would be in between frame and patch
     std::vector<patch> patches_map = {};
+    std::vector<vector3d> pointToPixel_ = {};
 
     // These are here for now as only 1 tile per frame. TODO; FIX
     size_t tile_width = 0;
@@ -422,6 +485,7 @@ struct atlas_frame {
     std::vector<size_t> block_to_patch;
     size_t getLeftTopXInFrame() {return 0;}
     size_t getLeftTopYInFrame() {return 0;}
+    std::vector<vector3d>& getPointToPixel() { return pointToPixel_; }
 };
 
 struct decompressed_data { // of a gof currently

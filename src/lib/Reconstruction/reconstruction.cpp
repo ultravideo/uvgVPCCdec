@@ -3,6 +3,8 @@
 
 using namespace uvgvpcc_dec;
 
+const size_t g_intermediateLayerIndex = 100; //TMC2 what is this??
+
 /* ------------------------ ripped from tmc2------------------------ */
 size_t Reconstruction::patch_to_canvas(const size_t u, const size_t v, size_t canvasStride, size_t canvasHeight,
     size_t& x, size_t& y, const patch &p)
@@ -89,7 +91,7 @@ std::vector<point3d> Reconstruction::generate_points( /*const GeneratePointCloud
     point0 = patch.generatePoint( u, v, frame0.get_Y_value(x, y) );
 
     createdPoints.push_back( point0 );
-    std::cout << "NOTE: hard coded no singleMapPixelInterleaving_ or pointLocalReconstruction_" << std::endl;
+    //std::cout << "NOTE: hard coded no singleMapPixelInterleaving_ or pointLocalReconstruction_" << std::endl;
     if ( mapCountMinus1 > 0 ) {
       point3d  point1( point0 );
       auto& frame1 = multipleStreams ? videoGeometryMultiple[1].pictures.at(videoFrameIndex) 
@@ -243,16 +245,19 @@ void Reconstruction::generateBlockToPatchFromOccupancyMapVideo(atlas_frame* fram
     }
 }
 
-void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_frame* reconstruct)
+void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_frame* reconstruct, std::vector<uint32_t>& partition)
 {
     Logger::log(LogLevel::INFO, "Reconstruction", "Reconstructing point cloud \n");
 
-    auto b = reconstruct->positions.size();    
     //for(data->frame_count) only 1 frame at first ------------------------------
     auto current_atlas_frame = data->atlas_map.front().get();
     picture current_occupancy_frame = data->occupancy_map.pictures.front();
     size_t tileWidth = current_atlas_frame->tile_width;
     size_t tileHeight = current_atlas_frame->tile_height;
+
+    std::vector<vector3d> pointToPixel = current_atlas_frame->getPointToPixel();
+    pointToPixel.resize( 0 );
+
     // only one atlas = one VPS frame width
     uint32_t occupancyPrecision = data->vps.vps_frame_width.front() / data->occupancy_map.width;
     std::cout << "occupancyPrecision " << occupancyPrecision << std::endl;
@@ -294,9 +299,14 @@ void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_
     const size_t blockToPatchWidth     = tileWidth / occupancyResolution_;
     const size_t blockToPatchHeight    = tileHeight / occupancyResolution_;
 
+    std::cout << "NOTE: HARD CODED remove duplicate points to false" << std::endl;
+    bool removeDuplicatePoints_ = false;
+
     size_t videoFrameIndex;
     std::cout << "NOTE: HARD CODED ATLAS INDEX TO 0, MAKE DYNAMIC" << std::endl;
     const size_t mapCount = data->vps.vps_map_count_minus1.at(0) + 1;
+
+    const size_t geometryBitDepth3D_ = data->vps.geometry_info.at(0).gi_geometry_2d_bit_depth_minus1 + 1;
     videoFrameIndex = 0 * mapCount;
     std::cout << "NOTE: HARD CODED GEOMETRY MAP COUNT to 2, MAKE DYNAMIC" << std::endl;
     size_t geoFrameCount = 2;
@@ -323,21 +333,80 @@ void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_
                             bool         isBoundary    = false;
 
                             occupancy = occupancyMap[canvasIndex] != 0;
-                            std::cout << "NOTE: hard coded vps mapCountMinus1 and multipleStreams atlas index number" << std::endl;
+                            //std::cout << "NOTE: hard coded vps mapCountMinus1 and multipleStreams atlas index number" << std::endl;
                             size_t mapCountMinus1_ = data->vps.vps_map_count_minus1.at(0);
                             bool multipleStreams_ = data->vps.vps_multiple_map_streams_present_flag.at(0);
-                            std::cout << " test print" << std::endl;
                             bool absoluteD1_ = data->vps.vps_map_count_minus1.at(0) == 0 || data->vps.vps_map_absolute_coding_enabled_flag.at(0).at(1);
                             
                             if ( !occupancy ) { continue; }
                             std::vector<point3d> createdPoints;
-                            Logger::log(LogLevel::INFO, "Reconstruction", "Generate point positions \n");
+                            //Logger::log(LogLevel::INFO, "Reconstruction", "Generate point positions \n");
                             createdPoints = generate_points( /*params, */current_atlas_frame, data->geometry_maps, videoFrameIndex, patchIndex, u,
                                                 v, xInVideoFrame, yInVideoFrame, mapCountMinus1_, multipleStreams_, absoluteD1_);
+
+                            if ( !createdPoints.empty() ) {
+                                for ( size_t i = 0; i < createdPoints.size(); i++ ) {
+                                    if ( ( !removeDuplicatePoints_ ) || ( ( i == 0 ) || ( createdPoints[i] != createdPoints[0] ) ) ) {
+                                    size_t pointindex = 0;
+                                    size_t tileIndex = 0; // NOte hard coded single tile
+
+                                    if ( patch.axisOfAdditionalPlane_ == 0 ) {
+                                        pointindex = reconstruct->addPoint( createdPoints[i] );
+                                        reconstruct->setPointPatchIndex( pointindex, tileIndex, patchIndex );
+                                    } else {
+                                        point3d tmp; // Use point3d instead of vector3D in tmc2?
+                                        inverseRotatePosition45DegreeOnAxis( patch.axisOfAdditionalPlane_,
+                                                                            geometryBitDepth3D_, createdPoints[i], tmp );
+                                        pointindex = reconstruct->addPoint( tmp );
+                                        reconstruct->setPointPatchIndex( pointindex, tileIndex, patchIndex );
+                                    }
+                                    const size_t pointindex_1 = pointindex;
+                                    // IMPLEMENT THIS reconstruct.setColor( pointindex_1, color );
+                                    if ( PCC_SAVE_POINT_TYPE == 1 ) {
+                                        // if ( params.singleMapPixelInterleaving_ ) { else 
+                                        reconstruct->setType( pointindex_1, i == 0 ? POINT_D0 : i == 1 ? POINT_D1 : POINT_DF );
+                                    }
+                                    partition.push_back( uint32_t( patchIndex ) );
+                                    /*if ( params.singleMapPixelInterleaving_ ) {
+                                        pointToPixel.emplace_back(
+                                            x, y,
+                                            i == 0 ? ( static_cast<size_t>( x + y ) % 2 )
+                                                : i == 1 ? ( static_cast<size_t>( x + y + 1 ) % 2 ) : g_intermediateLayerIndex );
+                                    } else if ( params.pointLocalReconstruction_ ) {
+                                        pointToPixel.emplace_back(
+                                            x, y, i == 0 ? 0 : i == 1 ? g_intermediateLayerIndex : g_intermediateLayerIndex + 1 );
+                                    } else {*/
+                                    pointToPixel.emplace_back( x, y, i < 2 ? i : g_intermediateLayerIndex + 1 );
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             }
         }
-    }         
+    }      
+}
+
+void Reconstruction::inverseRotatePosition45DegreeOnAxis( size_t axis, size_t lod, point3d input, point3d& output ) {
+    size_t s = ( 1u << ( lod - 1 ) ) - 1;
+    output   = input;
+    if ( axis == 1 ) {  // projection plane is defined by Y Axis.
+        output.x() = input.x() - input.z() + s;
+        output.x() /= 2.0;
+        output.z() = input.x() + input.z() - s;
+        output.z() /= 2.0;
+    }
+    if ( axis == 2 ) {  // projection plane is defined by X Axis.
+        output.z() = input.z() - input.y() + s;
+        output.z() /= 2.0;
+        output.y() = input.z() + input.y() - s;
+        output.y() /= 2.0;
+    }
+    if ( axis == 3 ) {  // projection plane is defined by Z Axis.
+        output.y() = input.y() - input.x() + s;
+        output.y() /= 2.0;
+        output.x() = input.y() + input.x() - s;
+        output.x() /= 2.0;
+    }
 }
