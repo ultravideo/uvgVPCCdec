@@ -217,6 +217,7 @@ void Reconstruction::generateBlockToPatchFromOccupancyMapVideo(atlas_frame* fram
             (size_t)1, (size_t)patch.TilePatchLoDScaleX, (size_t)patch.TilePatchLoDScaleY, 0,
             (size_t)0, size_t(0) );*/
         size_t nonZeroPixel = 0;
+        size_t nonZeroCount = 0;
         for ( size_t v0 = 0; v0 < patch.getSizeV0(); ++v0 ) {
             for ( size_t u0 = 0; u0 < patch.getSizeU0(); ++u0 ) {
                 const size_t blockIndex = patchBlock2CanvasBlock(u0, v0, blockToPatchWidth, blockToPatchHeight, patch);
@@ -236,11 +237,13 @@ void Reconstruction::generateBlockToPatchFromOccupancyMapVideo(atlas_frame* fram
                         y += frame->getLeftTopYInFrame();
                         nonZeroPixel += static_cast<unsigned long long>(
                             occupancyMapImage->get_Y_value(x / occupancyPrecision, y / occupancyPrecision ) != 0);
+                        if(patchIndex == 34) { std::cout << "occupancy Y value " << occupancyMapImage->get_Y_value(x / occupancyPrecision, y / occupancyPrecision ) << std::endl; }
                     }
                 }
-                if ( nonZeroPixel > 0 ) { blockToPatch[blockIndex] = patchIndex + 1; }
+                if ( nonZeroPixel > 0 ) { blockToPatch[blockIndex] = patchIndex + 1; nonZeroCount++; }
             }
         }
+        std::cout << "Patch " << patchIndex << " nonZeroCount " << nonZeroCount << std::endl;
     }
 }
 
@@ -315,18 +318,18 @@ void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_
     size_t patchBlock2 = 0;
     size_t patch2C = 0;
     size_t if_true = 0;
-    size_t false_times = 0;
     
     for ( std::size_t index = 0; index < current_atlas_frame->patches_map.size(); index++ ) {
         patchIndex                     = ( bDecoder && patchPrecedenceOrderFlag ) ? ( totalPatchCount - index - 1 ) : index;
         const size_t patchIndexPlusOne = patchIndex + 1;
         auto& patch             = current_atlas_frame->patches_map[patchIndex];
-        std::cout << "patchIndexPlusOne " << patchIndexPlusOne << ", blockToPatch.size " << blockToPatch.size() << std::endl;
+        size_t patch_true = 0;
         for ( size_t v0 = 0; v0 < patch.getSizeV0(); ++v0 ) {
             for ( size_t u0 = 0; u0 < patch.getSizeU0(); ++u0 ) {
                 const size_t blockIndex = patchBlock2CanvasBlock(u0, v0, blockToPatchWidth, blockToPatchHeight, patch);
                 patchBlock2++;
                 if ( blockToPatch[blockIndex] == patchIndexPlusOne ) {
+                    patch_true++;
                     if_true++;
                     for ( size_t v1 = 0; v1 < patch.occupancy_resolution; ++v1 ) {
                         const size_t v = v0 * patch.occupancy_resolution + v1;
@@ -392,16 +395,16 @@ void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_
                         }
                     }
                 }
-                else {false_times++;}
             }
         }
+        std::cout << "index " << index << ", patch_true count " << patch_true << std::endl;
     }   
     current_atlas_frame->setTotalNumberOfRegularPoints( reconstruct->getPointCount() );
     printf( "frame %zu, tile %zu: regularPoints %zu\n", (size_t)0, (size_t)0, reconstruct->getPointCount() );
     std::cout << "reconstruct->pointPatchIndexes_.size() " << reconstruct->pointPatchIndexes_.size() <<
         " reconstruct->types_.size() " << reconstruct->types_.size() <<
         " reconstruct->positions.size() " << reconstruct->positions.size() << std::endl;
-    std::cout << "patchBlock2 " << patchBlock2 << " if_true " << if_true << " false_times " << false_times <<
+    std::cout << "patchBlock2 " << patchBlock2 << " if_true " << if_true <<
         " patch2C " << patch2C << " generatePointsCalled " << generatePointsCalled << std::endl;
 }
 
