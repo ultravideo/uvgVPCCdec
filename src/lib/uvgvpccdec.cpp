@@ -27,8 +27,12 @@ void API::decodeV3CSampleStream(const std::string filename)
     BitstreamParsing::decompressV3CSampleStream(data, &decompressed);
     FormatConversion::convertToNominalFormat(&decompressed);
     Reconstruction::reconstructPointCloud(&decompressed, &reconstructed_point_cloud_frame, partition_what_is_this);
-
-}
+    //reconstruct_multiple_frames.appendPointSet( reconstructed_point_cloud_frame );
+    //if ( !decoderParams.reconstructedDataPath_.empty() ) {
+    //reconstructs.write( decoderParams.reconstructedDataPath_, frameNumber, decoderParams.nbThread_ );
+    Reconstruction::write("output-test.ply", &reconstructed_point_cloud_frame);
+    
+    }
 
 void readFile(const std::string filename, std::vector<uint8_t> &data)
 {

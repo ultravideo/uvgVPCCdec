@@ -1,9 +1,130 @@
 #include "reconstruction.hpp"
 #include "reconstruction_common.hpp"
+#include <fstream>
+#include <iomanip>
 
 using namespace uvgvpcc_dec;
 
 const size_t g_intermediateLayerIndex = 100; //TMC2 what is this??
+
+enum PCCEndianness { PCC_BIG_ENDIAN = 0, PCC_LITTLE_ENDIAN = 1 };
+static inline PCCEndianness PCCSystemEndianness() {
+  uint32_t num = 1;
+  return ( *( reinterpret_cast<char*>( &num ) ) == 1 ) ? PCC_LITTLE_ENDIAN : PCC_BIG_ENDIAN;
+}
+
+bool Reconstruction::write( const std::string& fileName, point_cloud_frame* frame, const bool asAscii ) {
+
+    Logger::log(LogLevel::INFO, "Reconstruction", "Write to file \n");
+    std::ofstream fout( fileName, std::ofstream::out );
+    if ( !fout.is_open() ) { return false; }
+    const size_t pointCount = frame->getPointCount();
+    fout << "ply" << std::endl;
+
+    if ( asAscii ) {
+        fout << "format ascii 1.0" << std::endl;
+    } else {
+        PCCEndianness endianess = PCCSystemEndianness();
+        if ( endianess == PCC_BIG_ENDIAN ) {
+        fout << "format binary_big_endian 1.0" << std::endl;
+        } else {
+        fout << "format binary_little_endian 1.0" << std::endl;
+        }
+    }
+    fout << "element vertex " << pointCount << std::endl;
+    if ( asAscii ) {
+        fout << "property float x" << std::endl;
+        fout << "property float y" << std::endl;
+        fout << "property float z" << std::endl;
+    } else {
+        // fout << "property int16 x" << std::endl;
+        // fout << "property int16 y" << std::endl;
+        // fout << "property int16 z" << std::endl;
+        fout << "property float x" << std::endl;
+        fout << "property float y" << std::endl;
+        fout << "property float z" << std::endl;
+    }
+    /*if ( hasNormals() ) {
+        fout << "property float nx" << std::endl;
+        fout << "property float ny" << std::endl;
+        fout << "property float nz" << std::endl;
+    }
+    if ( hasColors() ) {
+        fout << "property uchar red" << std::endl;
+        fout << "property uchar green" << std::endl;
+        fout << "property uchar blue" << std::endl;
+    }
+    if ( hasReflectances() ) { fout << "property uint16 refc" << std::endl; }*/
+    if ( PCC_SAVE_POINT_TYPE != 0u ) {
+        fout << "property uchar type" << std::endl;
+        switch ( PCC_SAVE_POINT_TYPE ) {
+        case 1: fout << "comment POINT_TYPE: Unset D0 D1 Filling Smooth InBetween" << std::endl; break;
+        case 2: fout << "comment POINT_TYPE: type0 type1 type2  " << std::endl; break;
+        default: break;
+        }
+    }
+    fout << "element face 0" << std::endl;
+    fout << "property list uint8 int32 vertex_index" << std::endl;
+    fout << "end_header" << std::endl;
+    if ( asAscii ) {
+        fout << std::setprecision( std::numeric_limits<double>::max_digits10 );
+        for ( size_t i = 0; i < pointCount; ++i ) {
+            point3d& position = frame->positions.at(i);
+            //const PCCPoint3D& position = ( *this )[i];
+            fout << position.x() << " " << position.y() << " " << position.z();
+            /*if ( hasNormals() ) {
+                const PCCNormal3D& normal = getNormals()[i];
+                fout << " " << static_cast<float>( normal[0] ) << " " << static_cast<float>( normal[1] ) << " "
+                    << static_cast<float>( normal[2] );
+            }
+            if ( hasColors() ) {
+                const PCCColor3B& color = getColor( i );
+                fout << " " << static_cast<int>( color[0] ) << " " << static_cast<int>( color[1] ) << " "
+                    << static_cast<int>( color[2] );
+            }
+            if ( hasReflectances() ) { fout << " " << static_cast<int>( getReflectance( i ) ); }*/
+            /*
+            keep this!
+            if ( PCC_SAVE_POINT_TYPE != 0u ) { fout << " " << static_cast<int>( frame->types_[i] ); }
+            */
+            fout << std::endl;
+        }
+    } else {
+        fout.clear();
+        fout.close();
+        fout.open( fileName, std::ofstream::binary | std::ofstream::out | std::ofstream::app );
+        for ( size_t i = 0; i < pointCount; ++i ) {
+            point3d& position = frame->positions.at(i);
+            //const PCCPoint3D& position = ( *this )[i];
+            // fout.write( reinterpret_cast<const char* const>( &position ), sizeof( PCCType ) * 3 );
+            float value[3];
+            value[0] = position.data_[0];
+            value[1] = position.data_[1];
+            value[2] = position.data_[2];
+            fout.write( reinterpret_cast<const char*>( &value ), sizeof( float ) * 3 );
+            /*if ( hasNormals() ) {
+                const PCCNormal3D& normal = getNormals()[i];
+                value[0]                  = normal[0];
+                value[1]                  = normal[1];
+                value[2]                  = normal[2];
+                fout.write( reinterpret_cast<const char*>( &value ), sizeof( float ) * 3 );
+            }
+            if ( hasColors() ) {
+                const PCCColor3B& color = getColor( i );
+                fout.write( reinterpret_cast<const char*>( &color ), sizeof( uint8_t ) * 3 );
+            }
+            if ( hasReflectances() ) {
+                const uint16_t& reflectance = getReflectance( i );
+                fout.write( reinterpret_cast<const char*>( &reflectance ), sizeof( uint16_t ) );
+            }*/
+            if ( PCC_SAVE_POINT_TYPE != 0u ) {
+                fout.write( reinterpret_cast<const char*>( &frame->types_.at(i) ), sizeof( uint8_t ) );
+            }
+        }
+    }
+    fout.close();
+    return true;
+}
 
 /* ------------------------ ripped from tmc2------------------------ */
 size_t Reconstruction::patch_to_canvas(const size_t u, const size_t v, size_t canvasStride, size_t canvasHeight,
