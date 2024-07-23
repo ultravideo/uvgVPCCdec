@@ -136,16 +136,19 @@ void BitstreamParsing::decompressV3CSampleStream(const std::vector<uint8_t> &dat
                 break;
             case V3C_UNIT_TYPE::V3C_OVD:
                 convert_video_sub_bitstream(v3c_unit_payload_size_bytes, o_hevc);
+                output->occupancy_map.type = V3C_OVD;
                 decode_video_sub_bitstream(o_hevc, o_yuv, &output->occupancy_map);
                 break;
             case V3C_UNIT_TYPE::V3C_GVD: {
                 convert_video_sub_bitstream(v3c_unit_payload_size_bytes, g_hevc);
                 video_map new_geo_map;
                 output->geometry_maps.push_back(new_geo_map);
+                output->geometry_maps.back().type = V3C_GVD;
                 decode_video_sub_bitstream(g_hevc, g_yuv, &output->geometry_maps.back());
                 break; }
             case V3C_UNIT_TYPE::V3C_AVD:
                 convert_video_sub_bitstream(v3c_unit_payload_size_bytes, a_hevc);
+                output->attribute_map.type = V3C_AVD;
                 decode_video_sub_bitstream(a_hevc, a_yuv, &output->attribute_map);
                 break;
             default: 
@@ -775,8 +778,8 @@ void BitstreamParsing::decode_video_sub_bitstream(std::string input_path, std::s
 {
     std::stringstream cmd;
     cmd << ffmpeg_path << " -f hevc -i " << input_path;
-    cmd << " -vf scale=1280:1280 "; // -pix_fmt yuv444p ";
-    cmd << output_path;
+    //cmd << " -vf scale=1280:1280 "; // -pix_fmt yuv444p ";
+    cmd << " " << output_path;
     std::cout << cmd.str() << '\n';
     if (std::system(cmd.str().c_str()) != 0) {
         throw std::runtime_error("During the encoding of the sequence, an error occured while executing the following command: " +
@@ -792,6 +795,10 @@ void BitstreamParsing::decode_video_sub_bitstream(std::string input_path, std::s
 
     uint32_t width = 1280;
     uint32_t height = 1280;
+    if(map->type == V3C_OVD) {
+        width = 640;
+        height = 640;
+    }
     map->width = width;
     map->height = height;
     uint32_t frameSize = (width * height * 3) / 2;
