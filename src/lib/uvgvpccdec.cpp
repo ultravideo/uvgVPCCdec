@@ -4,6 +4,7 @@
 #include "Decompression/decompression.hpp"
 #include "FormatConversion/formatConversion.hpp"
 #include "Reconstruction/reconstruction.hpp"
+#include "PostReconstruction/postReconstruction.hpp"
 
 namespace uvgvpcc_dec
 {
@@ -27,6 +28,7 @@ void API::decodeV3CSampleStream(const std::string filename)
     BitstreamParsing::decompressV3CSampleStream(data, &decompressed);
     FormatConversion::convertToNominalFormat(&decompressed);
     Reconstruction::reconstructPointCloud(&decompressed, &reconstructed_point_cloud_frame, partition_what_is_this);
+    PostReconstruction::PostProcess(&decompressed, &reconstructed_point_cloud_frame, partition_what_is_this);
     //reconstruct_multiple_frames.appendPointSet( reconstructed_point_cloud_frame );
     //if ( !decoderParams.reconstructedDataPath_.empty() ) {
     //reconstructs.write( decoderParams.reconstructedDataPath_, frameNumber, decoderParams.nbThread_ );
