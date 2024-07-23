@@ -4,9 +4,11 @@
 #include "uvgvpccdec/uvgvpccdec.hpp"
 #include "bitstream_common.hpp"
 #include <assert.h>
+#include <cstring>
 
-const uint8_t PCC_SAVE_POINT_TYPE = 1; // TODO DYNAMIC
+const uint8_t PCC_SAVE_POINT_TYPE = 0; // TODO DYNAMIC
 enum PCCPointType { POINT_UNSET = 0, POINT_D0, POINT_D1, POINT_DF, POINT_SMOOTH, POINT_EOM, POINT_RAW };
+enum PCCCOLORFORMAT { UNKNOWN = 0, RGB444, YUV444, YUV420 };
 
 using std::size_t;
 
@@ -264,12 +266,52 @@ struct v3c_parameter_set {
 struct picture {
     size_t height = 0;
     size_t width = 0;
+    PCCCOLORFORMAT format;
     std::vector<uint8_t> Y;
     std::vector<uint8_t> U;
     std::vector<uint8_t> V;
 
     size_t get_Y_value(const size_t u, const size_t v ) { // Should be uint8_t??
         return Y.at(v * width + u);
+    }
+
+    void convert_yuv_420_to_444(const picture* old) {
+        format = PCCCOLORFORMAT::YUV444;
+        width = old->width;
+        height = old->height;
+        size_t size = old->width * old->height;
+        Y.resize(size, 0);
+        U.resize(size, 0);
+        V.resize(size, 0);
+        // Y
+        std::copy(old->Y.begin(), old->Y.end(), Y.begin());
+
+        // U
+        const size_t width2 = width / 2;
+        auto&    dst = U;
+        const uint8_t* src = old->U.data();
+        for ( size_t y = 0; y < height; y += 2 ) {
+            auto* const buffer = dst.data() + y * width;
+            for ( size_t x2 = 0; x2 < width2; ++x2, src++ ) {
+                const size_t x = x2 * 2;
+                buffer[x]      = *src;
+                buffer[x + 1]  = *src;
+            }
+            std::memcpy( (char*)( buffer + width ), (char*)buffer, width * sizeof( uint8_t ) );
+        }
+
+        // V
+        auto&    dst2 = V;
+        const uint8_t* src2 = old->V.data();
+        for ( size_t y = 0; y < height; y += 2 ) {
+            auto* const buffer = dst2.data() + y * width;
+            for ( size_t x2 = 0; x2 < width2; ++x2, src2++ ) {
+                const size_t x = x2 * 2;
+                buffer[x]      = *src2;
+                buffer[x + 1]  = *src2;
+            }
+            memcpy( (char*)( buffer + width ), (char*)buffer, width * sizeof( uint8_t ) );
+        }
     }
 };
 
@@ -278,6 +320,12 @@ struct video_map {
     size_t width = 0;
     size_t frame_count = 0;
     std::vector<picture> pictures = {};
+
+/*    void convert_yuv_420_to_444(const video_map* old) {
+        for (size_t i = 0; i < old->pictures.size(); ++i) {
+            pictures.at(i).convert_yuv_420_to_444(&old->pictures.at(i));
+        }
+    }*/
 };
 
 struct vector3d {

@@ -775,7 +775,7 @@ void BitstreamParsing::decode_video_sub_bitstream(std::string input_path, std::s
 {
     std::stringstream cmd;
     cmd << ffmpeg_path << " -f hevc -i " << input_path;
-    cmd << " -vf scale=1280:1280 -pix_fmt yuv444p ";
+    cmd << " -vf scale=1280:1280 "; // -pix_fmt yuv444p ";
     cmd << output_path;
     std::cout << cmd.str() << '\n';
     if (std::system(cmd.str().c_str()) != 0) {
@@ -787,43 +787,49 @@ void BitstreamParsing::decode_video_sub_bitstream(std::string input_path, std::s
     // Read decompressed video into a map
     std::ifstream decompressed_video(output_path, std::ios::binary);
     if(!decompressed_video.is_open()) {
-        throw std::runtime_error("Bitstream writing : Could not open output file " + output_path);
+        throw std::runtime_error("Bitstream reading : Could not open output file " + output_path);
     }
 
     uint32_t width = 1280;
     uint32_t height = 1280;
     map->width = width;
     map->height = height;
-    uint32_t frameSize = width * height * 3;
+    uint32_t frameSize = (width * height * 3) / 2;
 
     while (decompressed_video.peek() != EOF) {
-        picture frame;
-        frame.width = width;
-        frame.height = height;
-        frame.Y.resize(width * height);
-        frame.U.resize(width * height);
-        frame.V.resize(width * height);
+        picture frame420;
+        frame420.width = width;
+        frame420.height = height;
+        frame420.format = PCCCOLORFORMAT::YUV420;
+        frame420.Y.resize(width * height);
+        frame420.U.resize(width * height);
+        frame420.V.resize(width * height);
 
         std::size_t data_read = 0;
         // Read Y plane
-        decompressed_video.read(reinterpret_cast<char*>(frame.Y.data()), width * height);
+        decompressed_video.read(reinterpret_cast<char*>(frame420.Y.data()), width * height);
         data_read += decompressed_video.gcount();
 
         // Read U plane
-        decompressed_video.read(reinterpret_cast<char*>(frame.U.data()), width * height);
+        decompressed_video.read(reinterpret_cast<char*>(frame420.U.data()), width * height / 4);
         data_read += decompressed_video.gcount();
 
         // Read V plane
-        decompressed_video.read(reinterpret_cast<char*>(frame.V.data()), width * height);
+        decompressed_video.read(reinterpret_cast<char*>(frame420.V.data()), width * height / 4);
         data_read += decompressed_video.gcount();
 
+        picture frame444;
+        if(frame420.format == PCCCOLORFORMAT::YUV420) {
+            frame444.convert_yuv_420_to_444(&frame420);
+        }
+
         if (data_read == frameSize) {
-            map->pictures.push_back(std::move(frame));
+            std::cout << "ADDED FRAME" << std::endl;
+            map->pictures.push_back(std::move(frame444));
             map->frame_count++;
         }
         else {
-            std::cout << "ERROR" << std::endl;
-            std::cout << "framesize " << frameSize << ", data read " << data_read << std::endl;
+            throw std::runtime_error("Bitstream reading : framesize " + std::to_string(frameSize) + ", data read " + std::to_string(data_read));
             break;
         }
     }
