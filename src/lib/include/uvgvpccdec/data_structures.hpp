@@ -321,12 +321,6 @@ struct video_map {
     size_t width = 0;
     size_t frame_count = 0;
     std::vector<picture> pictures = {};
-
-/*    void convert_yuv_420_to_444(const video_map* old) {
-        for (size_t i = 0; i < old->pictures.size(); ++i) {
-            pictures.at(i).convert_yuv_420_to_444(&old->pictures.at(i));
-        }
-    }*/
 };
 
 struct vector3d {
@@ -415,12 +409,6 @@ struct patch {
         point0.data_[normalAxis_]    = generateNormalCoordinate( depth, TilePatchProjectionID );
         point0.data_[tangentAxis_]   = ( double( u ) * (double)levelOfDetailX_ + u1_ );
         point0.data_[bitangentAxis_] = ( double( v ) * (double)levelOfDetailY_ + v1_ );
-
-        /*std::cout << "u " << u << " v " << v << " depth " << depth << std::endl;
-        std::cout << "normalAxis_ " << normalAxis_ << " tangentAxis_ " << tangentAxis_ << " bitangentAxis_ " << bitangentAxis_ << std::endl;
-        std::cout << "u1_ " << u1_ << " v1_ " << v1_ << ", levelOfDetailX_ " << levelOfDetailX_ << ", levelOfDetailY_ " << levelOfDetailY_ << std::endl;
-        std::cout << "data[0] " << point0.data_[0] << " data[1] " << point0.data_[1] << " data[2] " << point0.data_[2] << std::endl;
-        throw std::runtime_error("deliberate ending ");*/
         return point0;
     }
     void setAxis( size_t axisOfAdditionalPlane,
@@ -462,31 +450,6 @@ struct patch {
             break;
         }
     }
-
-    /*
-uint32_t offsetY; // whats this?
-    size_t                  u1_;             // tangential shift
-    size_t                  v1_;             // bitangential shift
-    size_t                  d1_;             // depth shift
-    size_t                  sizeD_;          // size for depth
-    size_t                  sizeDPixel_;     // Size D pixel
-    size_t                  sizeU_;          // size for depth
-    size_t                  sizeV_;          // size for depth
-    size_t                  u0_;             // location in packed image (n*occupancyResolution_)
-    size_t                  v0_;             // location in packed image (n*occupancyResolution_)
-    size_t                  sizeU0_;         // size of occupancy map (n*occupancyResolution_)
-    size_t                  sizeV0_;         // size of occupancy map (n*occupancyResolution_)
-    size_t                  size2DXInPixel_;
-    size_t                  size2DYInPixel_;
-    size_t                  occupancyResolution_;  // occupancy map resolution
-    size_t                  projectionMode_;       // 0: related to the min depth value; 1: related to the max value
-    size_t                  levelOfDetailX_;
-    size_t                  levelOfDetailY_;
-    size_t                  normalAxis_;     // x
-    size_t                  tangentAxis_;    // y
-    size_t                  bitangentAxis_;  // z
-    std::vector<int16_t>    depth_[2];       // depth
-    std::vector<bool>       occupancy_;      // occupancy map*/
 };
 
 struct point_cloud_frame {

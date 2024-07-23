@@ -13,6 +13,7 @@ static inline PCCEndianness PCCSystemEndianness() {
   return ( *( reinterpret_cast<char*>( &num ) ) == 1 ) ? PCC_LITTLE_ENDIAN : PCC_BIG_ENDIAN;
 }
 
+/* ------------------------ ripped from tmc2------------------------ */
 bool Reconstruction::write( const std::string& fileName, point_cloud_frame* frame, const bool asAscii ) {
 
     Logger::log(LogLevel::INFO, "Reconstruction", "Write to file \n");
@@ -190,18 +191,10 @@ size_t Reconstruction::patch_to_canvas(const size_t u, const size_t v, size_t ca
     return ( x + canvasStride * y );
 }
 
-std::vector<point3d> Reconstruction::generate_points( /*const GeneratePointCloudParameters&  params,*/
-                                                atlas_frame*                     tile,
-                                                std::vector<video_map>& videoGeometryMultiple,
-                                                const size_t                         videoFrameIndex,
-                                                const size_t                         patchIndex,
-                                                const size_t                         u,
-                                                const size_t                         v,
-                                                const size_t                         x,
-                                                const size_t                         y,
-                                                const size_t                         mapCountMinus1,
-                                                const bool                           multipleStreams,
-                                                const bool                           absoluteD1_)
+/* ------------------------ ripped from tmc2------------------------ */
+std::vector<point3d> Reconstruction::generate_points(atlas_frame* tile, std::vector<video_map>& videoGeometryMultiple,
+    const size_t videoFrameIndex, const size_t patchIndex, const size_t u, const size_t v, const size_t x,
+    const size_t y, const size_t mapCountMinus1, const bool multipleStreams, const bool absoluteD1_)
 {
     const auto& patch  = tile->patches_map.at(patchIndex); //.getPatch( patchIndex );
     auto& frame0 = videoGeometryMultiple[0].pictures.at(videoFrameIndex);//.getFrame( videoFrameIndex );
@@ -252,18 +245,16 @@ void Reconstruction::generateOccupancyMap( atlas_frame* frame, picture* videoFra
 }
 
 /* ------------------------ ripped from tmc2------------------------ */
-int Reconstruction::patchBlock2CanvasBlock( const size_t uBlk,
-                                      const size_t vBlk,
-                                      size_t       canvasStrideBlk,
-                                      size_t       canvasHeightBlk,
-                                      const patch &p, const Tile tile ) {
-  size_t x, y;
-  size_t u0_ = p.TilePatch2dPosX;
-  size_t v0_ = p.TilePatch2dPosY;
-  size_t sizeU0_ = p.TilePatch2dSizeX;
-  size_t sizeV0_ = p.TilePatch2dSizeY;
+int Reconstruction::patchBlock2CanvasBlock( const size_t uBlk, const size_t vBlk, size_t canvasStrideBlk, size_t canvasHeightBlk,
+    const patch &p, const Tile tile )
+{
+    size_t x, y;
+    size_t u0_ = p.TilePatch2dPosX;
+    size_t v0_ = p.TilePatch2dPosY;
+    size_t sizeU0_ = p.TilePatch2dSizeX;
+    size_t sizeV0_ = p.TilePatch2dSizeY;
 
-  switch ( p.TilePatchOrientationIndex ) {
+    switch ( p.TilePatchOrientationIndex ) {
     case PATCH_ORIENTATION_DEFAULT:
         x = uBlk + u0_;
         y = vBlk + v0_;
@@ -542,6 +533,7 @@ void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_
     std::cout << "first " << first << ", second " << second << std::endl;
 }
 
+/* ------------------------ ripped from tmc2------------------------ */
 void Reconstruction::inverseRotatePosition45DegreeOnAxis( size_t axis, size_t lod, point3d input, vector3d& output ) {
     size_t s = ( 1u << ( lod - 1 ) ) - 1;
     //output   = input;
