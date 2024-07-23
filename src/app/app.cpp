@@ -2,9 +2,10 @@
 #include <iostream>
 
 int main() {
-    std::cout << "Hello, World!" << std::endl;
+    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::INFO, "Application", "Decode .vpcc file \n");
     uvgvpcc_dec::Parameters param;
     uvgvpcc_dec::API::initializeDecoder(param);
     uvgvpcc_dec::API::decodeV3CSampleStream("BITSTREAM-V3C.vpcc");
+    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::INFO, "Application", "Done \n");
     return 0;
 }

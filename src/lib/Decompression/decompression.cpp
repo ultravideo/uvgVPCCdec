@@ -709,14 +709,14 @@ void BitstreamParsing::decode_atlas_frame(atlas_frame* frame, atlas_tile_layer_r
             p.tangentAxis_ = 0;
             p.bitangentAxis_ = 1;
         }
-        printf(
+        /*printf(
           "patch(Intra) %zu: UV0 %4zu %4zu UV1 %4zu %4zu D1=%4zu S=%4zu %4zu %4zu(%4zu) P=%zu O=%zu A=%u%u%u Lod "
           "=(%zu) %zu,%zu 45=%d ProjId=%4zu Axis=%zu \n",
           size_t(i), size_t(p.TilePatch2dPosX), size_t(p.TilePatch2dPosY), size_t(p.TilePatch3dOffsetU), size_t(p.TilePatch3dOffsetV), size_t(p.TilePatch3dOffsetD), size_t(p.TilePatch2dSizeX),
           size_t(p.TilePatch2dSizeY), size_t(p.TilePatch3dRangeD), size_t(pdu.pdu_3d_range_d), size_t(p.TilePatchProjectionID),
           size_t(p.TilePatchOrientationIndex), (uint32_t)p.normalAxis_, (uint32_t)p.tangentAxis_, (uint32_t)p.bitangentAxis_,
           (size_t)lodEnableFlag, (size_t)p.TilePatchLoDScaleX, (size_t)p.TilePatchLoDScaleY, saved_asps_.asps_extended_projection_enabled_flag,
-          (size_t)pdu.pdu_projection_id, size_t(p.axisOfAdditionalPlane_) );
+          (size_t)pdu.pdu_projection_id, size_t(p.axisOfAdditionalPlane_) );*/
 
         
 

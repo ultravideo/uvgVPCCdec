@@ -358,13 +358,13 @@ void Reconstruction::generateBlockToPatchFromOccupancyMapVideo(atlas_frame* fram
                         y += frame->getLeftTopYInFrame();
                         nonZeroPixel += static_cast<unsigned long long>(
                             occupancyMapImage->get_Y_value(x / occupancyPrecision, y / occupancyPrecision ) != 0);
-                        if(patchIndex == 34) { std::cout << "occupancy Y value " << occupancyMapImage->get_Y_value(x / occupancyPrecision, y / occupancyPrecision ) << std::endl; }
+                        //if(patchIndex == 34) { std::cout << "occupancy Y value " << occupancyMapImage->get_Y_value(x / occupancyPrecision, y / occupancyPrecision ) << std::endl; }
                     }
                 }
                 if ( nonZeroPixel > 0 ) { blockToPatch[blockIndex] = patchIndex + 1; nonZeroCount++; }
             }
         }
-        std::cout << "Patch " << patchIndex << " nonZeroCount " << nonZeroCount << std::endl;
+        //std::cout << "Patch " << patchIndex << " nonZeroCount " << nonZeroCount << std::endl;
     }
 }
 
@@ -518,7 +518,7 @@ void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_
                 }
             }
         }
-        std::cout << "index " << index << ", patch_true count " << patch_true << std::endl;
+        //std::cout << "index " << index << ", patch_true count " << patch_true << std::endl;
     }   
     current_atlas_frame->setTotalNumberOfRegularPoints( reconstruct->getPointCount() );
     printf( "frame %zu, tile %zu: regularPoints %zu\n", (size_t)0, (size_t)0, reconstruct->getPointCount() );
