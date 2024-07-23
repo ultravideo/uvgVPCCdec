@@ -338,6 +338,9 @@ struct vector3d {
         data_[2] = z;
     }
     vector3d()        = default;
+    size_t&       x() { return data_[0]; }
+    size_t&       y() { return data_[1]; }
+    size_t&       z() { return data_[2]; }
 };
 
 struct point3d {
@@ -505,6 +508,14 @@ struct point_cloud_frame {
         const size_t index = getPointCount();
         resize( index + 1 ); // NOTE - COSTLY OPERATION?
         positions[index] = position;
+        return index;
+    }
+    size_t addPoint( const vector3d& position ) {
+        const size_t index = getPointCount();
+        resize( index + 1 );
+        positions[index].data_[0] = (int16_t)position.data_[0];
+        positions[index].data_[1] = (int16_t)position.data_[1];
+        positions[index].data_[2] = (int16_t)position.data_[2];
         return index;
     }
 

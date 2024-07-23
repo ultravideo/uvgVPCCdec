@@ -41,6 +41,6 @@ public:
                                       size_t       canvasHeightBlk,
                                       const patch &p, const Tile tile = Tile() );
 
-    static void inverseRotatePosition45DegreeOnAxis( size_t Axis, size_t lod, point3d input, point3d& output ); 
+    static void inverseRotatePosition45DegreeOnAxis( size_t Axis, size_t lod, point3d input, vector3d& output ); 
 
 };

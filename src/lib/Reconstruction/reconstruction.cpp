@@ -422,8 +422,8 @@ void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_
     const size_t blockToPatchWidth     = tileWidth / occupancyResolution_;
     const size_t blockToPatchHeight    = tileHeight / occupancyResolution_;
 
-    std::cout << "NOTE: HARD CODED remove duplicate points to false" << std::endl;
-    bool removeDuplicatePoints_ = false;
+    std::cout << "NOTE: HARD CODED remove duplicate points to true" << std::endl;
+    bool removeDuplicatePoints_ = true;
 
     size_t videoFrameIndex;
     std::cout << "NOTE: HARD CODED ATLAS INDEX TO 0, MAKE DYNAMIC" << std::endl;
@@ -439,6 +439,14 @@ void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_
     size_t patchBlock2 = 0;
     size_t patch2C = 0;
     size_t if_true = 0;
+    size_t test1 = 0;
+    size_t test2 = 0;
+    size_t first = 0;
+    size_t second = 0;
+
+    if(data->asps.asps_vpcc_remove_duplicate_point_enabled_flag) {
+        std::cout << "TODO: Implement duplicate point removal" << std::endl;
+    }
     
     for ( std::size_t index = 0; index < current_atlas_frame->patches_map.size(); index++ ) {
         patchIndex                     = ( bDecoder && patchPrecedenceOrderFlag ) ? ( totalPatchCount - index - 1 ) : index;
@@ -479,37 +487,41 @@ void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_
                             generatePointsCalled++;
                             if ( !createdPoints.empty() ) {
                                 for ( size_t i = 0; i < createdPoints.size(); i++ ) {
+                                    test1++;
                                     if ( ( !removeDuplicatePoints_ ) || ( ( i == 0 ) || ( createdPoints[i] != createdPoints[0] ) ) ) {
-                                    size_t pointindex = 0;
-                                    size_t tileIndex = 0; // NOte hard coded single tile
+                                        size_t pointindex = 0;
+                                        size_t tileIndex = 0; // NOte hard coded single tile
+                                        test2++;
 
-                                    if ( patch.axisOfAdditionalPlane_ == 0 ) {
-                                        pointindex = reconstruct->addPoint( createdPoints[i] );
-                                        reconstruct->setPointPatchIndex( pointindex, tileIndex, patchIndex );
-                                    } else {
-                                        point3d tmp; // Use point3d instead of vector3D in tmc2?
-                                        inverseRotatePosition45DegreeOnAxis( patch.axisOfAdditionalPlane_,
-                                                                            geometryBitDepth3D_, createdPoints[i], tmp );
-                                        pointindex = reconstruct->addPoint( tmp );
-                                        reconstruct->setPointPatchIndex( pointindex, tileIndex, patchIndex );
-                                    }
-                                    const size_t pointindex_1 = pointindex;
-                                    // IMPLEMENT THIS reconstruct.setColor( pointindex_1, color );
-                                    if ( PCC_SAVE_POINT_TYPE == 1 ) {
-                                        // if ( params.singleMapPixelInterleaving_ ) { else 
-                                        reconstruct->setType( pointindex_1, i == 0 ? POINT_D0 : i == 1 ? POINT_D1 : POINT_DF );
-                                    }
-                                    partition.push_back( uint32_t( patchIndex ) );
-                                    /*if ( params.singleMapPixelInterleaving_ ) {
-                                        pointToPixel.emplace_back(
-                                            x, y,
-                                            i == 0 ? ( static_cast<size_t>( x + y ) % 2 )
-                                                : i == 1 ? ( static_cast<size_t>( x + y + 1 ) % 2 ) : g_intermediateLayerIndex );
-                                    } else if ( params.pointLocalReconstruction_ ) {
-                                        pointToPixel.emplace_back(
-                                            x, y, i == 0 ? 0 : i == 1 ? g_intermediateLayerIndex : g_intermediateLayerIndex + 1 );
-                                    } else {*/
-                                    pointToPixel.emplace_back( x, y, i < 2 ? i : g_intermediateLayerIndex + 1 );
+                                        if ( patch.axisOfAdditionalPlane_ == 0 ) {
+                                            first++;
+                                            pointindex = reconstruct->addPoint( createdPoints[i] );
+                                            reconstruct->setPointPatchIndex( pointindex, tileIndex, patchIndex );
+                                        } else {
+                                            second++;
+                                            vector3d tmp;
+                                            inverseRotatePosition45DegreeOnAxis( patch.axisOfAdditionalPlane_,
+                                                                                geometryBitDepth3D_, createdPoints[i], tmp );
+                                            pointindex = reconstruct->addPoint( tmp );
+                                            reconstruct->setPointPatchIndex( pointindex, tileIndex, patchIndex );
+                                        }
+                                        const size_t pointindex_1 = pointindex;
+                                        // IMPLEMENT THIS reconstruct.setColor( pointindex_1, color );
+                                        if ( PCC_SAVE_POINT_TYPE == 1 ) {
+                                            // if ( params.singleMapPixelInterleaving_ ) { else 
+                                            reconstruct->setType( pointindex_1, i == 0 ? POINT_D0 : i == 1 ? POINT_D1 : POINT_DF );
+                                        }
+                                        partition.push_back( uint32_t( patchIndex ) );
+                                        /*if ( params.singleMapPixelInterleaving_ ) {
+                                            pointToPixel.emplace_back(
+                                                x, y,
+                                                i == 0 ? ( static_cast<size_t>( x + y ) % 2 )
+                                                    : i == 1 ? ( static_cast<size_t>( x + y + 1 ) % 2 ) : g_intermediateLayerIndex );
+                                        } else if ( params.pointLocalReconstruction_ ) {
+                                            pointToPixel.emplace_back(
+                                                x, y, i == 0 ? 0 : i == 1 ? g_intermediateLayerIndex : g_intermediateLayerIndex + 1 );
+                                        } else {*/
+                                        pointToPixel.emplace_back( x, y, i < 2 ? i : g_intermediateLayerIndex + 1 );
                                     }
                                 }
                             }
@@ -523,15 +535,20 @@ void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_
     current_atlas_frame->setTotalNumberOfRegularPoints( reconstruct->getPointCount() );
     printf( "frame %zu, tile %zu: regularPoints %zu\n", (size_t)0, (size_t)0, reconstruct->getPointCount() );
     std::cout << "reconstruct->pointPatchIndexes_.size() " << reconstruct->pointPatchIndexes_.size() <<
-        " reconstruct->types_.size() " << reconstruct->types_.size() <<
+        " test1 " << test1 << ", test2 " << test2 << 
         " reconstruct->positions.size() " << reconstruct->positions.size() << std::endl;
     std::cout << "patchBlock2 " << patchBlock2 << " if_true " << if_true <<
         " patch2C " << patch2C << " generatePointsCalled " << generatePointsCalled << std::endl;
+    std::cout << "first " << first << ", second " << second << std::endl;
 }
 
-void Reconstruction::inverseRotatePosition45DegreeOnAxis( size_t axis, size_t lod, point3d input, point3d& output ) {
+void Reconstruction::inverseRotatePosition45DegreeOnAxis( size_t axis, size_t lod, point3d input, vector3d& output ) {
     size_t s = ( 1u << ( lod - 1 ) ) - 1;
-    output   = input;
+    //output   = input;
+    output.data_[0] = input.data_[0];
+    output.data_[1] = input.data_[1];
+    output.data_[2] = input.data_[2];
+    
     if ( axis == 1 ) {  // projection plane is defined by Y Axis.
         output.x() = input.x() - input.z() + s;
         output.x() /= 2.0;
