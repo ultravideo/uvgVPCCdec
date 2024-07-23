@@ -389,8 +389,8 @@ struct patch {
     size_t size2DXInPixel_; // needed? tmc2
     size_t size2DYInPixel_; // needed? tmc2
 
-    size_t levelOfDetailX_; // TMC2, for point generation
-    size_t levelOfDetailY_; // TMC2, for point generation
+    size_t levelOfDetailX_ = 1; // TMC2, for point generation
+    size_t levelOfDetailY_ = 1; // TMC2, for point generation
     size_t normalAxis_;     // x TMC2, for point generation
     size_t tangentAxis_;    // y TMC2, for point generation
     size_t bitangentAxis_;  // z TMC2, for point generation
@@ -415,6 +415,12 @@ struct patch {
         point0.data_[normalAxis_]    = generateNormalCoordinate( depth, TilePatchProjectionID );
         point0.data_[tangentAxis_]   = ( double( u ) * (double)levelOfDetailX_ + u1_ );
         point0.data_[bitangentAxis_] = ( double( v ) * (double)levelOfDetailY_ + v1_ );
+
+        /*std::cout << "u " << u << " v " << v << " depth " << depth << std::endl;
+        std::cout << "normalAxis_ " << normalAxis_ << " tangentAxis_ " << tangentAxis_ << " bitangentAxis_ " << bitangentAxis_ << std::endl;
+        std::cout << "u1_ " << u1_ << " v1_ " << v1_ << ", levelOfDetailX_ " << levelOfDetailX_ << ", levelOfDetailY_ " << levelOfDetailY_ << std::endl;
+        std::cout << "data[0] " << point0.data_[0] << " data[1] " << point0.data_[1] << " data[2] " << point0.data_[2] << std::endl;
+        throw std::runtime_error("deliberate ending ");*/
         return point0;
     }
     void setAxis( size_t axisOfAdditionalPlane,
