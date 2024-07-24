@@ -146,11 +146,13 @@ void BitstreamParsing::decompressV3CSampleStream(const std::vector<uint8_t> &dat
                 output->geometry_maps.back().type = V3C_GVD;
                 decode_video_sub_bitstream(g_hevc, g_yuv, &output->geometry_maps.back());
                 break; }
-            case V3C_UNIT_TYPE::V3C_AVD:
+            case V3C_UNIT_TYPE::V3C_AVD: {
                 convert_video_sub_bitstream(v3c_unit_payload_size_bytes, a_hevc);
-                output->attribute_map.type = V3C_AVD;
-                decode_video_sub_bitstream(a_hevc, a_yuv, &output->attribute_map);
-                break;
+                video_map new_atr_map;
+                output->attribute_maps.push_back(new_atr_map);
+                output->attribute_maps.back().type = V3C_AVD;
+                decode_video_sub_bitstream(a_hevc, a_yuv, &output->attribute_maps.back());
+                break; }
             default: 
                 std::cout << "error" << std::endl;
                 break;

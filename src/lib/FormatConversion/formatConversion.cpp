@@ -43,6 +43,7 @@ void FormatConversion::convertToNominalFormat(decompressed_data* data)
     for (size_t i = 0; i < data->geometry_maps.size(); i++) {
         std::cout << "-- Geometry map " << i << ": " << data->geometry_maps.at(i).frame_count << " frames, " << data->geometry_maps.at(i).width << "x" << data->geometry_maps.at(i).height << std::endl;
     }
-    std::cout << "-- Attribute map: " << data->attribute_map.frame_count << " frames, " << data->attribute_map.width << "x" << data->attribute_map.height << std::endl;
-
+    for (size_t i = 0; i < data->attribute_maps.size(); i++) {
+        std::cout << "-- Attribute map " << i << ": " << data->attribute_maps.at(i).frame_count << " frames, " << data->attribute_maps.at(i).width << "x" << data->attribute_maps.at(i).height << std::endl;
+    }
 }

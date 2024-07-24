@@ -274,6 +274,16 @@ struct picture {
     size_t get_Y_value(const size_t u, const size_t v ) { // Should be uint8_t??
         return Y.at(v * width + u);
     }
+    size_t get_value(const size_t channel, const size_t u, const size_t v) {
+        if(channel == 0) {
+            return Y.at(v * width + u);
+        } else if (channel == 1) {
+            return U.at(v * width + u);
+        } else if (channel == 2) {
+            return V.at(v * width + u);
+        }
+        return 0; // TODO throw error or assert
+    }
 
     void convert_yuv_420_to_444(const picture* old) {
         format = PCCCOLORFORMAT::YUV444;
@@ -337,8 +347,33 @@ struct vector3d {
     size_t&       z() { return data_[2]; }
 };
 
+struct vector_3d_double {
+    double data_[3];
+
+    vector_3d_double(const double x, double y, double z ) {
+        data_[0] = x;
+        data_[1] = y;
+        data_[2] = z;
+    }
+    vector_3d_double(const double val) {
+        data_[0] = val;
+        data_[1] = val;
+        data_[2] = val;
+    }
+    vector_3d_double() = default;
+};
+
 struct point3d {
     uint16_t data_[3];
+
+    uint16_t& operator[]( size_t i ) {
+        assert( i < 3 );
+        return data_[i];
+    }
+    const uint16_t& operator[]( size_t i ) const {
+        assert( i < 3 );
+        return data_[i];
+    }
 
     bool operator==(const point3d &cmp) const {
         return ( data_[0] == cmp.data_[0] && data_[1] == cmp.data_[1] && data_[2] == cmp.data_[2] );
@@ -350,6 +385,22 @@ struct point3d {
     uint16_t&       x() { return data_[0]; }
     uint16_t&       y() { return data_[1]; }
     uint16_t&       z() { return data_[2]; }
+};
+
+struct uvg_color {
+    uint8_t data_[3];
+    uint8_t&       r() { return data_[0]; }
+    uint8_t&       g() { return data_[1]; }
+    uint8_t&       b() { return data_[2]; } 
+    uvg_color() {data_[0] = 0; data_[1] = 0; data_[2] = 0;}
+};
+
+struct uvg_color16 {
+    uint16_t data_[3];
+    uint16_t&       r() { return data_[0]; }
+    uint16_t&       g() { return data_[1]; }
+    uint16_t&       b() { return data_[2]; } 
+    uvg_color16() {data_[0] = 0; data_[1] = 0; data_[2] = 0;}
 };
 
 struct patch {
@@ -452,10 +503,78 @@ struct patch {
     }
 };
 
+inline double PCCClip( const double& n, const double& lower, const double& upper ) {
+    return ( std::max )( lower, ( std::min )( n, upper ) );
+}
+
 struct point_cloud_frame {
     std::vector<point3d> positions = {};
+    std::vector<uvg_color> colors = {};
+    std::vector<uvg_color16> colors16 = {};
     std::vector<std::pair<size_t, size_t>> pointPatchIndexes_;
     std::vector<uint8_t> types_;
+
+     /// convert yuv444 (16bit) to normalized yuv444 (format double)
+    void convertYUV16ToRGB8() {
+        for ( size_t k = 0; k < getPointCount(); k++ ) {
+        double y1     = colors16[k].data_[0];
+        double u1     = colors16[k].data_[1];
+        double v1     = colors16[k].data_[2];
+        double offset = 32768.0;
+        double scale  = 65535.0;
+        double weight = 1.0 / scale;
+
+        y1 = weight * y1;
+        u1 = weight * ( u1 - offset );
+        v1 = weight * ( v1 - offset );
+        y1 = ( std::max )( y1, 0.0 );
+        y1 = ( std::min )( y1, 1.0 );
+        u1 = ( std::max )( u1, -0.5 );
+        u1 = ( std::min )( u1, 0.5 );
+        v1 = ( std::max )( v1, -0.5 );
+        v1 = ( std::min )( v1, 0.5 );
+
+        //// convert normalized yuv444 to normalized rgb (fromat double)
+        double r = y1 /*- 0.00000 * u1*/ + 1.57480 * v1;
+        double g = y1 - 0.18733 * u1 - 0.46813 * v1;
+        double b = y1 + 1.85563 * u1 /*+ 0.00000 * v1*/;
+
+        //// convert normalized rgb to 8-bit rgb
+        r = PCCClip( round( r * 255 ), 0.0, 255.0 );
+        g = PCCClip( round( g * 255 ), 0.0, 255.0 );
+        b = PCCClip( round( b * 255 ), 0.0, 255.0 );
+
+        colors[k].data_[0] = static_cast<uint8_t>( r );
+        colors[k].data_[1] = static_cast<uint8_t>( g );
+        colors[k].data_[2] = static_cast<uint8_t>( b );
+        }
+    }
+
+    point3d& operator[]( size_t i ) {
+        return positions[i];
+    }
+    const point3d& operator[]( size_t i ) const {
+        return positions[i];
+    }
+
+    void clear() {
+        positions.clear();
+        colors.clear();
+        colors16.clear();
+        pointPatchIndexes_.clear();
+        types_.clear();
+    }
+
+    void set_color16( const size_t index, const uvg_color16 color16bit ) {
+        if (index >= colors16.size()) {
+            std::cout << "index " << index << " colors16 size " << colors16.size() << std::endl;
+        }
+        assert( index < colors16.size() );
+        colors16[index] = color16bit;
+    }
+
+    std::vector<uvg_color16>& getColors16bit() { return colors16; }
+    size_t getPointCount() const { return positions.size(); }
 
     void   resize( const size_t size ) {
         positions.resize( size );
@@ -470,8 +589,6 @@ struct point_cloud_frame {
         pointPatchIndexes_.resize( size );
         //parentPointIndex_.resize( size );
     }
-
-    size_t getPointCount() const { return positions.size(); }
 
     size_t addPoint( const point3d& position ) {
         const size_t index = getPointCount();
@@ -507,6 +624,8 @@ struct atlas_frame {
     std::vector<patch> patches_map = {};
     std::vector<vector3d> pointToPixel_ = {};
 
+    size_t frame_index = 0;
+
     // These are here for now as only 1 tile per frame. TODO; FIX
     size_t tile_width = 0;
     size_t tile_height = 0;
@@ -527,5 +646,5 @@ struct decompressed_data { // of a gof currently
     std::vector<std::unique_ptr<atlas_frame>> atlas_map; // frames or tiles? currently 1 tile per frame
     video_map occupancy_map = {};
     std::vector<video_map> geometry_maps = {};
-    video_map attribute_map = {};
+    std::vector<video_map> attribute_maps = {};
 };

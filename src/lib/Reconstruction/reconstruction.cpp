@@ -49,13 +49,13 @@ bool Reconstruction::write( const std::string& fileName, point_cloud_frame* fram
         fout << "property float nx" << std::endl;
         fout << "property float ny" << std::endl;
         fout << "property float nz" << std::endl;
-    }
-    if ( hasColors() ) {
+    }*/
+    if ( !frame->colors.empty() ) {
         fout << "property uchar red" << std::endl;
         fout << "property uchar green" << std::endl;
         fout << "property uchar blue" << std::endl;
     }
-    if ( hasReflectances() ) { fout << "property uint16 refc" << std::endl; }*/
+    /*if ( hasReflectances() ) { fout << "property uint16 refc" << std::endl; }*/
     if ( PCC_SAVE_POINT_TYPE != 0u ) {
         fout << "property uchar type" << std::endl;
         switch ( PCC_SAVE_POINT_TYPE ) {
@@ -77,13 +77,13 @@ bool Reconstruction::write( const std::string& fileName, point_cloud_frame* fram
                 const PCCNormal3D& normal = getNormals()[i];
                 fout << " " << static_cast<float>( normal[0] ) << " " << static_cast<float>( normal[1] ) << " "
                     << static_cast<float>( normal[2] );
+            }*/
+            if ( !frame->colors.empty() ) {
+                const uvg_color& color = frame->colors.at(i);
+                fout << " " << static_cast<int>( color.data_[0] ) << " " << static_cast<int>( color.data_[1] ) << " "
+                    << static_cast<int>( color.data_[2] );
             }
-            if ( hasColors() ) {
-                const PCCColor3B& color = getColor( i );
-                fout << " " << static_cast<int>( color[0] ) << " " << static_cast<int>( color[1] ) << " "
-                    << static_cast<int>( color[2] );
-            }
-            if ( hasReflectances() ) { fout << " " << static_cast<int>( getReflectance( i ) ); }*/
+            /*if ( hasReflectances() ) { fout << " " << static_cast<int>( getReflectance( i ) ); }*/
             /*
             keep this!
             if ( PCC_SAVE_POINT_TYPE != 0u ) { fout << " " << static_cast<int>( frame->types_[i] ); }
@@ -109,12 +109,12 @@ bool Reconstruction::write( const std::string& fileName, point_cloud_frame* fram
                 value[1]                  = normal[1];
                 value[2]                  = normal[2];
                 fout.write( reinterpret_cast<const char*>( &value ), sizeof( float ) * 3 );
+            }*/
+            if ( !frame->colors.empty() ) {
+                const uvg_color& color = frame->colors.at(i);
+                fout.write( reinterpret_cast<const char*>( &color.data_ ), sizeof( uint8_t ) * 3 );
             }
-            if ( hasColors() ) {
-                const PCCColor3B& color = getColor( i );
-                fout.write( reinterpret_cast<const char*>( &color ), sizeof( uint8_t ) * 3 );
-            }
-            if ( hasReflectances() ) {
+            /*if ( hasReflectances() ) {
                 const uint16_t& reflectance = getReflectance( i );
                 fout.write( reinterpret_cast<const char*>( &reflectance ), sizeof( uint16_t ) );
             }*/
@@ -369,7 +369,7 @@ void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_
     size_t tileWidth = current_atlas_frame->tile_width;
     size_t tileHeight = current_atlas_frame->tile_height;
 
-    std::vector<vector3d> pointToPixel = current_atlas_frame->getPointToPixel();
+    std::vector<vector3d> &pointToPixel = current_atlas_frame->getPointToPixel();
     pointToPixel.resize( 0 );
 
     // only one atlas = one VPS frame width
@@ -530,7 +530,7 @@ void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_
         " reconstruct->positions.size() " << reconstruct->positions.size() << std::endl;
     std::cout << "patchBlock2 " << patchBlock2 << " if_true " << if_true <<
         " patch2C " << patch2C << " generatePointsCalled " << generatePointsCalled << std::endl;
-    std::cout << "first " << first << ", second " << second << std::endl;
+    std::cout << "pointToPixel.size() " << pointToPixel.size() << ", second " << second << std::endl;
 }
 
 /* ------------------------ ripped from tmc2------------------------ */
