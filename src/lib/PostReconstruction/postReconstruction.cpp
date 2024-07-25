@@ -40,7 +40,7 @@ size_t PostReconstruction::color_point_cloud(point_cloud_frame* reconstruct, dec
     printf( "mapCount            = %zu \n", (size_t)mapCount );
 
     const size_t shift = multipleStreams ? current_atlas_frame->frame_index : current_atlas_frame->frame_index * mapCount;
-    for ( size_t i = accTilePointCount; i < accTilePointCount + pointCount; ++i ) {
+    for ( size_t i = 0; i < accTilePointCount + pointCount; ++i ) {
         const vector3d location = pointToPixel[i - accTilePointCount];
         const size_t x = current_atlas_frame->getLeftTopXInFrame() + location.data_[0]; //tile.getLeftTopXInFrame() + location[0];
         const size_t y = current_atlas_frame->getLeftTopYInFrame()+location.data_[1]; //tile.getLeftTopYInFrame() + location[1];

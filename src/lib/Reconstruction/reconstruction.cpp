@@ -55,7 +55,7 @@ bool Reconstruction::write( const std::string& fileName, point_cloud_frame* fram
         fout << "property uchar green" << std::endl;
         fout << "property uchar blue" << std::endl;
     }
-    /*if ( hasReflectances() ) { fout << "property uint16 refc" << std::endl; }*/
+    /*if ( hasReflectances() ) { fout << "property uint16 refc" << std::endl; }
     if ( PCC_SAVE_POINT_TYPE != 0u ) {
         fout << "property uchar type" << std::endl;
         switch ( PCC_SAVE_POINT_TYPE ) {
@@ -63,7 +63,7 @@ bool Reconstruction::write( const std::string& fileName, point_cloud_frame* fram
         case 2: fout << "comment POINT_TYPE: type0 type1 type2  " << std::endl; break;
         default: break;
         }
-    }
+    }*/
     fout << "element face 0" << std::endl;
     fout << "property list uint8 int32 vertex_index" << std::endl;
     fout << "end_header" << std::endl;
@@ -73,21 +73,13 @@ bool Reconstruction::write( const std::string& fileName, point_cloud_frame* fram
             point3d& position = frame->positions.at(i);
             //const PCCPoint3D& position = ( *this )[i];
             fout << position.x() << " " << position.y() << " " << position.z();
-            /*if ( hasNormals() ) {
-                const PCCNormal3D& normal = getNormals()[i];
-                fout << " " << static_cast<float>( normal[0] ) << " " << static_cast<float>( normal[1] ) << " "
-                    << static_cast<float>( normal[2] );
-            }*/
+
             if ( !frame->colors.empty() ) {
                 const uvg_color& color = frame->colors.at(i);
                 fout << " " << static_cast<int>( color.data_[0] ) << " " << static_cast<int>( color.data_[1] ) << " "
                     << static_cast<int>( color.data_[2] );
             }
-            /*if ( hasReflectances() ) { fout << " " << static_cast<int>( getReflectance( i ) ); }*/
-            /*
-            keep this!
-            if ( PCC_SAVE_POINT_TYPE != 0u ) { fout << " " << static_cast<int>( frame->types_[i] ); }
-            */
+
             fout << std::endl;
         }
     } else {
@@ -103,23 +95,9 @@ bool Reconstruction::write( const std::string& fileName, point_cloud_frame* fram
             value[1] = position.data_[1];
             value[2] = position.data_[2];
             fout.write( reinterpret_cast<const char*>( &value ), sizeof( float ) * 3 );
-            /*if ( hasNormals() ) {
-                const PCCNormal3D& normal = getNormals()[i];
-                value[0]                  = normal[0];
-                value[1]                  = normal[1];
-                value[2]                  = normal[2];
-                fout.write( reinterpret_cast<const char*>( &value ), sizeof( float ) * 3 );
-            }*/
             if ( !frame->colors.empty() ) {
                 const uvg_color& color = frame->colors.at(i);
                 fout.write( reinterpret_cast<const char*>( &color.data_ ), sizeof( uint8_t ) * 3 );
-            }
-            /*if ( hasReflectances() ) {
-                const uint16_t& reflectance = getReflectance( i );
-                fout.write( reinterpret_cast<const char*>( &reflectance ), sizeof( uint16_t ) );
-            }*/
-            if ( PCC_SAVE_POINT_TYPE != 0u ) {
-                fout.write( reinterpret_cast<const char*>( &frame->types_.at(i) ), sizeof( uint8_t ) );
             }
         }
     }
@@ -498,10 +476,6 @@ void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_
                                         }
                                         const size_t pointindex_1 = pointindex;
                                         // IMPLEMENT THIS reconstruct.setColor( pointindex_1, color );
-                                        if ( PCC_SAVE_POINT_TYPE == 1 ) {
-                                            // if ( params.singleMapPixelInterleaving_ ) { else 
-                                            reconstruct->setType( pointindex_1, i == 0 ? POINT_D0 : i == 1 ? POINT_D1 : POINT_DF );
-                                        }
                                         //partition.push_back( uint32_t( patchIndex ) );
                                         /*if ( params.singleMapPixelInterleaving_ ) {
                                             pointToPixel.emplace_back(
