@@ -359,7 +359,7 @@ void Reconstruction::generateBlockToPatchFromOccupancyMapVideo(atlas_frame* fram
     }
 }
 
-void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_frame* reconstruct, std::vector<uint32_t>& partition)
+void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_frame* reconstruct)
 {
     Logger::log(LogLevel::INFO, "Reconstruction", "Reconstructing point cloud \n");
 
@@ -502,7 +502,7 @@ void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_
                                             // if ( params.singleMapPixelInterleaving_ ) { else 
                                             reconstruct->setType( pointindex_1, i == 0 ? POINT_D0 : i == 1 ? POINT_D1 : POINT_DF );
                                         }
-                                        partition.push_back( uint32_t( patchIndex ) );
+                                        //partition.push_back( uint32_t( patchIndex ) );
                                         /*if ( params.singleMapPixelInterleaving_ ) {
                                             pointToPixel.emplace_back(
                                                 x, y,

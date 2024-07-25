@@ -28,6 +28,7 @@ target_link_libraries(uvgvpccdec
     formatConversionLibrary
     reconstructionLibrary
     postReconstructionLibrary
+    adaptationLibrary
     utilsLibrary
     logLibrary
 )

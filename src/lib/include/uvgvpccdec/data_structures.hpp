@@ -508,7 +508,7 @@ struct point_cloud_frame {
     std::vector<std::pair<size_t, size_t>> pointPatchIndexes_;
     std::vector<uint8_t> types_;
 
-     /// convert yuv444 (8bit) to normalized yuv444 (format double)
+     // convert yuv444 (8bit) to normalized yuv444 (format double)
     void convertYUV8ToRGB8() {
         for ( size_t k = 0; k < getPointCount(); k++ ) {
         double y1     = colors[k].data_[0];

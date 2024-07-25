@@ -2,17 +2,12 @@
 
 using namespace uvgvpcc_dec;
 
-/* ------------------------ ripped from tmc2------------------------ */
-void PostReconstruction::PostProcess(decompressed_data* data, point_cloud_frame* reconstruct, std::vector<uint32_t>& partition)
+void PostReconstruction::PostProcess(decompressed_data* data, point_cloud_frame* reconstruct)
 {
     Logger::log(LogLevel::INFO, "Post-reconstruction", "Post-processing point cloud \n");
     bool multipleStreams = data->vps.vps_multiple_map_streams_present_flag.at(0);
     uint8_t attributeCount = data->vps.ai_attribute_count;
     color_point_cloud(reconstruct, data, multipleStreams, attributeCount);
-
-    Logger::log(LogLevel::INFO, "Post-reconstruction", "Convert colors YUV 8bit -> RGB 8bit \n");
-    reconstruct->convertYUV8ToRGB8();
-    auto c = partition.front();
 }
 
 size_t PostReconstruction::color_point_cloud(point_cloud_frame* reconstruct, decompressed_data* data, const size_t multipleStreams, const uint8_t attributeCount )
