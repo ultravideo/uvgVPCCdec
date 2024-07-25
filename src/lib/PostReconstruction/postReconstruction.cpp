@@ -1,5 +1,4 @@
 #include "postReconstruction.hpp"
-#include "magic_functions.hpp"
 
 using namespace uvgvpcc_dec;
 
@@ -11,8 +10,8 @@ void PostReconstruction::PostProcess(decompressed_data* data, point_cloud_frame*
     uint8_t attributeCount = data->vps.ai_attribute_count;
     colorPointCloud(reconstruct, data, {}, multipleStreams, attributeCount, 0);
 
-    Logger::log(LogLevel::INFO, "Post-reconstruction", "Convert colors YUV 16bit -> RGB 8bit \n");
-    reconstruct->convertYUV16ToRGB8();
+    Logger::log(LogLevel::INFO, "Post-reconstruction", "Convert colors YUV 8bit -> RGB 8bit \n");
+    reconstruct->convertYUV8ToRGB8();
     auto c = partition.front();
 }
 
@@ -41,7 +40,7 @@ size_t PostReconstruction::colorPointCloud(point_cloud_frame*                   
     }
 
     auto&  pointToPixel      = current_atlas_frame->getPointToPixel(); //tile.getPointToPixel();
-    auto&  color16bit        = reconstruct->getColors16bit();
+    auto&  color16bit        = reconstruct->colors16;
     color16bit.resize(reconstruct->getPointCount());
     bool   useAuxVideo       = false; //tile.getUseRawPointsSeparateVideo();
     size_t numOfRawPointGeos = 0; //tile.getTotalNumberOfRawPoints();
@@ -55,28 +54,36 @@ size_t PostReconstruction::colorPointCloud(point_cloud_frame*                   
     printf( "multipleStreams              = %zu \n", multipleStreams );
     printf( "attributeCount               = %zu \n", (size_t)attributeCount );
     printf( "accTilePointCount            = %zu \n", (size_t)accTilePointCount );
+    printf( "mapCount            = %zu \n", (size_t)mapCount );
     point_cloud_frame target;
     point_cloud_frame source;
     std::vector<size_t> targetIndex;
     targetIndex.resize( 0 );
     target.clear();
     source.clear();
+    size_t test1 = 0;
+    size_t test2 = 0;
+    size_t test3 = 0;
+    size_t test4 = 0;
     //target.addColors16bit();
     //source.addColors16bit();
     source.colors16.resize(pointCount);
+    target.colors16.resize(pointCount);
+
     const size_t shift = multipleStreams ? current_atlas_frame->frame_index : current_atlas_frame->frame_index * mapCount;
     for ( size_t i = accTilePointCount; i < accTilePointCount + pointCount; ++i ) {
+        test1++;
         const vector3d location = pointToPixel[i - accTilePointCount];
         const size_t x = current_atlas_frame->getLeftTopXInFrame() + location.data_[0]; //tile.getLeftTopXInFrame() + location[0];
         const size_t y = current_atlas_frame->getLeftTopYInFrame()+location.data_[1]; //tile.getLeftTopYInFrame() + location[1];
         const size_t f = location.data_[2];
-
         // false if ( params.singleMapPixelInterleaving_ ) {
         // false if ( multipleStreams != 0 ) {
         // else {
+        test2++;
         if ( f < mapCount ) {
-            //printf( "shift + f              = %zu \n", size_t(shift + f) );
-            /*const*/ picture &frame = videoAttributeMap0.pictures.at(shift + f);;
+            test3++;
+            /*const*/ picture &frame = videoAttributeMap0.pictures.at(shift + f);
             for ( size_t c = 0; c < 3; ++c ) {
                 color16bit.at(i).data_[c] = frame.get_value(c, x, y);
             }
@@ -87,54 +94,14 @@ size_t PostReconstruction::colorPointCloud(point_cloud_frame*                   
             targetIndex.push_back( i );
         }
     }
-    if ( target.getPointCount() > 0 ) {
-        transferColorWeight(&source, &target, reconstruct->getPointCount());
-        for ( size_t i = 0; i < target.getPointCount(); ++i ) {
-            reconstruct->set_color16(targetIndex[i], target.colors16.at( i ));
-        }
-    }
+
+    /* false if ( pointCount > 0 ) {
+        transferColorWeight(&source, &target, reconstruct->getPointCount());*/
+
     // false if ( useAuxVideo ) {
 
-    return accTilePointCount + reconstruct->getPointCount(); //tile.getTotalNumberOfRegularPoints()
-}
+    printf( "source pointCount = %zu \n", source.getPointCount() );
+    printf( "target pointCount = %zu \n", target.getPointCount() );
 
-bool PostReconstruction::transferColorWeight(point_cloud_frame* source, point_cloud_frame* target, const size_t point_count) {
-    //const size_t pointCountSource = source->getPointCount();
-    //const size_t pointCountTarget = target->getPointCount();
-    if ( point_count == 0 || source->colors16.size() == 0 ) { return false; }
-    // target->colors16.resize(point_count);
-    PCCKdTree    kdtreeSource( *source );
-    PCCNNResult  result;
-    const size_t num_results = 5;
-    for ( size_t index = 0; index < point_count; ++index ) {
-        kdtreeSource.search( target->positions.at(index), num_results, result );
-        vector_3d_double color16bit( 0.0 );
-        if ( result.size() > 1 && result.dist( 0 ) > 0.0001 ) {
-            double sum = 0;
-            for ( size_t i = 0; i < result.size(); ++i ) {
-                const double w     = 1.0 / pow( result.dist( i ), 2.0 );
-                auto         found = source->colors16.at(result.indices(i));
-                vector_3d_double  scaled;
-                scaled.data_[0] = found.data_[0];
-                scaled.data_[1] = found.data_[1];
-                scaled.data_[2] = found.data_[2];
-                color16bit.data_[0] += scaled.data_[0] * w;
-                color16bit.data_[1] += scaled.data_[1] * w;
-                color16bit.data_[2] += scaled.data_[2] * w;
-                sum += w;
-            }
-            color16bit.data_[0] /= sum;
-            color16bit.data_[1] /= sum;
-            color16bit.data_[2] /= sum;
-        } else {
-        const auto& found = source->colors16.at(result.indices( 0 ));
-        color16bit.data_[0] = found.data_[0];
-        color16bit.data_[1] = found.data_[1];
-        color16bit.data_[2] = found.data_[2];
-        }
-        target->colors16.at(index).data_[0] = color16bit.data_[0];
-        target->colors16.at(index).data_[1] = color16bit.data_[1];
-        target->colors16.at(index).data_[2] = color16bit.data_[2];
-    }
-    return true;
+    return accTilePointCount + reconstruct->getPointCount(); //tile.getTotalNumberOfRegularPoints()
 }

@@ -40,10 +40,17 @@ void FormatConversion::convertToNominalFormat(decompressed_data* data)
 
     std::cout << "-- V-PCC frame count: " << data->frame_count << " frames" << std::endl;
     std::cout << "-- Occupancy map: " << data->occupancy_map.frame_count << " frames, " << data->occupancy_map.width << "x" << data->occupancy_map.height << std::endl;
+    printf("Channel sizes Y=%zu U=%zu V=%zu \n", data->occupancy_map.pictures.front().Y.size(),
+        data->occupancy_map.pictures.front().U.size(), data->occupancy_map.pictures.front().V.size());
     for (size_t i = 0; i < data->geometry_maps.size(); i++) {
         std::cout << "-- Geometry map " << i << ": " << data->geometry_maps.at(i).frame_count << " frames, " << data->geometry_maps.at(i).width << "x" << data->geometry_maps.at(i).height << std::endl;
+        printf("Channel sizes Y=%zu U=%zu V=%zu \n", data->geometry_maps.at(i).pictures.front().Y.size(),
+        data->geometry_maps.at(i).pictures.front().U.size(), data->geometry_maps.at(i).pictures.front().V.size());
     }
     for (size_t i = 0; i < data->attribute_maps.size(); i++) {
         std::cout << "-- Attribute map " << i << ": " << data->attribute_maps.at(i).frame_count << " frames, " << data->attribute_maps.at(i).width << "x" << data->attribute_maps.at(i).height << std::endl;
+        printf("Channel sizes Y=%zu U=%zu V=%zu \n", data->attribute_maps.at(i).pictures.front().Y.size(),
+        data->attribute_maps.at(i).pictures.front().U.size(), data->attribute_maps.at(i).pictures.front().V.size());
     }
+    
 }

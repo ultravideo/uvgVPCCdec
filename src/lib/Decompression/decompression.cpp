@@ -811,8 +811,8 @@ void BitstreamParsing::decode_video_sub_bitstream(std::string input_path, std::s
         frame420.height = height;
         frame420.format = PCCCOLORFORMAT::YUV420;
         frame420.Y.resize(width * height);
-        frame420.U.resize(width * height);
-        frame420.V.resize(width * height);
+        frame420.U.resize(width * height / 4);
+        frame420.V.resize(width * height / 4);
 
         std::size_t data_read = 0;
         // Read Y plane
@@ -820,11 +820,11 @@ void BitstreamParsing::decode_video_sub_bitstream(std::string input_path, std::s
         data_read += decompressed_video.gcount();
 
         // Read U plane
-        decompressed_video.read(reinterpret_cast<char*>(frame420.U.data()), width * height / 4);
+        decompressed_video.read(reinterpret_cast<char*>(frame420.U.data()), frame420.U.size());
         data_read += decompressed_video.gcount();
 
         // Read V plane
-        decompressed_video.read(reinterpret_cast<char*>(frame420.V.data()), width * height / 4);
+        decompressed_video.read(reinterpret_cast<char*>(frame420.V.data()), frame420.V.size());
         data_read += decompressed_video.gcount();
 
         picture frame444;

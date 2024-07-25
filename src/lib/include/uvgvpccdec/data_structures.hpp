@@ -274,7 +274,10 @@ struct picture {
     size_t get_Y_value(const size_t u, const size_t v ) { // Should be uint8_t??
         return Y.at(v * width + u);
     }
+    // Works for 444. IF you want 420, this needs to change a bit
+    // Check integer lengths
     size_t get_value(const size_t channel, const size_t u, const size_t v) {
+        assert( channel < 3 );
         if(channel == 0) {
             return Y.at(v * width + u);
         } else if (channel == 1) {
@@ -514,14 +517,14 @@ struct point_cloud_frame {
     std::vector<std::pair<size_t, size_t>> pointPatchIndexes_;
     std::vector<uint8_t> types_;
 
-     /// convert yuv444 (16bit) to normalized yuv444 (format double)
-    void convertYUV16ToRGB8() {
+     /// convert yuv444 (8bit) to normalized yuv444 (format double)
+    void convertYUV8ToRGB8() {
         for ( size_t k = 0; k < getPointCount(); k++ ) {
         double y1     = colors16[k].data_[0];
         double u1     = colors16[k].data_[1];
         double v1     = colors16[k].data_[2];
-        double offset = 32768.0;
-        double scale  = 65535.0;
+        double offset = 128.0;
+        double scale  = 255.0;
         double weight = 1.0 / scale;
 
         y1 = weight * y1;
