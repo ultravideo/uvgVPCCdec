@@ -398,14 +398,6 @@ struct uvg_color {
     uvg_color() {data_[0] = 0; data_[1] = 0; data_[2] = 0;}
 };
 
-struct uvg_color16 {
-    uint16_t data_[3];
-    uint16_t&       r() { return data_[0]; }
-    uint16_t&       g() { return data_[1]; }
-    uint16_t&       b() { return data_[2]; } 
-    uvg_color16() {data_[0] = 0; data_[1] = 0; data_[2] = 0;}
-};
-
 struct patch {
 
     size_t index_ = 0;          // patch index
@@ -513,16 +505,15 @@ inline double PCCClip( const double& n, const double& lower, const double& upper
 struct point_cloud_frame {
     std::vector<point3d> positions = {};
     std::vector<uvg_color> colors = {};
-    std::vector<uvg_color16> colors16 = {};
     std::vector<std::pair<size_t, size_t>> pointPatchIndexes_;
     std::vector<uint8_t> types_;
 
      /// convert yuv444 (8bit) to normalized yuv444 (format double)
     void convertYUV8ToRGB8() {
         for ( size_t k = 0; k < getPointCount(); k++ ) {
-        double y1     = colors16[k].data_[0];
-        double u1     = colors16[k].data_[1];
-        double v1     = colors16[k].data_[2];
+        double y1     = colors[k].data_[0];
+        double u1     = colors[k].data_[1];
+        double v1     = colors[k].data_[2];
         double offset = 128.0;
         double scale  = 255.0;
         double weight = 1.0 / scale;
@@ -563,20 +554,19 @@ struct point_cloud_frame {
     void clear() {
         positions.clear();
         colors.clear();
-        colors16.clear();
         pointPatchIndexes_.clear();
         types_.clear();
     }
 
-    void set_color16( const size_t index, const uvg_color16 color16bit ) {
-        if (index >= colors16.size()) {
-            std::cout << "index " << index << " colors16 size " << colors16.size() << std::endl;
+    void set_color( const size_t index, const uvg_color color ) {
+        if (index >= colors.size()) {
+            std::cout << "index " << index << " colors16 size " << colors.size() << std::endl;
         }
-        assert( index < colors16.size() );
-        colors16[index] = color16bit;
+        assert( index < colors.size() );
+        colors[index] = color;
     }
 
-    std::vector<uvg_color16>& getColors16bit() { return colors16; }
+    std::vector<uvg_color>& getColors8bit() { return colors; }
     size_t getPointCount() const { return positions.size(); }
 
     void   resize( const size_t size ) {

@@ -40,8 +40,8 @@ size_t PostReconstruction::colorPointCloud(point_cloud_frame*                   
     }
 
     auto&  pointToPixel      = current_atlas_frame->getPointToPixel(); //tile.getPointToPixel();
-    auto&  color16bit        = reconstruct->colors16;
-    color16bit.resize(reconstruct->getPointCount());
+    auto&  color8bit        = reconstruct->colors;
+    color8bit.resize(reconstruct->getPointCount());
     bool   useAuxVideo       = false; //tile.getUseRawPointsSeparateVideo();
     size_t numOfRawPointGeos = 0; //tile.getTotalNumberOfRawPoints();
     size_t numberOfEOMPoints = 0; //tile.getTotalNumberOfEOMPoints();
@@ -67,8 +67,8 @@ size_t PostReconstruction::colorPointCloud(point_cloud_frame*                   
     size_t test4 = 0;
     //target.addColors16bit();
     //source.addColors16bit();
-    source.colors16.resize(pointCount);
-    target.colors16.resize(pointCount);
+    source.colors.resize(pointCount);
+    target.colors.resize(pointCount);
 
     const size_t shift = multipleStreams ? current_atlas_frame->frame_index : current_atlas_frame->frame_index * mapCount;
     for ( size_t i = accTilePointCount; i < accTilePointCount + pointCount; ++i ) {
@@ -85,10 +85,10 @@ size_t PostReconstruction::colorPointCloud(point_cloud_frame*                   
             test3++;
             /*const*/ picture &frame = videoAttributeMap0.pictures.at(shift + f);
             for ( size_t c = 0; c < 3; ++c ) {
-                color16bit.at(i).data_[c] = frame.get_value(c, x, y);
+                color8bit.at(i).data_[c] = frame.get_value(c, x, y);
             }
             int index = source.addPoint(reconstruct->positions[i]);
-            source.set_color16( index, color16bit[i] );
+            source.set_color( index, color8bit[i] );
         } else {
             target.addPoint( reconstruct->positions[i] );
             targetIndex.push_back( i );
