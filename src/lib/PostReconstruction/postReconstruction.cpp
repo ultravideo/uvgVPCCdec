@@ -15,8 +15,6 @@ size_t PostReconstruction::color_point_cloud(point_cloud_frame* reconstruct, dec
     Logger::log(LogLevel::INFO, "Post-reconstruction", "Start color point cloud \n");
 
     atlas_frame* current_atlas_frame = data->atlas_map.front().get();
-    size_t accTilePointCount = 0;
-    if ( reconstruct->getPointCount() == 0 ) { return accTilePointCount; }
 
     /*const*/ video_map &videoAttributeMap0 = data->attribute_maps.at(0);
     //const video_map &videoAttributeMap1 = data->attribute_maps.at(1);
@@ -40,10 +38,10 @@ size_t PostReconstruction::color_point_cloud(point_cloud_frame* reconstruct, dec
     printf( "mapCount            = %zu \n", (size_t)mapCount );
 
     const size_t shift = multipleStreams ? current_atlas_frame->frame_index : current_atlas_frame->frame_index * mapCount;
-    for ( size_t i = 0; i < accTilePointCount + pointCount; ++i ) {
-        const vector3d location = pointToPixel[i - accTilePointCount];
-        const size_t x = current_atlas_frame->getLeftTopXInFrame() + location.data_[0]; //tile.getLeftTopXInFrame() + location[0];
-        const size_t y = current_atlas_frame->getLeftTopYInFrame()+location.data_[1]; //tile.getLeftTopYInFrame() + location[1];
+    for ( size_t i = 0; i < pointCount; ++i ) {
+        const vector3d location = pointToPixel[i];
+        const size_t x = location.data_[0];
+        const size_t y = location.data_[1];
         const size_t f = location.data_[2];
 
         if ( f < mapCount ) {
@@ -55,5 +53,5 @@ size_t PostReconstruction::color_point_cloud(point_cloud_frame* reconstruct, dec
         }
     }
 
-    return accTilePointCount + reconstruct->getPointCount(); //tile.getTotalNumberOfRegularPoints()
+    return reconstruct->getPointCount(); //tile.getTotalNumberOfRegularPoints()
 }

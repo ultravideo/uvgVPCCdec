@@ -475,17 +475,6 @@ void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_
                                             reconstruct->setPointPatchIndex( pointindex, tileIndex, patchIndex );
                                         }
                                         const size_t pointindex_1 = pointindex;
-                                        // IMPLEMENT THIS reconstruct.setColor( pointindex_1, color );
-                                        //partition.push_back( uint32_t( patchIndex ) );
-                                        /*if ( params.singleMapPixelInterleaving_ ) {
-                                            pointToPixel.emplace_back(
-                                                x, y,
-                                                i == 0 ? ( static_cast<size_t>( x + y ) % 2 )
-                                                    : i == 1 ? ( static_cast<size_t>( x + y + 1 ) % 2 ) : g_intermediateLayerIndex );
-                                        } else if ( params.pointLocalReconstruction_ ) {
-                                            pointToPixel.emplace_back(
-                                                x, y, i == 0 ? 0 : i == 1 ? g_intermediateLayerIndex : g_intermediateLayerIndex + 1 );
-                                        } else {*/
                                         pointToPixel.emplace_back( x, y, i < 2 ? i : g_intermediateLayerIndex + 1 );
                                     }
                                 }
