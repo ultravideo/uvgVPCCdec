@@ -518,7 +518,6 @@ struct point_cloud_frame {
 
     void set_color( const size_t index, const uvg_color color ) {
         if (index >= colors.size()) {
-            std::cout << "index " << index << " colors16 size " << colors.size() << std::endl;
         }
         assert( index < colors.size() );
         colors[index] = color;
