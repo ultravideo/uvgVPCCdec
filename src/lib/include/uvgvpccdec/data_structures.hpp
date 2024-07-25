@@ -503,7 +503,6 @@ inline double PCCClip( const double& n, const double& lower, const double& upper
 struct point_cloud_frame {
     std::vector<point3d> positions = {};
     std::vector<uvg_color> colors = {};
-    std::vector<std::pair<size_t, size_t>> pointPatchIndexes_;
 
     point3d& operator[]( size_t i ) {
         return positions[i];
@@ -515,7 +514,6 @@ struct point_cloud_frame {
     void clear() {
         positions.clear();
         colors.clear();
-        pointPatchIndexes_.clear();
     }
 
     void set_color( const size_t index, const uvg_color color ) {
@@ -531,7 +529,6 @@ struct point_cloud_frame {
 
     void resize( const size_t size ) {
         positions.resize( size );
-        pointPatchIndexes_.resize( size );
     }
 
     size_t addPoint( const point3d& position ) {
@@ -548,13 +545,6 @@ struct point_cloud_frame {
         positions[index].data_[2] = (int16_t)position.data_[2];
         return index;
     }
-
-    // Is this func ok?
-    void setPointPatchIndex( const size_t index, const uint32_t tileIndex, const uint32_t patchIndex ) {
-        assert( index < pointPatchIndexes_.size() );
-        pointPatchIndexes_[index].first  = tileIndex;
-        pointPatchIndexes_[index].second = patchIndex;
-    }
 };
 
 struct atlas_frame {
@@ -570,11 +560,9 @@ struct atlas_frame {
     size_t tile_height = 0;
 
     std::vector<size_t> block_to_patch;
-    size_t getLeftTopXInFrame() {return 0;}
-    size_t getLeftTopYInFrame() {return 0;}
     std::vector<vector3d>& getPointToPixel() { return pointToPixel_; }
-    size_t totalNumberOfRegularPoints_ = 0;
-    void setTotalNumberOfRegularPoints( size_t numPoints ) { totalNumberOfRegularPoints_ = numPoints; }
+    size_t number_of_points = 0;
+    void set_number_of_points( size_t val ) { number_of_points = val; }
 };
 
 struct decompressed_data { // of a gof currently
