@@ -55,24 +55,23 @@ size_t PostReconstruction::colorPointCloud(point_cloud_frame*                   
     printf( "attributeCount               = %zu \n", (size_t)attributeCount );
     printf( "accTilePointCount            = %zu \n", (size_t)accTilePointCount );
     printf( "mapCount            = %zu \n", (size_t)mapCount );
-    point_cloud_frame target;
-    point_cloud_frame source;
+    //point_cloud_frame target;
+    //point_cloud_frame source;
     std::vector<size_t> targetIndex;
     targetIndex.resize( 0 );
-    target.clear();
-    source.clear();
-    size_t test1 = 0;
+    //target.clear();
+    //source.clear();
+    /*size_t test1 = 0;
     size_t test2 = 0;
     size_t test3 = 0;
-    size_t test4 = 0;
+    size_t test4 = 0;*/
     //target.addColors16bit();
     //source.addColors16bit();
-    source.colors.resize(pointCount);
-    target.colors.resize(pointCount);
+    //source.colors.resize(pointCount);
+    //target.colors.resize(pointCount);
 
     const size_t shift = multipleStreams ? current_atlas_frame->frame_index : current_atlas_frame->frame_index * mapCount;
     for ( size_t i = accTilePointCount; i < accTilePointCount + pointCount; ++i ) {
-        test1++;
         const vector3d location = pointToPixel[i - accTilePointCount];
         const size_t x = current_atlas_frame->getLeftTopXInFrame() + location.data_[0]; //tile.getLeftTopXInFrame() + location[0];
         const size_t y = current_atlas_frame->getLeftTopYInFrame()+location.data_[1]; //tile.getLeftTopYInFrame() + location[1];
@@ -80,19 +79,17 @@ size_t PostReconstruction::colorPointCloud(point_cloud_frame*                   
         // false if ( params.singleMapPixelInterleaving_ ) {
         // false if ( multipleStreams != 0 ) {
         // else {
-        test2++;
         if ( f < mapCount ) {
-            test3++;
             /*const*/ picture &frame = videoAttributeMap0.pictures.at(shift + f);
             for ( size_t c = 0; c < 3; ++c ) {
                 color8bit.at(i).data_[c] = frame.get_value(c, x, y);
             }
-            int index = source.addPoint(reconstruct->positions[i]);
-            source.set_color( index, color8bit[i] );
-        } else {
+            //int index = source.addPoint(reconstruct->positions[i]);
+            //source.set_color( index, color8bit[i] );
+        } /*else {
             target.addPoint( reconstruct->positions[i] );
             targetIndex.push_back( i );
-        }
+        }*/
     }
 
     /* false if ( pointCount > 0 ) {
@@ -100,8 +97,8 @@ size_t PostReconstruction::colorPointCloud(point_cloud_frame*                   
 
     // false if ( useAuxVideo ) {
 
-    printf( "source pointCount = %zu \n", source.getPointCount() );
-    printf( "target pointCount = %zu \n", target.getPointCount() );
+    //printf( "source pointCount = %zu \n", source.getPointCount() );
+    //printf( "target pointCount = %zu \n", target.getPointCount() );
 
     return accTilePointCount + reconstruct->getPointCount(); //tile.getTotalNumberOfRegularPoints()
 }
