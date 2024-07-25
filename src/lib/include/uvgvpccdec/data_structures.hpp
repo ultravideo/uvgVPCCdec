@@ -276,7 +276,7 @@ struct picture {
     }
     // Works for 444. IF you want 420, this needs to change a bit
     // Check integer lengths
-    size_t get_value(const size_t channel, const size_t u, const size_t v) {
+    uint8_t get_value(const size_t channel, const size_t u, const size_t v) {
         assert( channel < 3 );
         if(channel == 0) {
             return Y.at(v * width + u);
@@ -285,7 +285,7 @@ struct picture {
         } else if (channel == 2) {
             return V.at(v * width + u);
         }
-        return 0; // TODO throw error or assert
+        return 0;
     }
 
     void convert_yuv_420_to_444(const picture* old) {
