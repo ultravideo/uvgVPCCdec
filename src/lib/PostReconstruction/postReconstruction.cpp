@@ -4,7 +4,7 @@ using namespace uvgvpcc_dec;
 
 void PostReconstruction::PostProcess(decompressed_data* data, point_cloud_frame* reconstruct, size_t frame_index)
 {
-    Logger::log(LogLevel::INFO, "Post-reconstruction", "Post-processing point cloud \n");
+    Logger::log(LogLevel::INFO, "Post-reconstruction", "Post-processing point cloud frame " + std::to_string(frame_index) + " \n");
     bool multipleStreams = data->vps.vps_multiple_map_streams_present_flag.at(0);
     uint8_t attributeCount = data->vps.ai_attribute_count;
     color_point_cloud(reconstruct, data, frame_index, multipleStreams, attributeCount);
@@ -12,8 +12,6 @@ void PostReconstruction::PostProcess(decompressed_data* data, point_cloud_frame*
 
 size_t PostReconstruction::color_point_cloud(point_cloud_frame* reconstruct, decompressed_data* data, size_t frame_index, const size_t multipleStreams, const uint8_t attributeCount )
 {
-    Logger::log(LogLevel::INFO, "Post-reconstruction", "Start color point cloud frame " + std::to_string(frame_index) + " \n");
-
     atlas_frame* current_atlas_frame = data->atlas_map.at(frame_index).get();
 
     /*const*/ video_map &videoAttributeMap0 = data->attribute_maps.at(0);
@@ -24,21 +22,20 @@ size_t PostReconstruction::color_point_cloud(point_cloud_frame* reconstruct, dec
         return 0;
     }
 
-    auto&  pointToPixel = current_atlas_frame->getPointToPixel(); //tile.getPointToPixel();
+    std::vector<point3d> &pointToPixel = current_atlas_frame->pointToPixel_;
     auto&  color8bit = reconstruct->colors;
     color8bit.resize(reconstruct->getPointCount());
-    size_t pointCount = reconstruct->getPointCount(); //tile.getTotalNumberOfRegularPoints();
+    size_t pointCount = reconstruct->getPointCount();
     
-    printf( "pointCount                   = %zu \n", pointCount );
+    /*printf( "pointCount                   = %zu \n", pointCount );
     printf( "pointToPixel size            = %zu \n", pointToPixel.size() );
     printf( "multipleStreams              = %zu \n", multipleStreams );
     printf( "attributeCount               = %zu \n", (size_t)attributeCount );
-    printf( "mapCount            = %zu \n", (size_t)mapCount );
+    printf( "mapCount            = %zu \n", (size_t)mapCount );*/
 
     const size_t shift = multipleStreams ? frame_index : frame_index * mapCount;
-    std::cout << "shift " << shift << std::endl;
     for ( size_t i = 0; i < pointCount; ++i ) {
-        const vector3d location = pointToPixel[i];
+        const point3d &location = pointToPixel[i];
         const size_t x = location.data_[0];
         const size_t y = location.data_[1];
         const size_t f = location.data_[2];

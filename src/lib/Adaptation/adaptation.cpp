@@ -13,7 +13,7 @@ static inline PCCEndianness PCCSystemEndianness() {
 /* ------------------------ ripped from tmc2------------------------ */
 bool Adaptation::write( const std::string& fileName, point_cloud_frame* frame, const bool asAscii ) {
 
-    Logger::log(LogLevel::INFO, "Reconstruction", "Write to file \n");
+    Logger::log(LogLevel::INFO, "Adaptation", "Write to file \n");
     std::ofstream fout( fileName, std::ofstream::out );
     if ( !fout.is_open() ) { return false; }
     const size_t pointCount = frame->getPointCount();

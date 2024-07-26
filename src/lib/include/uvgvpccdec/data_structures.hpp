@@ -334,20 +334,6 @@ struct video_map {
     std::vector<picture> pictures = {};
 };
 
-struct vector3d {
-    size_t data_[3];
-
-    vector3d(const size_t x, size_t y, size_t z ) {
-        data_[0] = x;
-        data_[1] = y;
-        data_[2] = z;
-    }
-    vector3d()        = default;
-    size_t&       x() { return data_[0]; }
-    size_t&       y() { return data_[1]; }
-    size_t&       z() { return data_[2]; }
-};
-
 struct point3d {
     uint16_t data_[3];
 
@@ -360,6 +346,14 @@ struct point3d {
         return data_[i];
     }
 
+    point3d(const uint16_t x, uint16_t y, uint16_t z ) {
+        data_[0] = x;
+        data_[1] = y;
+        data_[2] = z;
+    }
+
+    point3d() = default;
+    
     bool operator==(const point3d &cmp) const {
         return ( data_[0] == cmp.data_[0] && data_[1] == cmp.data_[1] && data_[2] == cmp.data_[2] );
     };
@@ -505,22 +499,10 @@ struct point_cloud_frame {
     std::vector<uvg_color>& getColors8bit() { return colors; }
     size_t getPointCount() const { return positions.size(); }
 
-    void resize( const size_t size ) {
-        positions.resize( size );
-    }
-
     size_t addPoint( const point3d& position ) {
         const size_t index = getPointCount();
-        resize( index + 1 ); // NOTE - COSTLY OPERATION?
+        positions.resize( index + 1 ); // NOTE - COSTLY OPERATION?
         positions[index] = position;
-        return index;
-    }
-    size_t addPoint( const vector3d& position ) {
-        const size_t index = getPointCount();
-        resize( index + 1 );
-        positions[index].data_[0] = (int16_t)position.data_[0];
-        positions[index].data_[1] = (int16_t)position.data_[1];
-        positions[index].data_[2] = (int16_t)position.data_[2];
         return index;
     }
 };
@@ -529,8 +511,12 @@ struct atlas_frame {
     // As we only currently support one tile per atlas frame, the frame directly contains the patch map
     // otherwise tiles would be in between frame and patch
     std::vector<patch> patches_map = {};
-    std::vector<vector3d> pointToPixel_ = {};
 
+    /* PointToPixel is filled during Reconstruction. It is used in Post-reconstruction to pick the correct
+       color values from the attribute map  */
+    std::vector<point3d> pointToPixel_ = {};
+
+    /* Always 0 for now. Single atlas can contain several atlas frames */
     size_t atlas_index = 0;
 
     // These are here for now as only 1 tile per frame. TODO; FIX
@@ -538,7 +524,6 @@ struct atlas_frame {
     size_t tile_height = 0;
 
     std::vector<size_t> block_to_patch;
-    std::vector<vector3d>& getPointToPixel() { return pointToPixel_; }
     size_t number_of_points = 0;
     void set_number_of_points( size_t val ) { number_of_points = val; }
 };
