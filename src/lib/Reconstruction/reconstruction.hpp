@@ -18,7 +18,7 @@ public:
         const size_t occupancyResolution, const size_t occupancyPrecision );
 
     /* ------------------------ ripped from tmc2------------------------ */
-    static void generateOccupancyMap( atlas_frame* frame, picture* videoFrame,
+    static void generateOccupancyMap( size_t width, size_t height, picture* videoFrame,
         std::vector<uint32_t>* occupancyMap, const size_t occupancyPrecision);
 
     /* ------------------------ ripped from tmc2------------------------ */

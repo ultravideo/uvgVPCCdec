@@ -174,16 +174,14 @@ std::vector<point3d> Reconstruction::generate_points(atlas_frame* tile, std::vec
     const size_t videoFrameIndex, const size_t patchIndex, const size_t u, const size_t v, const size_t x,
     const size_t y, const size_t mapCountMinus1, const bool multipleStreams, const bool absoluteD1_)
 {
-    const auto& patch  = tile->patches_map.at(patchIndex); //.getPatch( patchIndex );
-    auto& frame0 = videoGeometryMultiple[0].pictures.at(videoFrameIndex);//.getFrame( videoFrameIndex );
+    const auto& patch  = tile->patches_map.at(patchIndex);
+    auto& frame0 = videoGeometryMultiple[0].pictures.at(videoFrameIndex);
     std::vector<point3d> createdPoints;
     point3d point0;
-    // if ( params.pbfEnableFlag_ ) { else 
-    //point0 = patch.generatePoint( u, v, frame0.getValue( 0, x, y ) );
+
     point0 = patch.generatePoint( u, v, frame0.get_Y_value(x, y) );
 
     createdPoints.push_back( point0 );
-    //std::cout << "NOTE: hard coded no singleMapPixelInterleaving_ or pointLocalReconstruction_" << std::endl;
     if ( mapCountMinus1 > 0 ) {
       point3d  point1( point0 );
       auto& frame1 = multipleStreams ? videoGeometryMultiple[1].pictures.at(videoFrameIndex) 
@@ -198,25 +196,17 @@ std::vector<point3d> Reconstruction::generate_points(atlas_frame* tile, std::vec
         }
       }
       createdPoints.push_back( point1 );
-    }  // if ( params.mapCountMinus1_ > 0 ) {
+    }
     return createdPoints;
 }
 
-/* ------------------------ ripped from tmc2------------------------ */
-void Reconstruction::generateOccupancyMap( atlas_frame* frame, picture* videoFrame,
+/* ------------------------ somewhat ripped from tmc2------------------------ */
+void Reconstruction::generateOccupancyMap( size_t width, size_t height, picture* videoFrame,
     std::vector<uint32_t>* occupancyMap, const size_t occupancyPrecision) {
-    auto   width        = frame->tile_width;
-    auto   height       = frame->tile_height;
-    size_t u0           = 0;
-    size_t v0           = 0;
     occupancyMap->resize( width * height, 0 );
     for ( size_t v = 0; v < height; ++v ) {
         for ( size_t u = 0; u < width; ++u ) {
-            uint8_t pixel = videoFrame->get_Y_value( u0 + u / occupancyPrecision, v0 + v / occupancyPrecision );
-            /*if ( !enhancedOccupancyMapForDepthFlag ) {
-                occupancyMap[v * width + u] = ( pixel > thresholdLossyOM );
-                pixel                       = occupancyMap[v * width + u];
-            } else {*/
+            uint8_t pixel = videoFrame->get_Y_value(u / occupancyPrecision, v / occupancyPrecision );
             occupancyMap->at(v * width + u) = pixel;
         }
     }
@@ -354,7 +344,7 @@ void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_
     std::vector<uint32_t> occupancyMap = {}; // pre tile?
 
     /* --------------------------- this should work (UNTESTED) --------------------------- */
-    generateOccupancyMap( current_atlas_frame, &current_occupancy_frame, &occupancyMap, occupancyPrecision);
+    generateOccupancyMap( tileWidth, tileHeight, &current_occupancy_frame, &occupancyMap, occupancyPrecision);
     
     /* --------------------------- this should work (TESTED) --------------------------- */
     Logger::log(LogLevel::INFO, "Reconstruction", "Generate block to patch \n");
@@ -378,15 +368,13 @@ void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_
     
     /* ------------------------ reconstruction ------------------------ */
     auto &blockToPatch = current_atlas_frame->block_to_patch;
-    uint32_t patchIndex = 0;
     const bool patchPrecedenceOrderFlag = data->asps.asps_patch_precedence_order_flag;
     const size_t totalPatchCount       = current_atlas_frame->patches_map.size();
-    bool bDecoder = true; // Whats this? tmc2
 
-    size_t occupancyResolution_ = 2;
+    size_t asps_occupancy_resolution = size_t( 1 ) << data->asps.asps_log2_patch_packing_block_size;
     std::cout << "NOTE: HARD CODED OCCUPANCY RESOLUTION, MAKE DYNAMIC" << std::endl;
-    const size_t blockToPatchWidth     = tileWidth / occupancyResolution_;
-    const size_t blockToPatchHeight    = tileHeight / occupancyResolution_;
+    const size_t blockToPatchWidth     = tileWidth / asps_occupancy_resolution;
+    const size_t blockToPatchHeight    = tileHeight / asps_occupancy_resolution;
 
     std::cout << "NOTE: HARD CODED remove duplicate points to true" << std::endl;
     bool removeDuplicatePoints_ = true;
@@ -397,7 +385,7 @@ void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_
 
     const size_t geometryBitDepth3D_ = data->vps.geometry_info.at(0).gi_geometry_2d_bit_depth_minus1 + 1;
     videoFrameIndex = 0 * mapCount;
-    std::cout << "NOTE: HARD CODED GEOMETRY MAP COUNT to 2, MAKE DYNAMIC" << std::endl;
+    std::cout << "NOTE: HARD CODED GEOMETRY FRAME COUNT to 2, MAKE DYNAMIC" << std::endl;
     size_t geoFrameCount = 2;
     if ( geoFrameCount < ( videoFrameIndex + mapCount ) ) { std::cout << "ERROR before PC generation" << std::endl; return; }
 
@@ -415,7 +403,7 @@ void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_
     }
     
     for ( std::size_t index = 0; index < current_atlas_frame->patches_map.size(); index++ ) {
-        patchIndex                     = ( bDecoder && patchPrecedenceOrderFlag ) ? ( totalPatchCount - index - 1 ) : index;
+        size_t patchIndex = patchPrecedenceOrderFlag  ? ( totalPatchCount - index - 1 ) : index;
         const size_t patchIndexPlusOne = patchIndex + 1;
         auto& patch             = current_atlas_frame->patches_map[patchIndex];
         size_t patch_true = 0;
@@ -447,8 +435,7 @@ void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_
                             
                             if ( !occupancy ) { continue; }
                             std::vector<point3d> createdPoints;
-                            //Logger::log(LogLevel::INFO, "Reconstruction", "Generate point positions \n");
-                            createdPoints = generate_points( /*params, */current_atlas_frame, data->geometry_maps, videoFrameIndex, patchIndex, u,
+                            createdPoints = generate_points(current_atlas_frame, data->geometry_maps, videoFrameIndex, patchIndex, u,
                                                 v, xInVideoFrame, yInVideoFrame, mapCountMinus1_, multipleStreams_, absoluteD1_);
                             generatePointsCalled++;
                             if ( !createdPoints.empty() ) {
