@@ -27,7 +27,7 @@ void API::decodeV3CSampleStream(const std::string filename)
     
     BitstreamParsing::decompressV3CSampleStream(data, &decompressed);
     FormatConversion::convertToNominalFormat(&decompressed);
-    Reconstruction::reconstructPointCloud(&decompressed, &reconstructed_point_cloud_frame);
+    Reconstruction::construct_point_cloud_frame(&decompressed, &reconstructed_point_cloud_frame);
     PostReconstruction::PostProcess(&decompressed, &reconstructed_point_cloud_frame);
     Adaptation::convertYUV8ToRGB8(&reconstructed_point_cloud_frame);
     //reconstruct_multiple_frames.appendPointSet( reconstructed_point_cloud_frame );

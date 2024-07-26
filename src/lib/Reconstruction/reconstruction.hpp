@@ -7,7 +7,7 @@ public:
     /* ------------------------ ripped from tmc2------------------------ */
     static bool write( const std::string& fileName, point_cloud_frame* frame, const bool asAscii = true );
 
-    static void reconstructPointCloud(decompressed_data* data, point_cloud_frame* reconstruct);
+    static void construct_point_cloud_frame(decompressed_data* data, point_cloud_frame* reconstruct);
 
     /* ------------------------ ripped from tmc2------------------------ */
     static size_t patch_to_canvas(const size_t u, const size_t v, size_t canvasStride, size_t canvasHeight,

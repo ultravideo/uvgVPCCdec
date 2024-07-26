@@ -38,32 +38,15 @@ bool Reconstruction::write( const std::string& fileName, point_cloud_frame* fram
         fout << "property float y" << std::endl;
         fout << "property float z" << std::endl;
     } else {
-        // fout << "property int16 x" << std::endl;
-        // fout << "property int16 y" << std::endl;
-        // fout << "property int16 z" << std::endl;
         fout << "property float x" << std::endl;
         fout << "property float y" << std::endl;
         fout << "property float z" << std::endl;
     }
-    /*if ( hasNormals() ) {
-        fout << "property float nx" << std::endl;
-        fout << "property float ny" << std::endl;
-        fout << "property float nz" << std::endl;
-    }*/
     if ( !frame->colors.empty() ) {
         fout << "property uchar red" << std::endl;
         fout << "property uchar green" << std::endl;
         fout << "property uchar blue" << std::endl;
     }
-    /*if ( hasReflectances() ) { fout << "property uint16 refc" << std::endl; }
-    if ( PCC_SAVE_POINT_TYPE != 0u ) {
-        fout << "property uchar type" << std::endl;
-        switch ( PCC_SAVE_POINT_TYPE ) {
-        case 1: fout << "comment POINT_TYPE: Unset D0 D1 Filling Smooth InBetween" << std::endl; break;
-        case 2: fout << "comment POINT_TYPE: type0 type1 type2  " << std::endl; break;
-        default: break;
-        }
-    }*/
     fout << "element face 0" << std::endl;
     fout << "property list uint8 int32 vertex_index" << std::endl;
     fout << "end_header" << std::endl;
@@ -325,12 +308,13 @@ void Reconstruction::generateBlockToPatchFromOccupancyMapVideo(atlas_frame* fram
     }
 }
 
-void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_frame* reconstruct)
+void Reconstruction::construct_point_cloud_frame(decompressed_data* data, point_cloud_frame* reconstruct)
 {
     Logger::log(LogLevel::INFO, "Reconstruction", "Reconstructing point cloud \n");
 
     //for(data->frame_count) only 1 frame at first ------------------------------
-    auto current_atlas_frame = data->atlas_map.front().get();
+    atlas_frame* current_atlas_frame = data->atlas_map.front().get();
+    size_t atlas_index = current_atlas_frame->frame_index;
     picture current_occupancy_frame = data->occupancy_map.pictures.front();
     size_t tileWidth = current_atlas_frame->tile_width;
     size_t tileHeight = current_atlas_frame->tile_height;
@@ -361,21 +345,17 @@ void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_
     /* ------------------------ reconstruction ------------------------ */
     auto &blockToPatch = current_atlas_frame->block_to_patch;
     const bool patchPrecedenceOrderFlag = data->asps.asps_patch_precedence_order_flag;
-    const size_t totalPatchCount       = current_atlas_frame->patches_map.size();
+    const size_t patch_count = current_atlas_frame->patches_map.size();
 
     size_t asps_occupancy_resolution = size_t( 1 ) << data->asps.asps_log2_patch_packing_block_size;
     const size_t blockToPatchWidth     = tileWidth / asps_occupancy_resolution;
     const size_t blockToPatchHeight    = tileHeight / asps_occupancy_resolution;
-
-    std::cout << "NOTE: HARD CODED remove duplicate points to true" << std::endl;
     bool removeDuplicatePoints_ = true;
 
-    size_t videoFrameIndex;
-    std::cout << "NOTE: HARD CODED ATLAS INDEX TO 0, MAKE DYNAMIC" << std::endl;
-    const size_t mapCount = data->vps.vps_map_count_minus1.at(0) + 1;
+    const size_t mapCount = data->vps.vps_map_count_minus1.at(atlas_index) + 1;
 
     const size_t geometryBitDepth3D_ = data->vps.geometry_info.at(0).gi_geometry_2d_bit_depth_minus1 + 1;
-    videoFrameIndex = 0 * mapCount;
+    size_t videoFrameIndex = atlas_index * mapCount;
     std::cout << "NOTE: HARD CODED GEOMETRY FRAME COUNT to 2, MAKE DYNAMIC" << std::endl;
     size_t geoFrameCount = 2;
     if ( geoFrameCount < ( videoFrameIndex + mapCount ) ) { std::cout << "ERROR before PC generation" << std::endl; return; }
@@ -389,7 +369,7 @@ void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_
     }
     
     for ( std::size_t index = 0; index < current_atlas_frame->patches_map.size(); index++ ) {
-        size_t patchIndex = patchPrecedenceOrderFlag  ? ( totalPatchCount - index - 1 ) : index;
+        size_t patchIndex = patchPrecedenceOrderFlag  ? ( patch_count - index - 1 ) : index;
         const size_t patchIndexPlusOne = patchIndex + 1;
         auto& patch             = current_atlas_frame->patches_map[patchIndex];
         size_t patch_true = 0;
@@ -412,9 +392,9 @@ void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_
 
                             occupancy = occupancyMap[canvasIndex] != 0;
                             //std::cout << "NOTE: hard coded vps mapCountMinus1 and multipleStreams atlas index number" << std::endl;
-                            size_t mapCountMinus1_ = data->vps.vps_map_count_minus1.at(0);
-                            bool multipleStreams_ = data->vps.vps_multiple_map_streams_present_flag.at(0);
-                            bool absoluteD1_ = data->vps.vps_map_count_minus1.at(0) == 0 || data->vps.vps_map_absolute_coding_enabled_flag.at(0).at(1);
+                            size_t mapCountMinus1_ = data->vps.vps_map_count_minus1.at(atlas_index);
+                            bool multipleStreams_ = data->vps.vps_multiple_map_streams_present_flag.at(atlas_index);
+                            bool absoluteD1_ = data->vps.vps_map_count_minus1.at(atlas_index) == 0 || data->vps.vps_map_absolute_coding_enabled_flag.at(atlas_index).at(1);
                             
                             if ( !occupancy ) { continue; }
                             std::vector<point3d> createdPoints;
@@ -425,7 +405,6 @@ void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_
                                 for ( size_t i = 0; i < createdPoints.size(); i++ ) {
                                     if ( ( !removeDuplicatePoints_ ) || ( ( i == 0 ) || ( createdPoints[i] != createdPoints[0] ) ) ) {
                                         size_t pointindex = 0;
-                                        size_t tileIndex = 0; // NOte hard coded single tile
 
                                         if ( patch.axisOfAdditionalPlane_ == 0 ) {
                                             pointindex = reconstruct->addPoint( createdPoints[i] );
