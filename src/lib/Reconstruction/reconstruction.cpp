@@ -1,92 +1,9 @@
 #include "reconstruction.hpp"
 #include "reconstruction_common.hpp"
-#include <fstream>
-#include <iomanip>
 
 using namespace uvgvpcc_dec;
 
 const size_t g_intermediateLayerIndex = 100; //TMC2 what is this??
-
-enum PCCEndianness { PCC_BIG_ENDIAN = 0, PCC_LITTLE_ENDIAN = 1 };
-static inline PCCEndianness PCCSystemEndianness() {
-  uint32_t num = 1;
-  return ( *( reinterpret_cast<char*>( &num ) ) == 1 ) ? PCC_LITTLE_ENDIAN : PCC_BIG_ENDIAN;
-}
-
-/* ------------------------ ripped from tmc2------------------------ */
-bool Reconstruction::write( const std::string& fileName, point_cloud_frame* frame, const bool asAscii ) {
-
-    Logger::log(LogLevel::INFO, "Reconstruction", "Write to file \n");
-    std::ofstream fout( fileName, std::ofstream::out );
-    if ( !fout.is_open() ) { return false; }
-    const size_t pointCount = frame->getPointCount();
-    fout << "ply" << std::endl;
-
-    if ( asAscii ) {
-        fout << "format ascii 1.0" << std::endl;
-    } else {
-        PCCEndianness endianess = PCCSystemEndianness();
-        if ( endianess == PCC_BIG_ENDIAN ) {
-        fout << "format binary_big_endian 1.0" << std::endl;
-        } else {
-        fout << "format binary_little_endian 1.0" << std::endl;
-        }
-    }
-    fout << "element vertex " << pointCount << std::endl;
-    if ( asAscii ) {
-        fout << "property float x" << std::endl;
-        fout << "property float y" << std::endl;
-        fout << "property float z" << std::endl;
-    } else {
-        fout << "property float x" << std::endl;
-        fout << "property float y" << std::endl;
-        fout << "property float z" << std::endl;
-    }
-    if ( !frame->colors.empty() ) {
-        fout << "property uchar red" << std::endl;
-        fout << "property uchar green" << std::endl;
-        fout << "property uchar blue" << std::endl;
-    }
-    fout << "element face 0" << std::endl;
-    fout << "property list uint8 int32 vertex_index" << std::endl;
-    fout << "end_header" << std::endl;
-    if ( asAscii ) {
-        fout << std::setprecision( std::numeric_limits<double>::max_digits10 );
-        for ( size_t i = 0; i < pointCount; ++i ) {
-            point3d& position = frame->positions.at(i);
-            //const PCCPoint3D& position = ( *this )[i];
-            fout << position.x() << " " << position.y() << " " << position.z();
-
-            if ( !frame->colors.empty() ) {
-                const uvg_color& color = frame->colors.at(i);
-                fout << " " << static_cast<int>( color.data_[0] ) << " " << static_cast<int>( color.data_[1] ) << " "
-                    << static_cast<int>( color.data_[2] );
-            }
-
-            fout << std::endl;
-        }
-    } else {
-        fout.clear();
-        fout.close();
-        fout.open( fileName, std::ofstream::binary | std::ofstream::out | std::ofstream::app );
-        for ( size_t i = 0; i < pointCount; ++i ) {
-            point3d& position = frame->positions.at(i);
-            //const PCCPoint3D& position = ( *this )[i];
-            // fout.write( reinterpret_cast<const char* const>( &position ), sizeof( PCCType ) * 3 );
-            float value[3];
-            value[0] = position.data_[0];
-            value[1] = position.data_[1];
-            value[2] = position.data_[2];
-            fout.write( reinterpret_cast<const char*>( &value ), sizeof( float ) * 3 );
-            if ( !frame->colors.empty() ) {
-                const uvg_color& color = frame->colors.at(i);
-                fout.write( reinterpret_cast<const char*>( &color.data_ ), sizeof( uint8_t ) * 3 );
-            }
-        }
-    }
-    fout.close();
-    return true;
-}
 
 /* ------------------------ ripped from tmc2------------------------ */
 size_t Reconstruction::patch_to_canvas(const size_t u, const size_t v, size_t canvasStride, size_t canvasHeight,

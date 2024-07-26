@@ -3,10 +3,7 @@
 #include "uvgvpccdec/uvgvpccdec.hpp"
 
 class Reconstruction {
-public: 
-    /* ------------------------ ripped from tmc2------------------------ */
-    static bool write( const std::string& fileName, point_cloud_frame* frame, const bool asAscii = true );
-
+public:
     static void construct_point_cloud_frame(decompressed_data* data, point_cloud_frame* reconstruct);
 
     /* ------------------------ ripped from tmc2------------------------ */
