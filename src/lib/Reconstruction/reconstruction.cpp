@@ -354,15 +354,7 @@ void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_
             size_t( 1 ) << data->asps.asps_log2_patch_packing_block_size, occupancyPrecision);
 
     // Above this belong to decoding instead of reconstruction??
-    /* --------------------------- this should work (UNTESTED) --------------------------- */
-    if(true) { // if ( !params.pbfEnableFlag_ ) TODO ----------------------
-        occupancyMap.resize( tileWidth * tileHeight, 0 );
-        for ( size_t v = 0; v < tileHeight; ++v ) {
-            for ( size_t u = 0; u < tileWidth; ++u ) {
-                occupancyMap[v * tileWidth + u] = current_occupancy_frame.get_Y_value(u / occupancyPrecision, v / occupancyPrecision);
-            }
-        }
-    }
+
     std::cout << "occupancyMap.size() " << occupancyMap.size() << std::endl;
     // Size quantiazation in this spot, needed? TODO check ------------------------
     
@@ -372,7 +364,6 @@ void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_
     const size_t totalPatchCount       = current_atlas_frame->patches_map.size();
 
     size_t asps_occupancy_resolution = size_t( 1 ) << data->asps.asps_log2_patch_packing_block_size;
-    std::cout << "NOTE: HARD CODED OCCUPANCY RESOLUTION, MAKE DYNAMIC" << std::endl;
     const size_t blockToPatchWidth     = tileWidth / asps_occupancy_resolution;
     const size_t blockToPatchHeight    = tileHeight / asps_occupancy_resolution;
 
@@ -392,11 +383,6 @@ void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_
     size_t generatePointsCalled = 0;
     size_t patchBlock2 = 0;
     size_t patch2C = 0;
-    size_t if_true = 0;
-    size_t test1 = 0;
-    size_t test2 = 0;
-    size_t first = 0;
-    size_t second = 0;
 
     if(data->asps.asps_vpcc_remove_duplicate_point_enabled_flag) {
         std::cout << "TODO: Implement duplicate point removal" << std::endl;
@@ -413,19 +399,16 @@ void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_
                 patchBlock2++;
                 if ( blockToPatch[blockIndex] == patchIndexPlusOne ) {
                     patch_true++;
-                    if_true++;
                     for ( size_t v1 = 0; v1 < patch.occupancy_resolution; ++v1 ) {
                         const size_t v = v0 * patch.occupancy_resolution + v1;
                         for ( size_t u1 = 0; u1 < patch.occupancy_resolution; ++u1 ) {
                             const size_t u = u0 * patch.occupancy_resolution + u1;
-                            size_t       x;
-                            size_t       y;
-                            bool         occupancy     = false;
-                            size_t       canvasIndex = patch_to_canvas(u, v, tileWidth, tileHeight, x, y, patch);
+                            size_t x; // value 
+                            size_t y;
+                            size_t canvasIndex = patch_to_canvas(u, v, tileWidth, tileHeight, x, y, patch);
                             patch2C++;
-                            size_t       xInVideoFrame = x;
-                            size_t       yInVideoFrame = y;
                             bool         isBoundary    = false;
+                            bool         occupancy     = false;
 
                             occupancy = occupancyMap[canvasIndex] != 0;
                             //std::cout << "NOTE: hard coded vps mapCountMinus1 and multipleStreams atlas index number" << std::endl;
@@ -436,21 +419,17 @@ void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_
                             if ( !occupancy ) { continue; }
                             std::vector<point3d> createdPoints;
                             createdPoints = generate_points(current_atlas_frame, data->geometry_maps, videoFrameIndex, patchIndex, u,
-                                                v, xInVideoFrame, yInVideoFrame, mapCountMinus1_, multipleStreams_, absoluteD1_);
+                                                v, x, y, mapCountMinus1_, multipleStreams_, absoluteD1_);
                             generatePointsCalled++;
                             if ( !createdPoints.empty() ) {
                                 for ( size_t i = 0; i < createdPoints.size(); i++ ) {
-                                    test1++;
                                     if ( ( !removeDuplicatePoints_ ) || ( ( i == 0 ) || ( createdPoints[i] != createdPoints[0] ) ) ) {
                                         size_t pointindex = 0;
                                         size_t tileIndex = 0; // NOte hard coded single tile
-                                        test2++;
 
                                         if ( patch.axisOfAdditionalPlane_ == 0 ) {
-                                            first++;
                                             pointindex = reconstruct->addPoint( createdPoints[i] );
                                         } else {
-                                            second++;
                                             vector3d tmp;
                                             inverseRotatePosition45DegreeOnAxis( patch.axisOfAdditionalPlane_,
                                                                                 geometryBitDepth3D_, createdPoints[i], tmp );
@@ -469,9 +448,9 @@ void Reconstruction::reconstructPointCloud(decompressed_data* data, point_cloud_
         //std::cout << "index " << index << ", patch_true count " << patch_true << std::endl;
     }   
     printf( "frame %zu, tile %zu: regularPoints %zu\n", (size_t)0, (size_t)0, reconstruct->getPointCount() );
-    std::cout << "patchBlock2 " << patchBlock2 << " if_true " << if_true <<
+    std::cout << "patchBlock2 " << patchBlock2 <<
         " patch2C " << patch2C << " generatePointsCalled " << generatePointsCalled << std::endl;
-    std::cout << "pointToPixel.size() " << pointToPixel.size() << ", second " << second << std::endl;
+    std::cout << "pointToPixel.size() " << pointToPixel.size() << std::endl;
 }
 
 /* ------------------------ ripped from tmc2------------------------ */
