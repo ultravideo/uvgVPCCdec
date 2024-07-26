@@ -348,22 +348,6 @@ struct vector3d {
     size_t&       z() { return data_[2]; }
 };
 
-struct vector_3d_double {
-    double data_[3];
-
-    vector_3d_double(const double x, double y, double z ) {
-        data_[0] = x;
-        data_[1] = y;
-        data_[2] = z;
-    }
-    vector_3d_double(const double val) {
-        data_[0] = val;
-        data_[1] = val;
-        data_[2] = val;
-    }
-    vector_3d_double() = default;
-};
-
 struct point3d {
     uint16_t data_[3];
 
@@ -445,11 +429,9 @@ struct patch {
     }
     point3d generatePoint( const size_t u, const size_t v, const uint16_t depth ) const {
         point3d point0;
-        size_t u1_ = TilePatch3dOffsetU;
-        size_t v1_ = TilePatch3dOffsetV;
         point0.data_[normalAxis_]    = generateNormalCoordinate( depth, TilePatchProjectionID );
-        point0.data_[tangentAxis_]   = ( double( u ) * (double)levelOfDetailX_ + u1_ );
-        point0.data_[bitangentAxis_] = ( double( v ) * (double)levelOfDetailY_ + v1_ );
+        point0.data_[tangentAxis_]   = ( double( u ) * (double)levelOfDetailX_ + TilePatch3dOffsetU );
+        point0.data_[bitangentAxis_] = ( double( v ) * (double)levelOfDetailY_ + TilePatch3dOffsetV );
         return point0;
     }
     void setAxis( size_t axisOfAdditionalPlane,
