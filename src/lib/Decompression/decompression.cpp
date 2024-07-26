@@ -97,7 +97,7 @@ void BitstreamParsing::initializeStaticParameters(const uvgvpcc_dec::Parameters&
     int x = param.hello;
 }
 
-void BitstreamParsing::decompressV3CSampleStream(const std::vector<uint8_t> &data, decompressed_data* output)
+void BitstreamParsing::decompressV3CSampleStream(const std::vector<uint8_t> &data, decompressed_data* output, uvgvpcc_dec::video_parameter_set_nals* v_params)
 {
     cbuf_ = data.data();
     //std::size_t ptr = 0
@@ -135,19 +135,19 @@ void BitstreamParsing::decompressV3CSampleStream(const std::vector<uint8_t> &dat
                 read_atlas_sub_bitstream(v3c_unit_payload_size_bytes, output);
                 break;
             case V3C_UNIT_TYPE::V3C_OVD:
-                convert_video_sub_bitstream(v3c_unit_payload_size_bytes, o_hevc);
+                convert_video_sub_bitstream(v3c_unit_payload_size_bytes, o_hevc, &v_params->occupancy_parameters);
                 output->occupancy_map.type = V3C_OVD;
                 decode_video_sub_bitstream(o_hevc, o_yuv, &output->occupancy_map);
                 break;
             case V3C_UNIT_TYPE::V3C_GVD: {
-                convert_video_sub_bitstream(v3c_unit_payload_size_bytes, g_hevc);
+                convert_video_sub_bitstream(v3c_unit_payload_size_bytes, g_hevc, &v_params->geometry_parameters);
                 video_map new_geo_map;
                 output->geometry_maps.push_back(new_geo_map);
                 output->geometry_maps.back().type = V3C_GVD;
                 decode_video_sub_bitstream(g_hevc, g_yuv, &output->geometry_maps.back());
                 break; }
             case V3C_UNIT_TYPE::V3C_AVD: {
-                convert_video_sub_bitstream(v3c_unit_payload_size_bytes, a_hevc);
+                convert_video_sub_bitstream(v3c_unit_payload_size_bytes, a_hevc, &v_params->attribute_parameters);
                 video_map new_atr_map;
                 output->attribute_maps.push_back(new_atr_map);
                 output->attribute_maps.back().type = V3C_AVD;
@@ -724,7 +724,7 @@ void BitstreamParsing::decode_atlas_frame(atlas_frame* frame, atlas_tile_layer_r
     }
 }
 
-void BitstreamParsing::convert_video_sub_bitstream(std::size_t v3c_payload_size_bytes, std::string output_path)
+void BitstreamParsing::convert_video_sub_bitstream(std::size_t v3c_payload_size_bytes, std::string output_path, std::vector<uvgvpcc_dec::video_parameter_set_nalu>* v_params)
 {
     std::cout << "Reading video data " << v3c_payload_size_bytes << std::endl;
     std::ofstream file(output_path, std::ios::binary);
@@ -738,7 +738,14 @@ void BitstreamParsing::convert_video_sub_bitstream(std::size_t v3c_payload_size_
             break;
         }
         std::size_t nalu_size = read(32, "hevc nal unit size");
-        std::cout << "Current HEVC NAL unit location " << pos_.bytes << ", size " << nalu_size << std::endl;
+        //std::cout << "Current HEVC NAL unit location " << pos_.bytes << ", size " << nalu_size << std::endl;
+        std::size_t hevc_nal_type = cbuf_[pos_.bytes] >> 1;
+        if (hevc_nal_type == 32 || hevc_nal_type == 33 || hevc_nal_type == 34) {
+            std::cout << "-- Parameter set (type " << hevc_nal_type << ") found, size " << nalu_size << std::endl;
+            std::unique_ptr<uint8_t[]> data(new uint8_t[nalu_size]);
+            memcpy(data.get(), &cbuf_[pos_.bytes], nalu_size);
+            v_params->push_back({hevc_nal_type, nalu_size, std::move(data)});
+        }
         
         file.write(hevc_start_code, 4);
         file.write(reinterpret_cast<const char*>(&cbuf_[pos_.bytes]), nalu_size);

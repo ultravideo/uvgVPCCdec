@@ -17,7 +17,7 @@ public:
     /* Advance to the next full byte. If already at the start of a byte, do nothing */
     static void align_bitstream();
     static void initializeStaticParameters(const uvgvpcc_dec::Parameters& param);
-    static void decompressV3CSampleStream(const std::vector<uint8_t> &data, decompressed_data* output);
+    static void decompressV3CSampleStream(const std::vector<uint8_t> &data, decompressed_data* output, uvgvpcc_dec::video_parameter_set_nals* v_params);
 
 private:
     static uint32_t read_bits(uint8_t bits);
@@ -39,6 +39,6 @@ private:
 
     static void decode_atlas_frame(atlas_frame* frame, atlas_tile_layer_rbsp* rbsp);
 
-    static void convert_video_sub_bitstream(std::size_t v3c_payload_size_bytes, std::string output_path);
+    static void convert_video_sub_bitstream(std::size_t v3c_payload_size_bytes, std::string output_path, std::vector<uvgvpcc_dec::video_parameter_set_nalu>* v_params);
     static void decode_video_sub_bitstream(std::string input_path, std::string output_path, video_map* map);
 };

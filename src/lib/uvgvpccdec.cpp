@@ -24,8 +24,9 @@ void API::decodeV3CSampleStream(const std::string filename)
 
     decompressed_data decompressed;
     point_cloud_frame reconstructed_point_cloud_frame;
+    video_parameter_set_nals long_term_video_parameters;
     
-    BitstreamParsing::decompressV3CSampleStream(data, &decompressed);
+    BitstreamParsing::decompressV3CSampleStream(data, &decompressed, &long_term_video_parameters);
     FormatConversion::convertToNominalFormat(&decompressed);
     Reconstruction::construct_point_cloud_frame(&decompressed, &reconstructed_point_cloud_frame);
     PostReconstruction::PostProcess(&decompressed, &reconstructed_point_cloud_frame);
