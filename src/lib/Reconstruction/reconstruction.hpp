@@ -19,8 +19,8 @@ public:
         std::vector<uint32_t>* occupancyMap, const size_t occupancyPrecision);
 
     /* ------------------------ ripped from tmc2------------------------ */
-    static std::vector<point3d> generate_points(atlas_frame* tile, std::vector<video_map>& videoGeometryMultiple,
-        const size_t videoFrameIndex, const size_t patchIndex, const size_t u, const size_t v, const size_t x,
+    static std::vector<point3d> generate_points(const patch &patch, std::vector<video_map>& videoGeometryMultiple,
+        const size_t videoFrameIndex, const size_t u, const size_t v, const size_t x,
         const size_t y, const size_t mapCountMinus1, const bool multipleStreams, const bool absoluteD1_);
 
     /* ------------------------ ripped from tmc2------------------------ */

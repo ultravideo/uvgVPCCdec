@@ -33,7 +33,7 @@ void API::decodeV3CSampleStream(const std::string filename)
     //reconstruct_multiple_frames.appendPointSet( reconstructed_point_cloud_frame );
     //if ( !decoderParams.reconstructedDataPath_.empty() ) {
     //reconstructs.write( decoderParams.reconstructedDataPath_, frameNumber, decoderParams.nbThread_ );
-    Reconstruction::write("output-test.ply", &reconstructed_point_cloud_frame);
+    Adaptation::write("output-test.ply", &reconstructed_point_cloud_frame);
     
     }
 

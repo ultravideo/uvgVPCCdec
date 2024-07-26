@@ -70,11 +70,10 @@ size_t Reconstruction::patch_to_canvas(const size_t u, const size_t v, size_t ca
 }
 
 /* ------------------------ ripped from tmc2------------------------ */
-std::vector<point3d> Reconstruction::generate_points(atlas_frame* tile, std::vector<video_map>& videoGeometryMultiple,
-    const size_t videoFrameIndex, const size_t patchIndex, const size_t u, const size_t v, const size_t x,
+std::vector<point3d> Reconstruction::generate_points(const patch& patch, std::vector<video_map>& videoGeometryMultiple,
+    const size_t videoFrameIndex, const size_t u, const size_t v, const size_t x,
     const size_t y, const size_t mapCountMinus1, const bool multipleStreams, const bool absoluteD1_)
 {
-    const auto& patch  = tile->patches_map.at(patchIndex);
     auto& frame0 = videoGeometryMultiple[0].pictures.at(videoFrameIndex);
     std::vector<point3d> createdPoints;
     point3d point0;
@@ -177,29 +176,18 @@ int Reconstruction::patchBlock2CanvasBlock( const size_t uBlk, const size_t vBlk
 void Reconstruction::generateBlockToPatchFromOccupancyMapVideo(atlas_frame* frame, picture* occupancyMapImage,
         const size_t occupancyResolution, const size_t occupancyPrecision )
 {
-    auto&        patches            = frame->patches_map;//tile.getPatches();
-    const size_t patchCount         = patches.size();
     const size_t blockToPatchWidth  = frame->tile_width / occupancyResolution;
     const size_t blockToPatchHeight = frame->tile_height / occupancyResolution;
     const size_t blockCount         = blockToPatchWidth * blockToPatchHeight;
-    auto&        blockToPatch       = frame->block_to_patch; //tile.getBlockToPatch();
+    auto&        blockToPatch       = frame->block_to_patch;
     blockToPatch.resize( blockCount );
     std::fill( blockToPatch.begin(), blockToPatch.end(), 0 );
-    for ( size_t patchIndex = 0; patchIndex < patchCount; ++patchIndex ) {
-        
-        auto&  patch        = patches[patchIndex];
-        /*printf(
-            "patch(Intra) %zu: UV0 %4zu %4zu UV1 %4zu %4zu D1=%4zu S=%4zu %4zu %4zu(%4zu) P=%zu O=%zu A=%u%u%u Lod "
-            "=(%zu) %zu,%zu 45=%d ProjId=%4zu Axis=%zu \n",
-            size_t(patchIndex), size_t(patch.TilePatch2dPosX), size_t(patch.TilePatch2dPosY), size_t(patch.TilePatch3dOffsetU), size_t(patch.TilePatch3dOffsetV), size_t(patch.TilePatch3dOffsetD), size_t(patch.TilePatch2dSizeX),
-            size_t(patch.TilePatch2dSizeY), size_t(patch.TilePatch3dRangeD), size_t(0), size_t(patch.TilePatchProjectionID),
-            size_t(patch.TilePatchOrientationIndex), uint32_t(0), uint32_t(0), uint32_t(0),
-            (size_t)1, (size_t)patch.TilePatchLoDScaleX, (size_t)patch.TilePatchLoDScaleY, 0,
-            (size_t)0, size_t(0) );*/
+    for ( size_t patchIndex = 0; patchIndex < frame->patches_map.size(); ++patchIndex ) {
+        const patch& patch = frame->patches_map.at(patchIndex);
         size_t nonZeroPixel = 0;
         size_t nonZeroCount = 0;
-        for ( size_t v0 = 0; v0 < patch.getSizeV0(); ++v0 ) {
-            for ( size_t u0 = 0; u0 < patch.getSizeU0(); ++u0 ) {
+        for ( size_t v0 = 0; v0 < patch.TilePatch2dSizeY; ++v0 ) {
+            for ( size_t u0 = 0; u0 < patch.TilePatch2dSizeX; ++u0 ) {
                 const size_t blockIndex = patchBlock2CanvasBlock(u0, v0, blockToPatchWidth, blockToPatchHeight, patch);
                 nonZeroPixel            = 0;
                 for ( size_t v1 = 0; v1 < patch.occupancy_resolution; ++v1 ) {
@@ -208,20 +196,14 @@ void Reconstruction::generateBlockToPatchFromOccupancyMapVideo(atlas_frame* fram
                         const size_t u = u0 * patch.occupancy_resolution + u1;
                         size_t       x;
                         size_t       y;
-                        /*if(patchIndex == 4 && u == 220 && v == 0) {
-                            std::cout << "patch2canvas uv(" << u << "," << v << ") xy(" << x << "," << y << ")" << std::endl;
-                            std::cout << "v0 " << v0 << ", u0 " << u0 << std::endl;
-                        }*/
                         patch_to_canvas(u, v, frame->tile_width, frame->tile_height, x, y, patch);
                         nonZeroPixel += static_cast<unsigned long long>(
                             occupancyMapImage->get_Y_value(x / occupancyPrecision, y / occupancyPrecision ) != 0);
-                        //if(patchIndex == 34) { std::cout << "occupancy Y value " << occupancyMapImage->get_Y_value(x / occupancyPrecision, y / occupancyPrecision ) << std::endl; }
                     }
                 }
                 if ( nonZeroPixel > 0 ) { blockToPatch[blockIndex] = patchIndex + 1; nonZeroCount++; }
             }
         }
-        //std::cout << "Patch " << patchIndex << " nonZeroCount " << nonZeroCount << std::endl;
     }
 }
 
@@ -288,10 +270,10 @@ void Reconstruction::construct_point_cloud_frame(decompressed_data* data, point_
     for ( std::size_t index = 0; index < current_atlas_frame->patches_map.size(); index++ ) {
         size_t patchIndex = patchPrecedenceOrderFlag  ? ( patch_count - index - 1 ) : index;
         const size_t patchIndexPlusOne = patchIndex + 1;
-        auto& patch             = current_atlas_frame->patches_map[patchIndex];
+        const patch& patch  = current_atlas_frame->patches_map[patchIndex];
         size_t patch_true = 0;
-        for ( size_t v0 = 0; v0 < patch.getSizeV0(); ++v0 ) {
-            for ( size_t u0 = 0; u0 < patch.getSizeU0(); ++u0 ) {
+        for ( size_t v0 = 0; v0 < patch.TilePatch2dSizeY; ++v0 ) {
+            for ( size_t u0 = 0; u0 < patch.TilePatch2dSizeX; ++u0 ) {
                 const size_t blockIndex = patchBlock2CanvasBlock(u0, v0, blockToPatchWidth, blockToPatchHeight, patch);
                 patchBlock2++;
                 if ( blockToPatch[blockIndex] == patchIndexPlusOne ) {
@@ -315,7 +297,7 @@ void Reconstruction::construct_point_cloud_frame(decompressed_data* data, point_
                             
                             if ( !occupancy ) { continue; }
                             std::vector<point3d> createdPoints;
-                            createdPoints = generate_points(current_atlas_frame, data->geometry_maps, videoFrameIndex, patchIndex, u,
+                            createdPoints = generate_points(patch, data->geometry_maps, videoFrameIndex, u,
                                                 v, x, y, mapCountMinus1_, multipleStreams_, absoluteD1_);
                             generatePointsCalled++;
                             if ( !createdPoints.empty() ) {
