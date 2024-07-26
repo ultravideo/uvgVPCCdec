@@ -23,18 +23,26 @@ void API::decodeV3CSampleStream(const std::string filename)
     readFile(filename, data);
 
     decompressed_data decompressed;
-    point_cloud_frame reconstructed_point_cloud_frame;
     video_parameter_set_nals long_term_video_parameters;
     
     BitstreamParsing::decompressV3CSampleStream(data, &decompressed, &long_term_video_parameters);
     FormatConversion::convertToNominalFormat(&decompressed);
-    Reconstruction::construct_point_cloud_frame(&decompressed, &reconstructed_point_cloud_frame);
-    PostReconstruction::PostProcess(&decompressed, &reconstructed_point_cloud_frame);
-    Adaptation::convertYUV8ToRGB8(&reconstructed_point_cloud_frame);
+    Logger::log(LogLevel::INFO, "uvgVPCC", "Start reconstructing " + std::to_string(decompressed.frame_count) + " frames \n");
+    for (size_t frame_index = 0; frame_index < decompressed.frame_count; frame_index++) {
+        point_cloud_frame reconstructed_point_cloud_frame;
+        Reconstruction::construct_point_cloud_frame(&decompressed, &reconstructed_point_cloud_frame, frame_index);
+        PostReconstruction::PostProcess(&decompressed, &reconstructed_point_cloud_frame, frame_index);
+        Adaptation::convertYUV8ToRGB8(&reconstructed_point_cloud_frame);
+        std::string out_name = "output-test-f" + std::to_string(frame_index) + ".ply";
+        Adaptation::write(out_name, &reconstructed_point_cloud_frame);
+    }
+    
+    
+    
     //reconstruct_multiple_frames.appendPointSet( reconstructed_point_cloud_frame );
     //if ( !decoderParams.reconstructedDataPath_.empty() ) {
     //reconstructs.write( decoderParams.reconstructedDataPath_, frameNumber, decoderParams.nbThread_ );
-    Adaptation::write("output-test.ply", &reconstructed_point_cloud_frame);
+    
     
     }
 
@@ -54,7 +62,7 @@ void readFile(const std::string filename, std::vector<uint8_t> &data)
         input_file.close();
     }
     else {
-        std::cout << "error reading file" << std::endl;
+        throw std::runtime_error("Error reading input file");
     }
 }
 } // namespace uvgvpcc_dec

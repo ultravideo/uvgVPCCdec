@@ -205,19 +205,20 @@ void Reconstruction::generateBlockToPatchFromOccupancyMapVideo(atlas_frame* fram
     }
 }
 
-void Reconstruction::construct_point_cloud_frame(decompressed_data* data, point_cloud_frame* reconstruct)
+void Reconstruction::construct_point_cloud_frame(decompressed_data* data, point_cloud_frame* reconstruct, size_t frame_index)
 {
-    Logger::log(LogLevel::INFO, "Reconstruction", "Reconstructing point cloud frame \n");
+    Logger::log(LogLevel::INFO, "Reconstruction", "Reconstructing point cloud frame " + std::to_string(frame_index) + " \n");
 
-    atlas_frame* current_atlas_frame = data->atlas_map.front().get();
-    size_t atlas_index = current_atlas_frame->frame_index;
-    picture current_occupancy_frame = data->occupancy_map.pictures.front();
+    atlas_frame* current_atlas_frame = data->atlas_map.at(frame_index).get();
+    size_t atlas_index = current_atlas_frame->atlas_index;
+    picture current_occupancy_frame = data->occupancy_map.pictures.at(frame_index);
     size_t tileWidth = current_atlas_frame->tile_width;
     size_t tileHeight = current_atlas_frame->tile_height;
+    std::cout << "test1" << std::endl;
 
     std::vector<vector3d> &pointToPixel = current_atlas_frame->getPointToPixel();
     pointToPixel.resize( 0 );
-
+    std::cout << "test2" << std::endl;
     size_t occupancyPrecision = data->vps.vps_frame_width.at(atlas_index) / data->occupancy_map.width;
     std::cout << "occupancyPrecision " << occupancyPrecision << std::endl;
     std::vector<uint32_t> occupancyMap = {};
@@ -244,7 +245,7 @@ void Reconstruction::construct_point_cloud_frame(decompressed_data* data, point_
     const size_t mapCount = data->vps.vps_map_count_minus1.at(atlas_index) + 1;
 
     const size_t geometryBitDepth3D_ = data->vps.geometry_info.at(0).gi_geometry_2d_bit_depth_minus1 + 1;
-    size_t videoFrameIndex = atlas_index * mapCount;
+    size_t videoFrameIndex = frame_index * mapCount;
     size_t geoFrameCount = data->geometry_maps.at(0).frame_count;
     std::cout << "geoframecount " << geoFrameCount << std::endl;
     if ( geoFrameCount < ( videoFrameIndex + mapCount ) ) { std::cout << "ERROR before PC generation" << std::endl; return; }

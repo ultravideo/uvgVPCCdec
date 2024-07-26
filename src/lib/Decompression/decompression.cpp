@@ -615,6 +615,7 @@ void BitstreamParsing::read_atlas_nal_unit(NAL_UNIT_TYPE nal_unit_type, std::siz
                 atlas_tile_layer_rbsp rbsp;
                 read_atlas_rbsp(&rbsp, nal_unit_type);
                 auto frame = std::make_unique<atlas_frame>();
+                frame.get()->atlas_index = 0;
                 decode_atlas_frame(frame.get(), &rbsp);
                 output->atlas_map.push_back(std::move(frame));
                 output->frame_count++;

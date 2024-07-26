@@ -2,25 +2,23 @@
 
 using namespace uvgvpcc_dec;
 
-void PostReconstruction::PostProcess(decompressed_data* data, point_cloud_frame* reconstruct)
+void PostReconstruction::PostProcess(decompressed_data* data, point_cloud_frame* reconstruct, size_t frame_index)
 {
     Logger::log(LogLevel::INFO, "Post-reconstruction", "Post-processing point cloud \n");
     bool multipleStreams = data->vps.vps_multiple_map_streams_present_flag.at(0);
     uint8_t attributeCount = data->vps.ai_attribute_count;
-    color_point_cloud(reconstruct, data, multipleStreams, attributeCount);
+    color_point_cloud(reconstruct, data, frame_index, multipleStreams, attributeCount);
 }
 
-size_t PostReconstruction::color_point_cloud(point_cloud_frame* reconstruct, decompressed_data* data, const size_t multipleStreams, const uint8_t attributeCount )
+size_t PostReconstruction::color_point_cloud(point_cloud_frame* reconstruct, decompressed_data* data, size_t frame_index, const size_t multipleStreams, const uint8_t attributeCount )
 {
-    Logger::log(LogLevel::INFO, "Post-reconstruction", "Start color point cloud \n");
+    Logger::log(LogLevel::INFO, "Post-reconstruction", "Start color point cloud frame " + std::to_string(frame_index) + " \n");
 
-    atlas_frame* current_atlas_frame = data->atlas_map.front().get();
+    atlas_frame* current_atlas_frame = data->atlas_map.at(frame_index).get();
 
     /*const*/ video_map &videoAttributeMap0 = data->attribute_maps.at(0);
-    //const video_map &videoAttributeMap1 = data->attribute_maps.at(1);
 
-    // FIXED ATLAS INDEX, TODO
-    const size_t mapCount = data->vps.vps_map_count_minus1.at(0) + 1;
+    const size_t mapCount = data->vps.vps_map_count_minus1.at(current_atlas_frame->atlas_index) + 1;
     if ( attributeCount == 0 ) {
         Logger::log(LogLevel::INFO, "Post-reconstruction", "No attribute data \n");
         return 0;
@@ -37,7 +35,8 @@ size_t PostReconstruction::color_point_cloud(point_cloud_frame* reconstruct, dec
     printf( "attributeCount               = %zu \n", (size_t)attributeCount );
     printf( "mapCount            = %zu \n", (size_t)mapCount );
 
-    const size_t shift = multipleStreams ? current_atlas_frame->frame_index : current_atlas_frame->frame_index * mapCount;
+    const size_t shift = multipleStreams ? frame_index : frame_index * mapCount;
+    std::cout << "shift " << shift << std::endl;
     for ( size_t i = 0; i < pointCount; ++i ) {
         const vector3d location = pointToPixel[i];
         const size_t x = location.data_[0];

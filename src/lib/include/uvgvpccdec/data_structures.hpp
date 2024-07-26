@@ -549,7 +549,7 @@ struct atlas_frame {
     std::vector<patch> patches_map = {};
     std::vector<vector3d> pointToPixel_ = {};
 
-    size_t frame_index = 0;
+    size_t atlas_index = 0;
 
     // These are here for now as only 1 tile per frame. TODO; FIX
     size_t tile_width = 0;
