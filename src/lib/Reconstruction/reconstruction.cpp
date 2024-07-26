@@ -174,10 +174,8 @@ int Reconstruction::patchBlock2CanvasBlock( const size_t uBlk, const size_t vBlk
 
 /* ------------------------ ripped from tmc2------------------------ */
 void Reconstruction::generateBlockToPatchFromOccupancyMapVideo(atlas_frame* frame, picture* occupancyMapImage,
-        const size_t occupancyResolution, const size_t occupancyPrecision )
+        const size_t blockToPatchWidth, const size_t blockToPatchHeight, const size_t occupancyPrecision )
 {
-    const size_t blockToPatchWidth  = frame->tile_width / occupancyResolution;
-    const size_t blockToPatchHeight = frame->tile_height / occupancyResolution;
     const size_t blockCount         = blockToPatchWidth * blockToPatchHeight;
     auto&        blockToPatch       = frame->block_to_patch;
     blockToPatch.resize( blockCount );
@@ -209,9 +207,8 @@ void Reconstruction::generateBlockToPatchFromOccupancyMapVideo(atlas_frame* fram
 
 void Reconstruction::construct_point_cloud_frame(decompressed_data* data, point_cloud_frame* reconstruct)
 {
-    Logger::log(LogLevel::INFO, "Reconstruction", "Reconstructing point cloud \n");
+    Logger::log(LogLevel::INFO, "Reconstruction", "Reconstructing point cloud frame \n");
 
-    //for(data->frame_count) only 1 frame at first ------------------------------
     atlas_frame* current_atlas_frame = data->atlas_map.front().get();
     size_t atlas_index = current_atlas_frame->frame_index;
     picture current_occupancy_frame = data->occupancy_map.pictures.front();
@@ -221,42 +218,35 @@ void Reconstruction::construct_point_cloud_frame(decompressed_data* data, point_
     std::vector<vector3d> &pointToPixel = current_atlas_frame->getPointToPixel();
     pointToPixel.resize( 0 );
 
-    // only one atlas = one VPS frame width
-    uint32_t occupancyPrecision = data->vps.vps_frame_width.front() / data->occupancy_map.width;
+    size_t occupancyPrecision = data->vps.vps_frame_width.at(atlas_index) / data->occupancy_map.width;
     std::cout << "occupancyPrecision " << occupancyPrecision << std::endl;
-    std::vector<uint32_t> occupancyMap = {}; // pre tile?
+    std::vector<uint32_t> occupancyMap = {};
 
-    /* --------------------------- this should work (UNTESTED) --------------------------- */
     generateOccupancyMap( tileWidth, tileHeight, &current_occupancy_frame, &occupancyMap, occupancyPrecision);
     
-    /* --------------------------- this should work (TESTED) --------------------------- */
-    Logger::log(LogLevel::INFO, "Reconstruction", "Generate block to patch \n");
-    // single tile
-    generateBlockToPatchFromOccupancyMapVideo(
-            current_atlas_frame, &current_occupancy_frame,
-            size_t( 1 ) << data->asps.asps_log2_patch_packing_block_size, occupancyPrecision);
+    size_t asps_occupancy_resolution = size_t( 1 ) << data->asps.asps_log2_patch_packing_block_size;
+    const size_t blockToPatchWidth = tileWidth / asps_occupancy_resolution;
+    const size_t blockToPatchHeight = tileHeight / asps_occupancy_resolution;
+    generateBlockToPatchFromOccupancyMapVideo(current_atlas_frame, &current_occupancy_frame,
+        blockToPatchWidth, blockToPatchHeight, occupancyPrecision);
 
     // Above this belong to decoding instead of reconstruction??
 
     std::cout << "occupancyMap.size() " << occupancyMap.size() << std::endl;
-    // Size quantiazation in this spot, needed? TODO check ------------------------
     
     /* ------------------------ reconstruction ------------------------ */
     auto &blockToPatch = current_atlas_frame->block_to_patch;
     const bool patchPrecedenceOrderFlag = data->asps.asps_patch_precedence_order_flag;
     const size_t patch_count = current_atlas_frame->patches_map.size();
 
-    size_t asps_occupancy_resolution = size_t( 1 ) << data->asps.asps_log2_patch_packing_block_size;
-    const size_t blockToPatchWidth     = tileWidth / asps_occupancy_resolution;
-    const size_t blockToPatchHeight    = tileHeight / asps_occupancy_resolution;
     bool removeDuplicatePoints_ = true;
 
     const size_t mapCount = data->vps.vps_map_count_minus1.at(atlas_index) + 1;
 
     const size_t geometryBitDepth3D_ = data->vps.geometry_info.at(0).gi_geometry_2d_bit_depth_minus1 + 1;
     size_t videoFrameIndex = atlas_index * mapCount;
-    std::cout << "NOTE: HARD CODED GEOMETRY FRAME COUNT to 2, MAKE DYNAMIC" << std::endl;
-    size_t geoFrameCount = 2;
+    size_t geoFrameCount = data->geometry_maps.at(0).frame_count;
+    std::cout << "geoframecount " << geoFrameCount << std::endl;
     if ( geoFrameCount < ( videoFrameIndex + mapCount ) ) { std::cout << "ERROR before PC generation" << std::endl; return; }
 
     size_t generatePointsCalled = 0;
@@ -282,15 +272,14 @@ void Reconstruction::construct_point_cloud_frame(decompressed_data* data, point_
                         const size_t v = v0 * patch.occupancy_resolution + v1;
                         for ( size_t u1 = 0; u1 < patch.occupancy_resolution; ++u1 ) {
                             const size_t u = u0 * patch.occupancy_resolution + u1;
-                            size_t x; // value 
-                            size_t y;
+                            size_t x; // value filled in patch_to_canvas
+                            size_t y; // value filled in patch_to_canvas
                             size_t canvasIndex = patch_to_canvas(u, v, tileWidth, tileHeight, x, y, patch);
                             patch2C++;
                             bool         isBoundary    = false;
                             bool         occupancy     = false;
 
                             occupancy = occupancyMap[canvasIndex] != 0;
-                            //std::cout << "NOTE: hard coded vps mapCountMinus1 and multipleStreams atlas index number" << std::endl;
                             size_t mapCountMinus1_ = data->vps.vps_map_count_minus1.at(atlas_index);
                             bool multipleStreams_ = data->vps.vps_multiple_map_streams_present_flag.at(atlas_index);
                             bool absoluteD1_ = data->vps.vps_map_count_minus1.at(atlas_index) == 0 || data->vps.vps_map_absolute_coding_enabled_flag.at(atlas_index).at(1);
@@ -323,7 +312,6 @@ void Reconstruction::construct_point_cloud_frame(decompressed_data* data, point_
                 }
             }
         }
-        //std::cout << "index " << index << ", patch_true count " << patch_true << std::endl;
     }   
     printf( "frame %zu, tile %zu: regularPoints %zu\n", (size_t)0, (size_t)0, reconstruct->getPointCount() );
     std::cout << "patchBlock2 " << patchBlock2 <<

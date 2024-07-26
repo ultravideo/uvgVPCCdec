@@ -12,7 +12,7 @@ public:
 
     /* ------------------------ ripped from tmc2------------------------ */
     static void generateBlockToPatchFromOccupancyMapVideo(atlas_frame* frame, picture* occupancyMapImage,
-        const size_t occupancyResolution, const size_t occupancyPrecision );
+        const size_t blockToPatchWidth, const size_t blockToPatchHeight, const size_t occupancyPrecision );
 
     /* ------------------------ ripped from tmc2------------------------ */
     static void generateOccupancyMap( size_t width, size_t height, picture* videoFrame,

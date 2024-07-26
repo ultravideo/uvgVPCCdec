@@ -720,35 +720,6 @@ void BitstreamParsing::decode_atlas_frame(atlas_frame* frame, atlas_tile_layer_r
           (size_t)lodEnableFlag, (size_t)p.TilePatchLoDScaleX, (size_t)p.TilePatchLoDScaleY, saved_asps_.asps_extended_projection_enabled_flag,
           (size_t)pdu.pdu_projection_id, size_t(p.axisOfAdditionalPlane_) );*/
 
-        
-
-        /*// helper var tmc2 ----------------- my code
-        new_patch.occupancy_resolution = (size_t(1) << saved_asps_.asps_log2_patch_packing_block_size);
-
-        // --------------- if problems come, check if this is correct  ------------------
-        // is this correct? tmc2 vs spec
-        uint32_t PatchPackingBlockSize = pow(double(2), double(saved_asps_.asps_log2_patch_packing_block_size));
-        uint32_t PatchSizeXQuantizer = 1 << rbsp->ath.ath_patch_size_x_info_quantizer;
-        uint32_t PatchSizeYQuantizer = 1 << rbsp->ath.ath_patch_size_y_info_quantizer;
-
-        new_patch.TilePatch2dPosX = pdu.pdu_2d_pos_x * PatchPackingBlockSize;
-        new_patch.TilePatch2dPosY = pdu.pdu_2d_pos_y * PatchPackingBlockSize;
-        new_patch.TilePatch3dOffsetU = pdu.pdu_3d_offset_u;
-        new_patch.TilePatch3dOffsetV = pdu.pdu_3d_offset_v;
-
-        uint32_t Pdu3dOffsetD = pdu.pdu_3d_offset_d << rbsp->ath.ath_pos_min_d_quantizer;
-        new_patch.TilePatch3dOffsetD = Pdu3dOffsetD;
-        const size_t minLevel       = pow( 2., double(rbsp->ath.ath_pos_min_d_quantizer)); // this line from TMC2
-        uint32_t Pdu3dRangeD = pdu.pdu_3d_range_d == 0 ? 0 : (pdu.pdu_3d_range_d * minLevel - 1); // this line from TMC2
-        new_patch.TilePatch3dRangeD = Pdu3dRangeD;
-        new_patch.TilePatchProjectionID = pdu.pdu_projection_id;
-        new_patch.TilePatchOrientationIndex = pdu.pdu_orientation_index;
-        new_patch.TilePatchLoDScaleX = pdu.pdu_lod_enabled_flag ? pdu.pdu_lod_scale_x_minus1 + 1 : 1;
-        uint32_t offsetY = ((pdu.pdu_lod_scale_x_minus1 > 0) ? 1 : 2);
-        new_patch.TilePatchLoDScaleY = pdu.pdu_lod_enabled_flag ? pdu.pdu_lod_scale_y_idc + offsetY : 1;
-        new_patch.TilePatch2dSizeX = (pdu.pdu_2d_size_x_minus1 + 1) * PatchSizeXQuantizer;
-        new_patch.TilePatch2dSizeY = (pdu.pdu_2d_size_y_minus1 + 1) * PatchSizeYQuantizer;*/
-
         frame->patches_map.push_back(p);
     }
 }
@@ -780,7 +751,6 @@ void BitstreamParsing::decode_video_sub_bitstream(std::string input_path, std::s
 {
     std::stringstream cmd;
     cmd << ffmpeg_path << " -f hevc -i " << input_path;
-    //cmd << " -vf scale=1280:1280 "; // -pix_fmt yuv444p ";
     cmd << " " << output_path;
     std::cout << cmd.str() << '\n';
     if (std::system(cmd.str().c_str()) != 0) {
