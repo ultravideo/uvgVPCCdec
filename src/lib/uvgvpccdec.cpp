@@ -17,11 +17,8 @@ void API::initializeDecoder(const Parameters& param)
 
 }
 
-void API::decodeV3CSampleStream(const std::string filename)
+void API::decodeV3CSampleStream(std::vector<uint8_t> &data)
 {
-    std::vector<uint8_t> data;
-    readFile(filename, data);
-
     decompressed_data decompressed;
     video_parameter_set_nals long_term_video_parameters;
     
@@ -45,25 +42,5 @@ void API::decodeV3CSampleStream(const std::string filename)
     
     
     }
-
-void readFile(const std::string filename, std::vector<uint8_t> &data)
-{
-    std::cout << "Opening file " << filename << std::endl;
-    std::ifstream input_file (filename);
-    if (input_file.is_open()) {
-        input_file.seekg(0, std::ios::end);
-        std::size_t size = input_file.tellg();
-        input_file.seekg(0, std::ios::beg);
-        std::cout << "size of file is " << size << std::endl;
-
-        data.resize(static_cast<std::size_t>(size)); // Allocate required storage
-        input_file.read(reinterpret_cast<char*> (&data[0]), size);
-
-        input_file.close();
-    }
-    else {
-        throw std::runtime_error("Error reading input file");
-    }
-}
 } // namespace uvgvpcc_dec
 

@@ -3,6 +3,8 @@
 #include "uvgvpccdec/threadqueue.hpp"
 #include "uvgvpccdec/log.hpp"
 #include "data_structures.hpp"
+#include <queue>
+#include <semaphore>
 
 namespace uvgvpcc_dec
 {
@@ -27,8 +29,25 @@ struct video_parameter_set_nals {
 
 namespace API
 {
+
+    struct v3c_chunk {
+        size_t len = 0; // Length of data in buffer
+        uint8_t* data = nullptr; // Actual data
+        std::vector<size_t> v3c_unit_sizes = {};
+        //~v3c_chunk() { delete[] data;}
+    };
+    /* A V3C unit stream is composed of only V3C units without parsing information in the bitstream itself.
+        The parsing information is here given separately. */
+    struct v3c_unit_stream {
+        size_t v3c_unit_size_precision_bytes = 0;
+        std::queue <v3c_chunk> v3c_chunks = {};
+        //~v3c_unit_stream() { v3c_chunks.clear();}
+        std::mutex io_mutex; // Locks production and consumption in the v3c_chunks queue
+    };
+
     void initializeDecoder(const Parameters& param);
-    void decodeV3CSampleStream(const std::string filename);
+    void decodeV3CSampleStream(std::vector<uint8_t> &data);
+    void decodeV3CChunk(v3c_chunk chunk);
 } // namespace API
 
 } // namespace uvgvpcc_dec
