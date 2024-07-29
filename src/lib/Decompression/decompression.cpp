@@ -787,7 +787,7 @@ void BitstreamParsing::decode_video_sub_bitstream(std::string input_path, std::s
     cmd << " -f hevc -i " << input_path << " " << output_path;
     uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", cmd.str() + " \n");
     if (std::system(cmd.str().c_str()) != 0) {
-        throw std::runtime_error("During the encoding of the sequence, an error occured while executing the following command: " +
+        throw std::runtime_error("During the decoding of the sequence, an error occured while executing the following command: " +
             cmd.str());
         return;
     }

@@ -269,7 +269,7 @@ struct picture {
     std::vector<uint8_t> U;
     std::vector<uint8_t> V;
 
-    size_t get_Y_value(const size_t u, const size_t v ) { // Should be uint8_t??
+    uint8_t get_Y_value(const size_t u, const size_t v ) { // Should be uint8_t??
         return Y.at(v * width + u);
     }
     // Works for 444. IF you want 420, this needs to change a bit
@@ -299,10 +299,9 @@ struct picture {
 
         // U
         const size_t width2 = width / 2;
-        auto&    dst = U;
         const uint8_t* src = old->U.data();
         for ( size_t y = 0; y < height; y += 2 ) {
-            auto* const buffer = dst.data() + y * width;
+            auto* const buffer = U.data() + y * width;
             for ( size_t x2 = 0; x2 < width2; ++x2, src++ ) {
                 const size_t x = x2 * 2;
                 buffer[x]      = *src;
@@ -312,10 +311,9 @@ struct picture {
         }
 
         // V
-        auto&    dst2 = V;
         const uint8_t* src2 = old->V.data();
         for ( size_t y = 0; y < height; y += 2 ) {
-            auto* const buffer = dst2.data() + y * width;
+            auto* const buffer = V.data() + y * width;
             for ( size_t x2 = 0; x2 < width2; ++x2, src2++ ) {
                 const size_t x = x2 * 2;
                 buffer[x]      = *src2;
@@ -428,11 +426,8 @@ struct patch {
         point0.data_[bitangentAxis_] = ( double( v ) * (double)levelOfDetailY_ + TilePatch3dOffsetV );
         return point0;
     }
-    void setAxis( size_t axisOfAdditionalPlane,
-                size_t normalAxis,
-                size_t tangentAxis,
-                size_t bitangentAxis,
-                size_t projectionMode ) {
+    void setAxis( size_t axisOfAdditionalPlane, size_t normalAxis, size_t tangentAxis,
+        size_t bitangentAxis, size_t projectionMode ) {
         axisOfAdditionalPlane_ = axisOfAdditionalPlane;
         normalAxis_            = normalAxis;
         tangentAxis_           = tangentAxis;
@@ -468,10 +463,6 @@ struct patch {
     }
 };
 
-inline double PCCClip( const double& n, const double& lower, const double& upper ) {
-    return ( std::max )( lower, ( std::min )( n, upper ) );
-}
-
 struct point_cloud_frame {
     std::vector<point3d> positions = {};
     std::vector<uvg_color> colors = {};
@@ -483,19 +474,11 @@ struct point_cloud_frame {
         return positions[i];
     }
 
-    void clear() {
-        positions.clear();
-        colors.clear();
-    }
-
     void set_color( const size_t index, const uvg_color color ) {
-        if (index >= colors.size()) {
-        }
         assert( index < colors.size() );
         colors[index] = color;
     }
 
-    std::vector<uvg_color>& getColors8bit() { return colors; }
     size_t getPointCount() const { return positions.size(); }
 
     size_t addPoint( const point3d& position ) {
@@ -518,7 +501,7 @@ struct atlas_frame {
     /* Always 0 for now. Single atlas can contain several atlas frames */
     size_t atlas_index = 0;
 
-    // These are here for now as only 1 tile per frame. TODO; FIX
+    // These are the picture widths and heights, as we only have 1 tile per frame
     size_t tile_width = 0;
     size_t tile_height = 0;
 

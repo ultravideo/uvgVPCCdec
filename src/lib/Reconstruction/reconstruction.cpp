@@ -101,7 +101,7 @@ std::vector<point3d> Reconstruction::generate_points(const patch& patch, std::ve
 
 /* ------------------------ somewhat ripped from tmc2------------------------ */
 void Reconstruction::generateOccupancyMap( size_t width, size_t height, picture* videoFrame,
-    std::vector<uint32_t>* occupancyMap, const size_t occupancyPrecision) {
+    std::vector<uint8_t>* occupancyMap, const size_t occupancyPrecision) {
     occupancyMap->resize( width * height, 0 );
     for ( size_t v = 0; v < height; ++v ) {
         for ( size_t u = 0; u < width; ++u ) {
@@ -218,13 +218,13 @@ void Reconstruction::construct_point_cloud_frame(decompressed_data* data, point_
     std::vector<point3d> &pointToPixel = current_atlas_frame->pointToPixel_;
     pointToPixel.resize( 0 );
     size_t occupancyPrecision = data->vps.vps_frame_width.at(atlas_index) / data->occupancy_map.width;
-    std::vector<uint32_t> occupancyMap = {};
+    std::vector<uint8_t> occupancyMap = {};
 
     generateOccupancyMap( tileWidth, tileHeight, &current_occupancy_frame, &occupancyMap, occupancyPrecision);
     
-    size_t asps_occupancy_resolution = size_t( 1 ) << data->asps.asps_log2_patch_packing_block_size;
-    const size_t blockToPatchWidth = tileWidth / asps_occupancy_resolution;
-    const size_t blockToPatchHeight = tileHeight / asps_occupancy_resolution;
+    size_t patch_packing_block_size = size_t( 1 ) << data->asps.asps_log2_patch_packing_block_size;
+    const size_t blockToPatchWidth = tileWidth / patch_packing_block_size;
+    const size_t blockToPatchHeight = tileHeight / patch_packing_block_size;
     generateBlockToPatchFromOccupancyMapVideo(current_atlas_frame, &current_occupancy_frame,
         blockToPatchWidth, blockToPatchHeight, occupancyPrecision);
     // Above this belong to decoding instead of reconstruction??
@@ -243,10 +243,6 @@ void Reconstruction::construct_point_cloud_frame(decompressed_data* data, point_
     size_t geoFrameCount = data->geometry_maps.at(0).frame_count;
     if ( geoFrameCount < ( videoFrameIndex + mapCount ) ) { throw std::runtime_error("Invalid geoFrameCount");}
 
-    size_t generatePointsCalled = 0;
-    size_t patchBlock2 = 0;
-    size_t patch2C = 0;
-
     /*if(data->asps.asps_vpcc_remove_duplicate_point_enabled_flag) {
         < "TODO: Implement duplicate point removal" << std::endl;
     }*/
@@ -259,7 +255,6 @@ void Reconstruction::construct_point_cloud_frame(decompressed_data* data, point_
         for ( size_t v0 = 0; v0 < patch.TilePatch2dSizeY; ++v0 ) {
             for ( size_t u0 = 0; u0 < patch.TilePatch2dSizeX; ++u0 ) {
                 const size_t blockIndex = patchBlock2CanvasBlock(u0, v0, blockToPatchWidth, blockToPatchHeight, patch);
-                patchBlock2++;
                 if ( blockToPatch[blockIndex] == patchIndexPlusOne ) {
                     patch_true++;
                     for ( size_t v1 = 0; v1 < patch.occupancy_resolution; ++v1 ) {
@@ -269,7 +264,6 @@ void Reconstruction::construct_point_cloud_frame(decompressed_data* data, point_
                             size_t x; // value filled in patch_to_canvas
                             size_t y; // value filled in patch_to_canvas
                             size_t canvasIndex = patch_to_canvas(u, v, tileWidth, tileHeight, x, y, patch);
-                            patch2C++;
                             bool         isBoundary    = false;
                             bool         occupancy     = false;
 
@@ -282,21 +276,18 @@ void Reconstruction::construct_point_cloud_frame(decompressed_data* data, point_
                             std::vector<point3d> createdPoints;
                             createdPoints = generate_points(patch, data->geometry_maps, videoFrameIndex, u,
                                                 v, x, y, mapCountMinus1_, multipleStreams_, absoluteD1_);
-                            generatePointsCalled++;
                             if ( !createdPoints.empty() ) {
                                 for ( size_t i = 0; i < createdPoints.size(); i++ ) {
                                     if ( ( !removeDuplicatePoints_ ) || ( ( i == 0 ) || ( createdPoints[i] != createdPoints[0] ) ) ) {
-                                        size_t pointindex = 0;
 
                                         if ( patch.axisOfAdditionalPlane_ == 0 ) {
-                                            pointindex = reconstruct->addPoint( createdPoints[i] );
+                                            reconstruct->addPoint( createdPoints[i] );
                                         } else {
                                             point3d tmp;
                                             inverseRotatePosition45DegreeOnAxis( patch.axisOfAdditionalPlane_,
                                                                                 geometryBitDepth3D_, createdPoints[i], tmp );
-                                            pointindex = reconstruct->addPoint( tmp );
+                                            reconstruct->addPoint( tmp );
                                         }
-                                        const size_t pointindex_1 = pointindex;
                                         pointToPixel.emplace_back( x, y, i < 2 ? i : g_intermediateLayerIndex + 1 );
                                     }
                                 }

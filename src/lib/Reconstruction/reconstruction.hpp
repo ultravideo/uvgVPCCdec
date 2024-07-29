@@ -16,7 +16,7 @@ public:
 
     /* ------------------------ ripped from tmc2------------------------ */
     static void generateOccupancyMap( size_t width, size_t height, picture* videoFrame,
-        std::vector<uint32_t>* occupancyMap, const size_t occupancyPrecision);
+        std::vector<uint8_t>* occupancyMap, const size_t occupancyPrecision);
 
     /* ------------------------ ripped from tmc2------------------------ */
     static std::vector<point3d> generate_points(const patch &patch, std::vector<video_map>& videoGeometryMultiple,

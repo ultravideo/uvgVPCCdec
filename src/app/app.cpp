@@ -14,7 +14,7 @@ size_t read_value(uint8_t* src, size_t len) {
 }
 
 int main() {
-    uvgvpcc_dec::Logger::setLogLevel(uvgvpcc_dec::LogLevel::INFO);
+    uvgvpcc_dec::Logger::setLogLevel(uvgvpcc_dec::LogLevel::DEBUG);
     uvgvpcc_dec::Parameters param;
     uvgvpcc_dec::API::initializeDecoder(param);
 

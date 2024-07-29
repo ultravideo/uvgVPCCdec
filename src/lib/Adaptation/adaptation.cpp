@@ -85,11 +85,15 @@ bool Adaptation::write( const std::string& fileName, point_cloud_frame* frame, c
     return true;
 }
 
+inline double PCCClip( const double& n, const double& lower, const double& upper ) {
+    return ( std::max )( lower, ( std::min )( n, upper ) );
+}
+
 void Adaptation::convertYUV8ToRGB8(point_cloud_frame* reconstruct)
 {
     Logger::log(LogLevel::TRACE, "Post-reconstruction", "Convert colors YUV 8bit -> RGB 8bit \n");
 
-    std::vector<uvg_color>& colors = reconstruct->getColors8bit();
+    std::vector<uvg_color>& colors = reconstruct->colors;
     for ( size_t k = 0; k < reconstruct->getPointCount(); k++ ) {
     double y1     = colors[k].data_[0];
     double u1     = colors[k].data_[1];
