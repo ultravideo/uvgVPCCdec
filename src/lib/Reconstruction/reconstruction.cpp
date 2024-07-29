@@ -3,10 +3,8 @@
 
 using namespace uvgvpcc_dec;
 
-const size_t g_intermediateLayerIndex = 100; //TMC2 what is this??
-
 /* ------------------------ ripped from tmc2------------------------ */
-size_t Reconstruction::patch_to_canvas(const size_t u, const size_t v, size_t canvasStride, size_t canvasHeight,
+size_t Reconstruction::patch_to_canvas(const size_t u, const size_t v, const size_t canvasStride, const size_t canvasHeight,
     size_t& x, size_t& y, const patch &p)
 {
     size_t u0_ = p.TilePatch2dPosX;
@@ -100,7 +98,7 @@ std::vector<point3d> Reconstruction::generate_points(const patch& patch, std::ve
 }
 
 /* ------------------------ somewhat ripped from tmc2------------------------ */
-void Reconstruction::generateOccupancyMap( size_t width, size_t height, picture* videoFrame,
+void Reconstruction::generateOccupancyMap( const size_t width, const size_t height, picture* videoFrame,
     std::vector<uint8_t>* occupancyMap, const size_t occupancyPrecision) {
     occupancyMap->resize( width * height, 0 );
     for ( size_t v = 0; v < height; ++v ) {
@@ -112,8 +110,8 @@ void Reconstruction::generateOccupancyMap( size_t width, size_t height, picture*
 }
 
 /* ------------------------ ripped from tmc2------------------------ */
-int Reconstruction::patchBlock2CanvasBlock( const size_t uBlk, const size_t vBlk, size_t canvasStrideBlk, size_t canvasHeightBlk,
-    const patch &p, const Tile tile )
+int Reconstruction::patchBlock2CanvasBlock( const size_t uBlk, const size_t vBlk, const size_t blockToPatchWidth, const size_t blockToPatchHeight,
+    const patch &p)
 {
     size_t x, y;
     size_t u0_ = p.TilePatch2dPosX;
@@ -161,15 +159,9 @@ int Reconstruction::patchBlock2CanvasBlock( const size_t uBlk, const size_t vBlk
     default: return -1; break;
     }
     // checking the results are within canvasHeightBlk boundary (missing y check)
-    if ( x >= canvasStrideBlk ) { return -1; }
-    if ( y >= canvasHeightBlk ) { return -1; }
-    if ( tile.minU != -1 ) {
-        if ( (int)x < tile.minU ) { return -1; }
-        if ( (int)y < tile.minV ) { return -1; }
-        if ( (int)x > tile.maxU ) { return -1; }
-        if ( (int)y > tile.maxV ) { return -1; }
-    }
-    return int( x + canvasStrideBlk * y );
+    if ( x >= blockToPatchWidth ) { return -1; }
+    if ( y >= blockToPatchHeight ) { return -1; }
+    return int( x + blockToPatchWidth * y );
 }
 
 /* ------------------------ ripped from tmc2------------------------ */
@@ -205,7 +197,7 @@ void Reconstruction::generateBlockToPatchFromOccupancyMapVideo(atlas_frame* fram
     }
 }
 
-void Reconstruction::construct_point_cloud_frame(decompressed_data* data, point_cloud_frame* reconstruct, size_t frame_index)
+void Reconstruction::construct_point_cloud_frame(decompressed_data* data, point_cloud_frame* reconstruct, size_t const frame_index)
 {
     Logger::log(LogLevel::INFO, "Reconstruction", "Reconstructing point cloud frame " + std::to_string(frame_index) + " \n");
 
@@ -288,7 +280,8 @@ void Reconstruction::construct_point_cloud_frame(decompressed_data* data, point_
                                                                                 geometryBitDepth3D_, createdPoints[i], tmp );
                                             reconstruct->addPoint( tmp );
                                         }
-                                        pointToPixel.emplace_back( x, y, i < 2 ? i : g_intermediateLayerIndex + 1 );
+                                        assert(i < 2);
+                                        pointToPixel.emplace_back( x, y, i);
                                     }
                                 }
                             }
