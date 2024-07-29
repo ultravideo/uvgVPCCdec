@@ -126,10 +126,10 @@ void BitstreamParsing::handle_v3c_unit(const uint8_t vuh_unit_type, const size_t
                 decode_video_sub_bitstream(a_hevc, a_yuv, &output->attribute_maps.back());
                 break; }
             default: 
-                std::cout << "error" << std::endl;
+                uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "Unkown V3C unit type " + std::to_string(vuh_unit_type) + " \n");
                 break;
         }
-        std::cout << "Unit stream parsed, pos bytes at " << pos_.bytes << std::endl;
+        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "V3C unit stream parsed, pos_.bytes at " + std::to_string(pos_.bytes) + " \n");
 }
 
 void BitstreamParsing::decompressV3CUnitStream(const uvgvpcc_dec::API::v3c_chunk &chunk, decompressed_data* output, uvgvpcc_dec::video_parameter_set_nals* v_params)
@@ -139,12 +139,12 @@ void BitstreamParsing::decompressV3CUnitStream(const uvgvpcc_dec::API::v3c_chunk
     pos_.bits = 0;
     pos_.bytes = 0;
     for (size_t i = 0; i < chunk.v3c_unit_sizes.size(); i++) {
-        std::cout << "v3c_unit_size " << chunk.v3c_unit_sizes.at(i) << std::endl;
+        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "V3C unit size " + std::to_string(chunk.v3c_unit_sizes.at(i)) + " \n");
         size_t v3c_unit_payload_size = chunk.v3c_unit_sizes.at(i) - 4; // not incl. header
 
         // Next 4 bytes are the V3C unit header
         uint8_t vuh_unit_type = read(5, "vuh_unit_type");
-        std::cout << "V3C unit type " << uint32_t(vuh_unit_type) << std::endl;
+        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "V3C unit type " + std::to_string(vuh_unit_type) + " \n");
         advance_bitstream(4 * 8 - 5); // skip the rest of v3c header for now
         handle_v3c_unit(vuh_unit_type, v3c_unit_payload_size, output, v_params);
     }
@@ -159,7 +159,7 @@ void BitstreamParsing::decompressV3CSampleStream(const std::vector<uint8_t> &dat
 
     // 3 bits for v3c unit size precision - 1 and 5 reserved
     uint8_t v3c_size_precision_bytes = read(3, "v3c_size_precision_in_bytes") + 1;
-    std::cout << "V3C size precision in bytes: " << uint32_t(v3c_size_precision_bytes) << std::endl;
+    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "V3C unit size precision " + std::to_string(v3c_size_precision_bytes) + " \n");
     std::size_t v3c_unit_precision_bits = v3c_size_precision_bytes * 8;
 
     advance_bitstream(5);
@@ -171,23 +171,23 @@ void BitstreamParsing::decompressV3CSampleStream(const std::vector<uint8_t> &dat
         std::size_t v3c_unit_size = read(v3c_unit_precision_bits, "v3c unit size");
 
         // Inside v3c unit now
-        std::cout << "Current V3C unit location " << pos_.bytes << ", size " << v3c_unit_size << std::endl;
+        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "Current V3C unit location " + std::to_string(pos_.bytes) + ", size " + std::to_string(v3c_unit_size) + " \n");
         
 
         // Next 4 bytes are the V3C unit header
         uint8_t vuh_unit_type = read(5, "vuh_unit_type");
-        std::cout << "V3C unit type " << uint32_t(vuh_unit_type) << std::endl;
+        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "V3C unit type " + std::to_string(vuh_unit_type) + " \n");
         advance_bitstream(4 * 8 - 5); // skip the rest of v3c header for now
 
         std::size_t v3c_unit_payload_size_bytes = v3c_unit_size - 4;
         handle_v3c_unit(vuh_unit_type, v3c_unit_payload_size_bytes, output, v_params);
     }
-    std::cout << "File parsed, pos bytes at " << pos_.bytes << std::endl;
+    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "File parsed, pos_.bytes at " + std::to_string(pos_.bytes) + " \n");
 }
 
 void BitstreamParsing::read_v3c_parameter_set(v3c_parameter_set* vps)
 {
-    std::cout << "Reading V3C parameter set" << std::endl;
+    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "Reading V3C parameter set \n");
     // profile_tier_level
     read_profile_tier_level(&vps->ptl);
     
@@ -340,7 +340,7 @@ void BitstreamParsing::read_profile_tier_level(profile_tier_level* ptl)
     ptl->ptl_toolset_constraints_present_flag = read(1, "ptl_toolset_constraints_present_flag");
 
     if(ptl->ptl_toolset_constraints_present_flag) {
-        std::cout << "ERROR CANT HANDLE PTC" << std::endl;
+        throw std::runtime_error("Handling PTL toolset constraints not implemented");
         return;
     }
     // TODO: Parse PTC
@@ -417,11 +417,11 @@ void BitstreamParsing::read_asps(atlas_sequence_parameter_set &asps)
     }
     asps.asps_plr_enabled_flag = read(1, "asps_plr_enabled_flag");
     if( asps.asps_plr_enabled_flag ) {
-        std::cout << "error not implemented ASPS PLR enabled" << std::endl;
+        throw std::runtime_error("Handling ASPS PLR not implemented");
     }
     asps.asps_vui_parameters_present_flag = read(1, "asps_vui_parameters_present_flag");
     if( asps.asps_vui_parameters_present_flag ) {
-        std::cout << "error not implemented ASPS VUI enabled" << std::endl;
+        throw std::runtime_error("Handling ASPS VUI parameters not implemented");
     }
     asps.asps_extension_present_flag = read(1, "asps_extension_present_flag");
 
@@ -485,7 +485,7 @@ void BitstreamParsing::read_atlas_tile_header(atlas_tile_header &ath, NAL_UNIT_T
         ath.ath_ref_atlas_frame_list_asps_flag = read(1, "ath_ref_atlas_frame_list_asps_flag");
     }
     if(ath.ath_ref_atlas_frame_list_asps_flag == 0) {
-        std::cout << "ERROR: NOT IMPLEMENTED" << std::endl;
+        throw std::runtime_error("Using atlas ref frame lists not implemented");
         return;
     }
     else if (saved_asps_.asps_num_ref_atlas_frame_lists_in_asps > 1) {
@@ -612,7 +612,6 @@ void BitstreamParsing::read_atlas_tile_data_unit(atlas_tile_data_unit &atdu, atl
             atdu.atdu_patch_mode = read_ue("atdu_patch_mode");
             if(atdu.atdu_patch_mode == ATDU_PATCH_MODE_I_TILE::I_END
                 || atdu.atdu_patch_mode == ATDU_PATCH_MODE_P_TILE::P_END) {
-                //std::cout << "Patches in current NAL unit: " << atdu.pid_vec.size() << std::endl;
                 break;
             }
             patch_information_data pid;
@@ -645,7 +644,7 @@ void BitstreamParsing::read_atlas_nal_unit(NAL_UNIT_TYPE nal_unit_type, std::siz
                 output->frame_count++;
                 break; }
             default: 
-                std::cout << "Unsupported NAL type" << std::endl;
+                uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::ERROR, "Decompression", "Unsupported Atlas NAL type " + std::to_string(nal_unit_type) + " \n");
                 advance_bitstream(nal_unit_size * 8 - 16); // skip the rest of NAL unit for now 
                 break;
         }
@@ -653,13 +652,13 @@ void BitstreamParsing::read_atlas_nal_unit(NAL_UNIT_TYPE nal_unit_type, std::siz
 
 void BitstreamParsing::read_atlas_sub_bitstream(std::size_t v3c_payload_size_bytes, decompressed_data* output)
 {
-    std::cout << "Reading atlas data " << v3c_payload_size_bytes << std::endl;
+    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "Reading V3C atlas data, size " + std::to_string(v3c_payload_size_bytes) + " \n");
 
     std::size_t end_ptr = pos_.bytes + v3c_payload_size_bytes;
     //advance_bitstream(v3c_payload_size_bytes * 8);
     // 3 bits for nAL unit size precision - 1 and 5 reserved
     uint8_t nal_size_precision_bytes = read(3, "nal_size_precision_in_bytes") + 1;
-    std::cout << "--- NAL size precision in bytes: " << uint32_t(nal_size_precision_bytes) << std::endl;
+    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "NAL size precision " + std::to_string(nal_size_precision_bytes) + " \n");
     std::size_t nal_unit_precision_bits = nal_size_precision_bytes * 8;
 
     advance_bitstream(5);
@@ -671,7 +670,7 @@ void BitstreamParsing::read_atlas_sub_bitstream(std::size_t v3c_payload_size_byt
         std::size_t nal_unit_size = read(nal_unit_precision_bits, "nal unit size");
 
         // Inside nal unit now
-        std::cout << "--- Current NAL unit location " << pos_.bytes << ", size " << nal_unit_size << std::endl;
+        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "Current NAL unit location " + std::to_string(pos_.bytes) + ", size " + std::to_string(nal_unit_size) + " \n");
         
         read(1, "nal_forbidden_zero_bit");
         NAL_UNIT_TYPE nal_unit_type = static_cast<NAL_UNIT_TYPE>(read(6, "nal_unit_type"));
@@ -751,7 +750,7 @@ void BitstreamParsing::decode_atlas_frame(atlas_frame* frame, atlas_tile_layer_r
 
 void BitstreamParsing::convert_video_sub_bitstream(std::size_t v3c_payload_size_bytes, std::string output_path, std::vector<uvgvpcc_dec::video_parameter_set_nalu>* v_params)
 {
-    std::cout << "Reading video data " << v3c_payload_size_bytes << std::endl;
+    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "Reading V3C video data " + std::to_string(v3c_payload_size_bytes) + " \n");
     std::ofstream file(output_path, std::ios::binary);
     if(!file.is_open()) {
         throw std::runtime_error("Bitstream writing : Could not open output file " + output_path);
@@ -763,10 +762,9 @@ void BitstreamParsing::convert_video_sub_bitstream(std::size_t v3c_payload_size_
             break;
         }
         std::size_t nalu_size = read(32, "hevc nal unit size");
-        //std::cout << "Current HEVC NAL unit location " << pos_.bytes << ", size " << nalu_size << std::endl;
         std::size_t hevc_nal_type = cbuf_[pos_.bytes] >> 1;
         if (hevc_nal_type == 32 || hevc_nal_type == 33 || hevc_nal_type == 34) {
-            std::cout << "-- Parameter set (type " << hevc_nal_type << ") found, size " << nalu_size << std::endl;
+            uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "Parameter set (type " + std::to_string(hevc_nal_type) + ") found, size " + std::to_string(nalu_size) + " \n");
             std::unique_ptr<uint8_t[]> data(new uint8_t[nalu_size]);
             memcpy(data.get(), &cbuf_[pos_.bytes], nalu_size);
             v_params->push_back({hevc_nal_type, nalu_size, std::move(data)});
@@ -782,9 +780,12 @@ void BitstreamParsing::convert_video_sub_bitstream(std::size_t v3c_payload_size_
 void BitstreamParsing::decode_video_sub_bitstream(std::string input_path, std::string output_path, video_map* map)
 {
     std::stringstream cmd;
-    cmd << ffmpeg_path << " -f hevc -i " << input_path;
-    cmd << " " << output_path;
-    std::cout << cmd.str() << '\n';
+    cmd << ffmpeg_path;
+    if (uvgvpcc_dec::Logger::getLogLevel() < uvgvpcc_dec::LogLevel::PROFILING) {
+        cmd << " -hide_banner -loglevel error ";
+    }
+    cmd << " -f hevc -i " << input_path << " " << output_path;
+    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", cmd.str() + " \n");
     if (std::system(cmd.str().c_str()) != 0) {
         throw std::runtime_error("During the encoding of the sequence, an error occured while executing the following command: " +
             cmd.str());
@@ -835,7 +836,7 @@ void BitstreamParsing::decode_video_sub_bitstream(std::string input_path, std::s
         }
 
         if (data_read == frameSize) {
-            std::cout << "ADDED FRAME" << std::endl;
+            uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "Added video frame \n");
             map->pictures.push_back(std::move(frame444));
             map->frame_count++;
         }

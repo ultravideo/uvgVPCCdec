@@ -87,7 +87,7 @@ bool Adaptation::write( const std::string& fileName, point_cloud_frame* frame, c
 
 void Adaptation::convertYUV8ToRGB8(point_cloud_frame* reconstruct)
 {
-    Logger::log(LogLevel::INFO, "Post-reconstruction", "Convert colors YUV 8bit -> RGB 8bit \n");
+    Logger::log(LogLevel::TRACE, "Post-reconstruction", "Convert colors YUV 8bit -> RGB 8bit \n");
 
     std::vector<uvg_color>& colors = reconstruct->getColors8bit();
     for ( size_t k = 0; k < reconstruct->getPointCount(); k++ ) {

@@ -241,14 +241,14 @@ void Reconstruction::construct_point_cloud_frame(decompressed_data* data, point_
     const size_t geometryBitDepth3D_ = data->vps.geometry_info.at(0).gi_geometry_2d_bit_depth_minus1 + 1;
     size_t videoFrameIndex = frame_index * mapCount;
     size_t geoFrameCount = data->geometry_maps.at(0).frame_count;
-    if ( geoFrameCount < ( videoFrameIndex + mapCount ) ) { std::cout << "ERROR before PC generation" << std::endl; return; }
+    if ( geoFrameCount < ( videoFrameIndex + mapCount ) ) { throw std::runtime_error("Invalid geoFrameCount");}
 
     size_t generatePointsCalled = 0;
     size_t patchBlock2 = 0;
     size_t patch2C = 0;
 
     /*if(data->asps.asps_vpcc_remove_duplicate_point_enabled_flag) {
-        std::cout << "TODO: Implement duplicate point removal" << std::endl;
+        < "TODO: Implement duplicate point removal" << std::endl;
     }*/
     
     for ( std::size_t index = 0; index < current_atlas_frame->patches_map.size(); index++ ) {
@@ -307,10 +307,8 @@ void Reconstruction::construct_point_cloud_frame(decompressed_data* data, point_
             }
         }
     }   
-    /*printf( "frame %zu, tile %zu: regularPoints %zu\n", (size_t)0, (size_t)0, reconstruct->getPointCount() );
-    std::cout << "patchBlock2 " << patchBlock2 <<
-        " patch2C " << patch2C << " generatePointsCalled " << generatePointsCalled << std::endl;
-    std::cout << "pointToPixel.size() " << pointToPixel.size() << std::endl;*/
+    Logger::log(LogLevel::DEBUG, "Reconstruction", "pointToPixel size " + std::to_string(frame_index) 
+        + ", reconstruct.pointCount " + std::to_string(reconstruct->getPointCount()) + " \n");
 }
 
 /* ------------------------ ripped from tmc2------------------------ */

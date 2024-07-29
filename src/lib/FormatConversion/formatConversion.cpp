@@ -4,7 +4,7 @@ using namespace uvgvpcc_dec;
 
 void FormatConversion::convertToNominalFormat(decompressed_data* data)
 {
-    Logger::log(LogLevel::INFO, "FormatConversion", "Converting data to nominal format \n");
+    Logger::log(LogLevel::TRACE, "FormatConversion", "Converting data to nominal format \n");
     /*
         Nominal format:
         Bit depth - specified in VPS - correct from FFMPEG (FOR CURRENT FILE)
@@ -27,30 +27,39 @@ void FormatConversion::convertToNominalFormat(decompressed_data* data)
 
     uint32_t VideoWidthNF = data->asps.asps_frame_width;
     uint32_t VideoHeightNF = data->asps.asps_frame_height;
+    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Format conversion", "OccBitDepthNF = "
+        + std::to_string(OccBitDepthNF) + ", GeoBitDepthNF " + std::to_string(GeoBitDepthNF) + " \n");
 
-    std::string chromaFormat = "4:4:4";
-    std::cout << "-- OccBitDepthNF = " << OccBitDepthNF << std::endl;
-    std::cout << "-- GeoBitDepthNF = " << GeoBitDepthNF << std::endl;
     for (auto attrIdx = 0; attrIdx < attrCount; ++attrIdx) {
-        std::cout << "-- AttrBitDepthNF[" << attrIdx << "] = " << AttrBitDepthNF.at(attrIdx) << std::endl;
+        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Format conversion", "AttrBitDepthNF["
+            + std::to_string(attrIdx) + "] = " + std::to_string(AttrBitDepthNF.at(attrIdx)) + " \n");
     }
-    std::cout << "-- VideoWidthNF = " << VideoWidthNF << std::endl;
-    std::cout << "-- VideoHeightNF = " << VideoHeightNF << std::endl;
-    std::cout << "-- Chroma format = " << chromaFormat << std::endl;
+    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Format conversion", "VideoWidthNF = "
+        + std::to_string(VideoWidthNF) + ", VideoHeightNF = " + std::to_string(VideoHeightNF) 
+        + ", chromaFormat = 4:4:4 \n");
 
-    std::cout << "-- V-PCC frame count: " << data->frame_count << " frames" << std::endl;
-    std::cout << "-- Occupancy map: " << data->occupancy_map.frame_count << " frames, " << data->occupancy_map.width << "x" << data->occupancy_map.height << std::endl;
-    printf("Channel sizes Y=%zu U=%zu V=%zu \n", data->occupancy_map.pictures.front().Y.size(),
-        data->occupancy_map.pictures.front().U.size(), data->occupancy_map.pictures.front().V.size());
+    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Format conversion", "V-PCC frame count = "
+        + std::to_string(data->frame_count) + ", Occupancy map frame count = " + std::to_string(data->occupancy_map.frame_count) 
+        + " (" + std::to_string(data->occupancy_map.width) + "x" + std::to_string(data->occupancy_map.height) + ") \n"
+        + "Channels (frame 0) Y=" + std::to_string(data->occupancy_map.pictures.front().Y.size())
+        + " U=" + std::to_string(data->occupancy_map.pictures.front().U.size())
+        + " V=" + std::to_string(data->occupancy_map.pictures.front().V.size()) + "\n");
+
     for (size_t i = 0; i < data->geometry_maps.size(); i++) {
-        std::cout << "-- Geometry map " << i << ": " << data->geometry_maps.at(i).frame_count << " frames, " << data->geometry_maps.at(i).width << "x" << data->geometry_maps.at(i).height << std::endl;
-        printf("Channel sizes Y=%zu U=%zu V=%zu \n", data->geometry_maps.at(i).pictures.front().Y.size(),
-        data->geometry_maps.at(i).pictures.front().U.size(), data->geometry_maps.at(i).pictures.front().V.size());
+        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Format conversion", "Geometry map [" + std::to_string(i)
+            + "] frame count = " + std::to_string(data->geometry_maps.at(i).frame_count) 
+            + " (" + std::to_string(data->geometry_maps.at(i).width) + "x" + std::to_string(data->geometry_maps.at(i).height) + ") \n"
+            + "Channels (frame 0) Y=" + std::to_string(data->geometry_maps.at(i).pictures.front().Y.size())
+            + " U=" + std::to_string(data->geometry_maps.at(i).pictures.front().U.size())
+            + " V=" + std::to_string(data->geometry_maps.at(i).pictures.front().V.size()) + "\n");
     }
     for (size_t i = 0; i < data->attribute_maps.size(); i++) {
-        std::cout << "-- Attribute map " << i << ": " << data->attribute_maps.at(i).frame_count << " frames, " << data->attribute_maps.at(i).width << "x" << data->attribute_maps.at(i).height << std::endl;
-        printf("Channel sizes Y=%zu U=%zu V=%zu \n", data->attribute_maps.at(i).pictures.front().Y.size(),
-        data->attribute_maps.at(i).pictures.front().U.size(), data->attribute_maps.at(i).pictures.front().V.size());
+        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Format conversion", "Attribute map [" + std::to_string(i)
+            + "] frame count = " + std::to_string(data->attribute_maps.at(i).frame_count) 
+            + " (" + std::to_string(data->attribute_maps.at(i).width) + "x" + std::to_string(data->attribute_maps.at(i).height) + ") \n"
+            + "Channels (frame 0) Y=" + std::to_string(data->attribute_maps.at(i).pictures.front().Y.size())
+            + " U=" + std::to_string(data->attribute_maps.at(i).pictures.front().U.size())
+            + " V=" + std::to_string(data->attribute_maps.at(i).pictures.front().V.size()) + "\n");
     }
     
 }

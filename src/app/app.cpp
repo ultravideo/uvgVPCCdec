@@ -14,7 +14,7 @@ size_t read_value(uint8_t* src, size_t len) {
 }
 
 int main() {
-    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::INFO, "Application", "Decode .vpcc file \n");
+    uvgvpcc_dec::Logger::setLogLevel(uvgvpcc_dec::LogLevel::INFO);
     uvgvpcc_dec::Parameters param;
     uvgvpcc_dec::API::initializeDecoder(param);
 
@@ -26,30 +26,27 @@ int main() {
     else {  // decode one chunk at a time
         uvgvpcc_dec::API::v3c_unit_stream unit_stream;
         readFile("decoder-testing-3f.vpcc", unit_stream);
-        std::cout << "chunks amount "<< unit_stream.v3c_chunks.size() << std::endl;
+        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Application", "Number of V3C chunks " + std::to_string(unit_stream.v3c_chunks.size()) + " \n");
         for (size_t i = 0; i < unit_stream.v3c_chunks.size(); ++i) {
             /*const*/ auto& chunk = unit_stream.v3c_chunks.front();
             uvgvpcc_dec::API::decodeV3CChunk(chunk);
             unit_stream.v3c_chunks.pop();
         }
     }
-    
-
-    //uvgvpcc_dec::API::decodeV3CSampleStream("BITSTREAM-V3C.vpcc");
-    
+        
     uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::INFO, "Application", "Done \n");
     return 0;
 }
 
 void readFile(const std::string filename, std::vector<uint8_t> &data)
 {
-    std::cout << "Opening file " << filename << std::endl;
+    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Application", "Opening file " + filename + " \n");
     std::ifstream input_file (filename);
     if (input_file.is_open()) {
         input_file.seekg(0, std::ios::end);
         std::size_t size = input_file.tellg();
         input_file.seekg(0, std::ios::beg);
-        std::cout << "size of file is " << size << std::endl;
+        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Application", "Size of file " + std::to_string(size) + " \n");
 
         data.resize(static_cast<std::size_t>(size)); // Allocate required storage
         input_file.read(reinterpret_cast<char*> (&data[0]), size);
@@ -63,7 +60,7 @@ void readFile(const std::string filename, std::vector<uint8_t> &data)
 
 void readFile(const std::string filename, uvgvpcc_dec::API::v3c_unit_stream &unit_stream)
 {
-    std::cout << "Opening file " << filename << std::endl;
+    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Application", "Opening file " + filename + " \n");
     std::ifstream input_file (filename);
 
     if(!input_file.is_open()) {
@@ -76,8 +73,7 @@ void readFile(const std::string filename, uvgvpcc_dec::API::v3c_unit_stream &uni
     size_t data_read = 1; // hdr byte already read
     unit_stream.v3c_unit_size_precision_bytes = v3c_unit_size_precision;
     
-    
-    std::cout << "v3c size precision " << v3c_unit_size_precision << std::endl;
+    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Application", "V3C unit size precision " + std::to_string(v3c_unit_size_precision) + " \n");
     uvgvpcc_dec::API::v3c_chunk latest_chunk;
     while (input_file.peek() != EOF) {
         
@@ -94,6 +90,5 @@ void readFile(const std::string filename, uvgvpcc_dec::API::v3c_unit_stream &uni
         
     }
     unit_stream.v3c_chunks.push(latest_chunk);
-    std::cout << "data_read " << data_read << std::endl;
     input_file.close();
 }

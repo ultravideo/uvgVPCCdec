@@ -4,7 +4,7 @@ using namespace uvgvpcc_dec;
 
 void PostReconstruction::PostProcess(decompressed_data* data, point_cloud_frame* reconstruct, size_t frame_index)
 {
-    Logger::log(LogLevel::INFO, "Post-reconstruction", "Post-processing point cloud frame " + std::to_string(frame_index) + " \n");
+    Logger::log(LogLevel::TRACE, "Post-reconstruction", "Post-processing point cloud frame " + std::to_string(frame_index) + " \n");
     bool multipleStreams = data->vps.vps_multiple_map_streams_present_flag.at(0);
     uint8_t attributeCount = data->vps.ai_attribute_count;
     color_point_cloud(reconstruct, data, frame_index, multipleStreams, attributeCount);

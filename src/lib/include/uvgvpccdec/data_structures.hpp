@@ -462,8 +462,7 @@ struct patch {
             case 16: setAxis( 3, 1, 2, 0, 1 ); break;
             case 17: setAxis( 3, 0, 2, 1, 1 ); break;
             default:
-            std::cout << "ViewId (" << viewId_ << ") not allowed... exiting" << std::endl;
-            exit( -1 );
+            throw std::runtime_error("Invalid viewID " + std::to_string(viewId));
             break;
         }
     }
