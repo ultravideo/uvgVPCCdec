@@ -18,6 +18,7 @@ public:
     static void align_bitstream();
     static void initializeStaticParameters(const uvgvpcc_dec::Parameters& param);
     static void decompressV3CSampleStream(const std::vector<uint8_t> &data, decompressed_data* output, uvgvpcc_dec::video_parameter_set_nals* v_params);
+    static void decompressV3CUnitStream(const uvgvpcc_dec::API::v3c_chunk &chunk, decompressed_data* output, uvgvpcc_dec::video_parameter_set_nals* v_params);
 
 private:
     static uint32_t read_bits(uint8_t bits);
@@ -25,6 +26,7 @@ private:
     static void read_v3c_parameter_set(v3c_parameter_set* vps);
     static void read_profile_tier_level(profile_tier_level* ptl);
 
+    static void handle_v3c_unit(const uint8_t vuh_unit_type, const size_t payload_size, decompressed_data* output, uvgvpcc_dec::video_parameter_set_nals* v_params);
 
     static void read_atlas_sub_bitstream(std::size_t v3c_payload_size_bytes, decompressed_data* output);
     static void read_atlas_nal_unit(NAL_UNIT_TYPE nal_unit_type, std::size_t nal_unit_size, decompressed_data* output);

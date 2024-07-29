@@ -17,6 +17,24 @@ void API::initializeDecoder(const Parameters& param)
 
 }
 
+void API::decodeV3CChunk(v3c_chunk &chunk)
+{
+    decompressed_data decompressed;
+    video_parameter_set_nals long_term_video_parameters;
+
+    BitstreamParsing::decompressV3CUnitStream(chunk, &decompressed, &long_term_video_parameters);
+    FormatConversion::convertToNominalFormat(&decompressed);
+    Logger::log(LogLevel::INFO, "uvgVPCC", "Start reconstructing " + std::to_string(decompressed.frame_count) + " frames \n");
+    for (size_t frame_index = 0; frame_index < decompressed.frame_count; frame_index++) {
+        point_cloud_frame reconstructed_point_cloud_frame;
+        Reconstruction::construct_point_cloud_frame(&decompressed, &reconstructed_point_cloud_frame, frame_index);
+        PostReconstruction::PostProcess(&decompressed, &reconstructed_point_cloud_frame, frame_index);
+        Adaptation::convertYUV8ToRGB8(&reconstructed_point_cloud_frame);
+        std::string out_name = "output-test-f" + std::to_string(frame_index) + ".ply";
+        Adaptation::write(out_name, &reconstructed_point_cloud_frame);
+    }
+}
+
 void API::decodeV3CSampleStream(std::vector<uint8_t> &data)
 {
     decompressed_data decompressed;

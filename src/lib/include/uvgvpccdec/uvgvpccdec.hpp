@@ -32,7 +32,7 @@ namespace API
 
     struct v3c_chunk {
         size_t len = 0; // Length of data in buffer
-        uint8_t* data = nullptr; // Actual data
+        std::vector<uint8_t> data = {}; // Actual data
         std::vector<size_t> v3c_unit_sizes = {};
         //~v3c_chunk() { delete[] data;}
     };
@@ -47,7 +47,7 @@ namespace API
 
     void initializeDecoder(const Parameters& param);
     void decodeV3CSampleStream(std::vector<uint8_t> &data);
-    void decodeV3CChunk(v3c_chunk chunk);
+    void decodeV3CChunk(v3c_chunk &chunk);
 } // namespace API
 
 } // namespace uvgvpcc_dec

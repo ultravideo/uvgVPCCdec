@@ -97,6 +97,59 @@ void BitstreamParsing::initializeStaticParameters(const uvgvpcc_dec::Parameters&
     int x = param.hello;
 }
 
+void BitstreamParsing::handle_v3c_unit(const uint8_t vuh_unit_type, const size_t payload_size, decompressed_data* output, uvgvpcc_dec::video_parameter_set_nals* v_params)
+{
+    switch(vuh_unit_type) {
+            case V3C_UNIT_TYPE::V3C_VPS:
+                read_v3c_parameter_set(&output->vps);
+                break;
+            case V3C_UNIT_TYPE::V3C_AD:
+                read_atlas_sub_bitstream(payload_size, output);
+                break;
+            case V3C_UNIT_TYPE::V3C_OVD:
+                convert_video_sub_bitstream(payload_size, o_hevc, &v_params->occupancy_parameters);
+                output->occupancy_map.type = V3C_OVD;
+                decode_video_sub_bitstream(o_hevc, o_yuv, &output->occupancy_map);
+                break;
+            case V3C_UNIT_TYPE::V3C_GVD: {
+                convert_video_sub_bitstream(payload_size, g_hevc, &v_params->geometry_parameters);
+                video_map new_geo_map;
+                output->geometry_maps.push_back(new_geo_map);
+                output->geometry_maps.back().type = V3C_GVD;
+                decode_video_sub_bitstream(g_hevc, g_yuv, &output->geometry_maps.back());
+                break; }
+            case V3C_UNIT_TYPE::V3C_AVD: {
+                convert_video_sub_bitstream(payload_size, a_hevc, &v_params->attribute_parameters);
+                video_map new_atr_map;
+                output->attribute_maps.push_back(new_atr_map);
+                output->attribute_maps.back().type = V3C_AVD;
+                decode_video_sub_bitstream(a_hevc, a_yuv, &output->attribute_maps.back());
+                break; }
+            default: 
+                std::cout << "error" << std::endl;
+                break;
+        }
+        std::cout << "Unit stream parsed, pos bytes at " << pos_.bytes << std::endl;
+}
+
+void BitstreamParsing::decompressV3CUnitStream(const uvgvpcc_dec::API::v3c_chunk &chunk, decompressed_data* output, uvgvpcc_dec::video_parameter_set_nals* v_params)
+{
+    cbuf_ = chunk.data.data();
+    //std::size_t ptr = 0
+    pos_.bits = 0;
+    pos_.bytes = 0;
+    for (size_t i = 0; i < chunk.v3c_unit_sizes.size(); i++) {
+        std::cout << "v3c_unit_size " << chunk.v3c_unit_sizes.at(i) << std::endl;
+        size_t v3c_unit_payload_size = chunk.v3c_unit_sizes.at(i) - 4; // not incl. header
+
+        // Next 4 bytes are the V3C unit header
+        uint8_t vuh_unit_type = read(5, "vuh_unit_type");
+        std::cout << "V3C unit type " << uint32_t(vuh_unit_type) << std::endl;
+        advance_bitstream(4 * 8 - 5); // skip the rest of v3c header for now
+        handle_v3c_unit(vuh_unit_type, v3c_unit_payload_size, output, v_params);
+    }
+}
+
 void BitstreamParsing::decompressV3CSampleStream(const std::vector<uint8_t> &data, decompressed_data* output, uvgvpcc_dec::video_parameter_set_nals* v_params)
 {
     cbuf_ = data.data();
@@ -127,36 +180,7 @@ void BitstreamParsing::decompressV3CSampleStream(const std::vector<uint8_t> &dat
         advance_bitstream(4 * 8 - 5); // skip the rest of v3c header for now
 
         std::size_t v3c_unit_payload_size_bytes = v3c_unit_size - 4;
-        switch(vuh_unit_type) {
-            case V3C_UNIT_TYPE::V3C_VPS:
-                read_v3c_parameter_set(&output->vps);
-                break;
-            case V3C_UNIT_TYPE::V3C_AD:
-                read_atlas_sub_bitstream(v3c_unit_payload_size_bytes, output);
-                break;
-            case V3C_UNIT_TYPE::V3C_OVD:
-                convert_video_sub_bitstream(v3c_unit_payload_size_bytes, o_hevc, &v_params->occupancy_parameters);
-                output->occupancy_map.type = V3C_OVD;
-                decode_video_sub_bitstream(o_hevc, o_yuv, &output->occupancy_map);
-                break;
-            case V3C_UNIT_TYPE::V3C_GVD: {
-                convert_video_sub_bitstream(v3c_unit_payload_size_bytes, g_hevc, &v_params->geometry_parameters);
-                video_map new_geo_map;
-                output->geometry_maps.push_back(new_geo_map);
-                output->geometry_maps.back().type = V3C_GVD;
-                decode_video_sub_bitstream(g_hevc, g_yuv, &output->geometry_maps.back());
-                break; }
-            case V3C_UNIT_TYPE::V3C_AVD: {
-                convert_video_sub_bitstream(v3c_unit_payload_size_bytes, a_hevc, &v_params->attribute_parameters);
-                video_map new_atr_map;
-                output->attribute_maps.push_back(new_atr_map);
-                output->attribute_maps.back().type = V3C_AVD;
-                decode_video_sub_bitstream(a_hevc, a_yuv, &output->attribute_maps.back());
-                break; }
-            default: 
-                std::cout << "error" << std::endl;
-                break;
-        }
+        handle_v3c_unit(vuh_unit_type, v3c_unit_payload_size_bytes, output, v_params);
     }
     std::cout << "File parsed, pos bytes at " << pos_.bytes << std::endl;
 }
