@@ -32,8 +32,8 @@ void API::decodeV3CChunk(v3c_chunk &chunk)
         for (size_t frame_index = 0; frame_index < decompressed_gofs.at(gof_i).frame_count; frame_index++) {
             // Point cloud reconstruction -> per frame
             point_cloud_frame reconstructed_point_cloud_frame;
-            Reconstruction::construct_point_cloud_frame(&decompressed_gofs.at(gof_i), &reconstructed_point_cloud_frame, frame_index);
-            PostReconstruction::PostProcess(&decompressed_gofs.at(gof_i), &reconstructed_point_cloud_frame, frame_index);
+            Reconstruction::construct_point_cloud_frame(decompressed_gofs.at(gof_i), &reconstructed_point_cloud_frame, frame_index);
+            PostReconstruction::PostProcess(decompressed_gofs.at(gof_i), &reconstructed_point_cloud_frame, frame_index);
             Adaptation::convertYUV8ToRGB8(&reconstructed_point_cloud_frame);
             std::string out_name = "output-test-gof" + std::to_string(gof_i) + "-f" + std::to_string(frame_index) + ".ply";
             Adaptation::write(out_name, &reconstructed_point_cloud_frame);
@@ -56,19 +56,13 @@ void API::decodeV3CSampleStream(std::vector<uint8_t> &data)
 
             // Point cloud reconstruction -> per frame
             point_cloud_frame reconstructed_point_cloud_frame;
-            Reconstruction::construct_point_cloud_frame(&decompressed_gofs.at(gof_i), &reconstructed_point_cloud_frame, frame_index);
-            PostReconstruction::PostProcess(&decompressed_gofs.at(gof_i), &reconstructed_point_cloud_frame, frame_index);
+            Reconstruction::construct_point_cloud_frame(decompressed_gofs.at(gof_i), &reconstructed_point_cloud_frame, frame_index);
+            PostReconstruction::PostProcess(decompressed_gofs.at(gof_i), &reconstructed_point_cloud_frame, frame_index);
             Adaptation::convertYUV8ToRGB8(&reconstructed_point_cloud_frame);
             std::string out_name = "output-test-gof" + std::to_string(gof_i) + "-f" + std::to_string(frame_index) + ".ply";
             Adaptation::write(out_name, &reconstructed_point_cloud_frame);
         }
     }
-
-    //reconstruct_multiple_frames.appendPointSet( reconstructed_point_cloud_frame );
-    //if ( !decoderParams.reconstructedDataPath_.empty() ) {
-    //reconstructs.write( decoderParams.reconstructedDataPath_, frameNumber, decoderParams.nbThread_ );
-    
-    
-    }
-} // namespace uvgvpcc_dec
+}
+}
 

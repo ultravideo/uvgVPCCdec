@@ -664,7 +664,7 @@ void Decompression::read_atlas_nal_unit(NAL_UNIT_TYPE nal_unit_type, std::size_t
                 read_atlas_rbsp(&rbsp, nal_unit_type);
                 auto frame = std::make_unique<atlas_frame>();
                 frame.get()->atlas_index = 0;
-                decode_atlas_frame(frame.get(), &rbsp);
+                decode_atlas_frame(frame.get(), rbsp);
                 output->atlas_map.push_back(std::move(frame));
                 output->frame_count++;
                 break; }
@@ -705,22 +705,22 @@ void Decompression::read_atlas_sub_bitstream(std::size_t v3c_payload_size_bytes,
     }
 }
 
-void Decompression::decode_atlas_frame(atlas_frame* frame, atlas_tile_layer_rbsp* rbsp)
+void Decompression::decode_atlas_frame(atlas_frame* frame, const atlas_tile_layer_rbsp &rbsp)
 {
     // 1 tile per frame
     frame->frame_width = saved_params_.back().asps.asps_frame_width;
     frame->frame_height = saved_params_.back().asps.asps_frame_height;
 
-    std::size_t pid_count = rbsp->atdu.pid_vec.size();
+    std::size_t pid_count = rbsp.atdu.pid_vec.size();
 
-    const size_t minLevel = pow( 2., double(rbsp->ath.ath_pos_min_d_quantizer)); // this line from TMC2
-    int32_t quantizerSizeX = 1 << rbsp->ath.ath_patch_size_x_info_quantizer; // ath.getPatchSizeXinfoQuantizer(); // tmc2
-    int32_t quantizerSizeY = 1 << rbsp->ath.ath_patch_size_y_info_quantizer; //ath.getPatchSizeYinfoQuantizer(); // tmc2
+    const size_t minLevel = pow( 2., double(rbsp.ath.ath_pos_min_d_quantizer)); // this line from TMC2
+    int32_t quantizerSizeX = 1 << rbsp.ath.ath_patch_size_x_info_quantizer; // ath.getPatchSizeXinfoQuantizer(); // tmc2
+    int32_t quantizerSizeY = 1 << rbsp.ath.ath_patch_size_y_info_quantizer; //ath.getPatchSizeYinfoQuantizer(); // tmc2
     int32_t packingBlockSize       = 1 << saved_params_.back().asps.asps_log2_patch_packing_block_size;
     double  packingBlockSizeD      = static_cast<double>( packingBlockSize );
 
     for(std::size_t i = 0; i < pid_count; ++i) {
-        const patch_data_unit &pdu = rbsp->atdu.pid_vec.at(i).patch;
+        const patch_data_unit &pdu = rbsp.atdu.pid_vec.at(i).patch;
         patch p;
         p.occupancy_resolution = size_t(1) << saved_params_.back().asps.asps_log2_patch_packing_block_size;
         p.TilePatch2dPosX = pdu.pdu_2d_pos_x;
@@ -773,7 +773,7 @@ void Decompression::decode_atlas_frame(atlas_frame* frame, atlas_tile_layer_rbsp
     }
 }
 
-void Decompression::convert_video_sub_bitstream(std::size_t v3c_payload_size_bytes, std::string output_path, std::vector<uvgvpcc_dec::video_parameter_set_nalu>* v_params)
+void Decompression::convert_video_sub_bitstream(const std::size_t v3c_payload_size_bytes, const std::string output_path, std::vector<uvgvpcc_dec::video_parameter_set_nalu>* v_params)
 {
     uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "Reading V3C video data " + std::to_string(v3c_payload_size_bytes) + " \n");
     std::ofstream file(output_path, std::ios::binary);
@@ -802,7 +802,7 @@ void Decompression::convert_video_sub_bitstream(std::size_t v3c_payload_size_byt
     file.close();
 }
 
-void Decompression::decode_video_sub_bitstream(std::string input_path, std::string output_path, video_map* map)
+void Decompression::decode_video_sub_bitstream(const std::string input_path, const std::string output_path, video_map* map)
 {
     std::stringstream cmd;
     cmd << ffmpeg_path;

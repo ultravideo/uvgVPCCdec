@@ -269,12 +269,12 @@ struct picture {
     std::vector<uint8_t> U;
     std::vector<uint8_t> V;
 
-    uint8_t get_Y_value(const size_t u, const size_t v ) { // Should be uint8_t??
+    uint8_t get_Y_value(const size_t u, const size_t v ) const {
         return Y.at(v * width + u);
     }
     // Works for 444. IF you want 420, this needs to change a bit
     // Check integer lengths
-    uint8_t get_value(const size_t channel, const size_t u, const size_t v) {
+    uint8_t get_value(const size_t channel, const size_t u, const size_t v) const {
         assert( channel < 3 );
         if(channel == 0) {
             return Y.at(v * width + u);

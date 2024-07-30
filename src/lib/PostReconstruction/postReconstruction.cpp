@@ -3,22 +3,22 @@
 
 using namespace uvgvpcc_dec;
 
-void PostReconstruction::PostProcess(decompressed_gof* data, point_cloud_frame* reconstruct, const size_t frame_index)
+void PostReconstruction::PostProcess(const decompressed_gof &gof, point_cloud_frame* reconstruct, const size_t frame_index)
 {
     Logger::log(LogLevel::TRACE, "Post-reconstruction", "Post-processing point cloud frame " + std::to_string(frame_index) + " \n");
-    const v3c_parameter_set &vps = Decompression::get_saved_params(data->gof_index).vps;
+    const v3c_parameter_set &vps = Decompression::get_saved_params(gof.gof_index).vps;
     bool multipleStreams = vps.vps_multiple_map_streams_present_flag.at(0);
     uint8_t attributeCount = vps.ai_attribute_count;
-    color_point_cloud(reconstruct, data, frame_index, multipleStreams, attributeCount);
+    color_point_cloud(reconstruct, gof, frame_index, multipleStreams, attributeCount);
 }
 
-size_t PostReconstruction::color_point_cloud(point_cloud_frame* reconstruct, decompressed_gof* data, const size_t frame_index, const size_t multipleStreams, const uint8_t attributeCount )
+size_t PostReconstruction::color_point_cloud(point_cloud_frame* reconstruct, const decompressed_gof &gof, const size_t frame_index, const size_t multipleStreams, const uint8_t attributeCount )
 {
-    atlas_frame* current_atlas_frame = data->atlas_map.at(frame_index).get();
+    atlas_frame* current_atlas_frame = gof.atlas_map.at(frame_index).get();
 
-    /*const*/ video_map &videoAttributeMap0 = data->attribute_maps.at(0);
+    const video_map &videoAttributeMap0 = gof.attribute_maps.at(0);
 
-    const v3c_parameter_set &vps = Decompression::get_saved_params(data->gof_index).vps;
+    const v3c_parameter_set &vps = Decompression::get_saved_params(gof.gof_index).vps;
     const size_t mapCount = vps.vps_map_count_minus1.at(current_atlas_frame->atlas_index) + 1;
     if ( attributeCount == 0 ) {
         Logger::log(LogLevel::INFO, "Post-reconstruction", "No attribute data \n");
@@ -44,7 +44,7 @@ size_t PostReconstruction::color_point_cloud(point_cloud_frame* reconstruct, dec
         const size_t f = location.data_[2];
 
         if ( f < mapCount ) {
-            picture &frame = videoAttributeMap0.pictures.at(shift + f);
+            const picture &frame = videoAttributeMap0.pictures.at(shift + f);
             for ( size_t c = 0; c < 3; ++c ) {
                 color8bit.at(i).data_[c] = frame.get_value(c, x, y);
             }
