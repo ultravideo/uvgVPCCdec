@@ -21,7 +21,7 @@ void API::decodeV3CChunk(v3c_chunk &chunk)
 {
     decompressed_data decompressed;
     video_parameter_set_nals long_term_video_parameters;
-    BitstreamParsing::decompressV3CUnitStream(chunk, &decompressed, &long_term_video_parameters);
+    Decompression::decompressV3CUnitStream(chunk, &decompressed, &long_term_video_parameters);
     FormatConversion::convertToNominalFormat(&decompressed);
     for (size_t frame_index = 0; frame_index < decompressed.frame_count; frame_index++) {
         point_cloud_frame reconstructed_point_cloud_frame;
@@ -37,7 +37,7 @@ void API::decodeV3CSampleStream(std::vector<uint8_t> &data)
 {
     decompressed_data decompressed;
     video_parameter_set_nals long_term_video_parameters;
-    BitstreamParsing::decompressV3CSampleStream(data, &decompressed, &long_term_video_parameters);
+    Decompression::decompressV3CSampleStream(data, &decompressed, &long_term_video_parameters);
     FormatConversion::convertToNominalFormat(&decompressed);
     for (size_t frame_index = 0; frame_index < decompressed.frame_count; frame_index++) {
         point_cloud_frame reconstructed_point_cloud_frame;

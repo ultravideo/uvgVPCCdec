@@ -1,5 +1,6 @@
 #include "reconstruction.hpp"
 #include "reconstruction_common.hpp"
+#include "Decompression/decompression.hpp"
 
 using namespace uvgvpcc_dec;
 
@@ -207,14 +208,18 @@ void Reconstruction::construct_point_cloud_frame(decompressed_data* data, point_
     size_t tileWidth = current_atlas_frame->tile_width;
     size_t tileHeight = current_atlas_frame->tile_height;
 
+    const v3c_parameter_set &vps = Decompression::get_saved_vps();
+    const atlas_sequence_parameter_set &asps = Decompression::get_saved_asps();
+    const atlas_frame_parameter_set &afps = Decompression::get_saved_afps();
+
     std::vector<point3d> &pointToPixel = current_atlas_frame->pointToPixel_;
     pointToPixel.resize( 0 );
-    size_t occupancyPrecision = data->vps.vps_frame_width.at(atlas_index) / data->occupancy_map.width;
+    size_t occupancyPrecision = vps.vps_frame_width.at(atlas_index) / data->occupancy_map.width;
     std::vector<uint8_t> occupancyMap = {};
 
     generateOccupancyMap( tileWidth, tileHeight, &current_occupancy_frame, &occupancyMap, occupancyPrecision);
     
-    size_t patch_packing_block_size = size_t( 1 ) << data->asps.asps_log2_patch_packing_block_size;
+    size_t patch_packing_block_size = size_t( 1 ) << asps.asps_log2_patch_packing_block_size;
     const size_t blockToPatchWidth = tileWidth / patch_packing_block_size;
     const size_t blockToPatchHeight = tileHeight / patch_packing_block_size;
     generateBlockToPatchFromOccupancyMapVideo(current_atlas_frame, &current_occupancy_frame,
@@ -223,14 +228,14 @@ void Reconstruction::construct_point_cloud_frame(decompressed_data* data, point_
     
     /* ------------------------ reconstruction ------------------------ */
     auto &blockToPatch = current_atlas_frame->block_to_patch;
-    const bool patchPrecedenceOrderFlag = data->asps.asps_patch_precedence_order_flag;
+    const bool patchPrecedenceOrderFlag = asps.asps_patch_precedence_order_flag;
     const size_t patch_count = current_atlas_frame->patches_map.size();
 
     bool removeDuplicatePoints_ = true;
 
-    const size_t mapCount = data->vps.vps_map_count_minus1.at(atlas_index) + 1;
+    const size_t mapCount = vps.vps_map_count_minus1.at(atlas_index) + 1;
 
-    const size_t geometryBitDepth3D_ = data->vps.geometry_info.at(0).gi_geometry_2d_bit_depth_minus1 + 1;
+    const size_t geometryBitDepth3D_ = vps.geometry_info.at(0).gi_geometry_2d_bit_depth_minus1 + 1;
     size_t videoFrameIndex = frame_index * mapCount;
     size_t geoFrameCount = data->geometry_maps.at(0).frame_count;
     if ( geoFrameCount < ( videoFrameIndex + mapCount ) ) { throw std::runtime_error("Invalid geoFrameCount");}
@@ -260,9 +265,9 @@ void Reconstruction::construct_point_cloud_frame(decompressed_data* data, point_
                             bool         occupancy     = false;
 
                             occupancy = occupancyMap[canvasIndex] != 0;
-                            size_t mapCountMinus1_ = data->vps.vps_map_count_minus1.at(atlas_index);
-                            bool multipleStreams_ = data->vps.vps_multiple_map_streams_present_flag.at(atlas_index);
-                            bool absoluteD1_ = data->vps.vps_map_count_minus1.at(atlas_index) == 0 || data->vps.vps_map_absolute_coding_enabled_flag.at(atlas_index).at(1);
+                            size_t mapCountMinus1_ = vps.vps_map_count_minus1.at(atlas_index);
+                            bool multipleStreams_ = vps.vps_multiple_map_streams_present_flag.at(atlas_index);
+                            bool absoluteD1_ = vps.vps_map_count_minus1.at(atlas_index) == 0 || vps.vps_map_absolute_coding_enabled_flag.at(atlas_index).at(1);
                             
                             if ( !occupancy ) { continue; }
                             std::vector<point3d> createdPoints;

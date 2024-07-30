@@ -8,7 +8,7 @@ struct bitstream_position {
   uint8_t  bits = 0;
 };
 
-class BitstreamParsing {
+class Decompression {
 public: 
     static uint32_t read(uint8_t bits, const std::string &name = "");
     static uint32_t read_ue(const std::string &name = "");

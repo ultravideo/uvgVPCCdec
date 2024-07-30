@@ -24,21 +24,21 @@ std::string o_yuv = "OCCUPANCY-MAP-640x640-8bit.yuv";
 std::string g_yuv = "GEOMETRY-MAP-1280x1280-8bit.yuv";
 std::string a_yuv = "ATTRIBUTE-MAP-1280x1280-8bit.yuv";
 
-const v3c_parameter_set &BitstreamParsing::get_saved_vps()
+const v3c_parameter_set &Decompression::get_saved_vps()
 {
     return saved_vps_;
 }
-const atlas_sequence_parameter_set &BitstreamParsing::get_saved_asps()
+const atlas_sequence_parameter_set &Decompression::get_saved_asps()
 {
     return saved_asps_;
 }
-const atlas_frame_parameter_set &BitstreamParsing::get_saved_afps()
+const atlas_frame_parameter_set &Decompression::get_saved_afps()
 {
     return saved_afps_;
 }
 
 /* TODO: make sure this function works in all cases */
-void BitstreamParsing::advance_bitstream(std::size_t bits)
+void Decompression::advance_bitstream(std::size_t bits)
 {
     std::size_t bytes = bits / 8 + (pos_.bits + bits % 8) / 8;
     pos_.bytes += bytes;
@@ -46,7 +46,7 @@ void BitstreamParsing::advance_bitstream(std::size_t bits)
 }
 
 /* TODO: make sure this function works in all cases */
-void BitstreamParsing::align_bitstream()
+void Decompression::align_bitstream()
 {
     if(pos_.bits != 0) {
         pos_.bytes++;
@@ -55,7 +55,7 @@ void BitstreamParsing::align_bitstream()
 }
 
 /* NOTE -------------------- Straight from TMC2 -------------------- */
-uint32_t BitstreamParsing::read_bits(uint8_t bits) {
+uint32_t Decompression::read_bits(uint8_t bits) {
     uint32_t value = 0;
     for ( std::size_t i = 0; i < bits; i++ ) {
       value |= ( ( cbuf_[pos_.bytes] >> ( 7 - pos_.bits ) ) & 1 ) << ( bits - 1 - i );
@@ -70,7 +70,7 @@ uint32_t BitstreamParsing::read_bits(uint8_t bits) {
 }
 
 /* NOTE -------------------- Straight from TMC2 -------------------- */
-uint32_t BitstreamParsing::read_bits_ue()
+uint32_t Decompression::read_bits_ue()
 {
     uint32_t value = 0, code = 0, length = 0;
     code = read_bits( 1 );
@@ -86,7 +86,7 @@ uint32_t BitstreamParsing::read_bits_ue()
     return value;
 }
 
-uint32_t BitstreamParsing::read(uint8_t bits, const std::string &name) {
+uint32_t Decompression::read(uint8_t bits, const std::string &name) {
     uint32_t value = read_bits(bits);
 #if BITSTREAM_DEBUG
     printf("%-50s u(%u) : %d\n", name.c_str(),bits,value);
@@ -95,7 +95,7 @@ uint32_t BitstreamParsing::read(uint8_t bits, const std::string &name) {
     return value;
 }
 
-uint32_t BitstreamParsing::read_ue(const std::string &name)
+uint32_t Decompression::read_ue(const std::string &name)
 {
     uint32_t value = read_bits_ue();
 #if BITSTREAM_DEBUG
@@ -105,17 +105,16 @@ uint32_t BitstreamParsing::read_ue(const std::string &name)
     return value;
 }
 
-void BitstreamParsing::initializeStaticParameters(const uvgvpcc_dec::Parameters& param)
+void Decompression::initializeStaticParameters(const uvgvpcc_dec::Parameters& param)
 {
     int x = param.hello;
 }
 
-void BitstreamParsing::handle_v3c_unit(const uint8_t vuh_unit_type, const size_t payload_size, decompressed_data* output, uvgvpcc_dec::video_parameter_set_nals* v_params)
+void Decompression::handle_v3c_unit(const uint8_t vuh_unit_type, const size_t payload_size, decompressed_data* output, uvgvpcc_dec::video_parameter_set_nals* v_params)
 {
     switch(vuh_unit_type) {
             case V3C_UNIT_TYPE::V3C_VPS:
-                read_v3c_parameter_set(&output->vps);
-                saved_vps_ = output->vps;
+                read_v3c_parameter_set(&saved_vps_);
                 break;
             case V3C_UNIT_TYPE::V3C_AD:
                 read_atlas_sub_bitstream(payload_size, output);
@@ -146,7 +145,7 @@ void BitstreamParsing::handle_v3c_unit(const uint8_t vuh_unit_type, const size_t
         uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "V3C unit stream parsed, pos_.bytes at " + std::to_string(pos_.bytes) + " \n");
 }
 
-void BitstreamParsing::decompressV3CUnitStream(const uvgvpcc_dec::API::v3c_chunk &chunk, decompressed_data* output, uvgvpcc_dec::video_parameter_set_nals* v_params)
+void Decompression::decompressV3CUnitStream(const uvgvpcc_dec::API::v3c_chunk &chunk, decompressed_data* output, uvgvpcc_dec::video_parameter_set_nals* v_params)
 {
     cbuf_ = chunk.data.data();
     //std::size_t ptr = 0
@@ -164,7 +163,7 @@ void BitstreamParsing::decompressV3CUnitStream(const uvgvpcc_dec::API::v3c_chunk
     }
 }
 
-void BitstreamParsing::decompressV3CSampleStream(const std::vector<uint8_t> &data, decompressed_data* output, uvgvpcc_dec::video_parameter_set_nals* v_params)
+void Decompression::decompressV3CSampleStream(const std::vector<uint8_t> &data, decompressed_data* output, uvgvpcc_dec::video_parameter_set_nals* v_params)
 {
     cbuf_ = data.data();
     //std::size_t ptr = 0
@@ -199,7 +198,7 @@ void BitstreamParsing::decompressV3CSampleStream(const std::vector<uint8_t> &dat
     uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "File parsed, pos_.bytes at " + std::to_string(pos_.bytes) + " \n");
 }
 
-void BitstreamParsing::read_v3c_parameter_set(v3c_parameter_set* vps)
+void Decompression::read_v3c_parameter_set(v3c_parameter_set* vps)
 {
     uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "Reading V3C parameter set \n");
     // profile_tier_level
@@ -339,7 +338,7 @@ void BitstreamParsing::read_v3c_parameter_set(v3c_parameter_set* vps)
     }
 }
 
-void BitstreamParsing::read_profile_tier_level(profile_tier_level* ptl)
+void Decompression::read_profile_tier_level(profile_tier_level* ptl)
 {
     ptl->ptl_profile_toolset_idc = read(8, "ptl_profile_toolset_idc");
     ptl->ptl_tier_flag = read(1, "ptl_tier_flag");
@@ -360,7 +359,7 @@ void BitstreamParsing::read_profile_tier_level(profile_tier_level* ptl)
     // TODO: Parse PTC
 }
 
-void BitstreamParsing::read_asps(atlas_sequence_parameter_set &asps)
+void Decompression::read_asps(atlas_sequence_parameter_set &asps)
 {
     asps.asps_atlas_sequence_parameter_set_id = read_ue("asps_atlas_sequence_parameter_set_id");
     asps.asps_frame_width = read_ue("asps_frame_width");
@@ -453,7 +452,7 @@ void BitstreamParsing::read_asps(atlas_sequence_parameter_set &asps)
     align_bitstream();
 }
 
-void BitstreamParsing::read_afps(atlas_frame_parameter_set &afps)
+void Decompression::read_afps(atlas_frame_parameter_set &afps)
 {
     afps.afps_atlas_frame_parameter_set_id = read_ue("afps_atlas_frame_parameter_set_id");
     afps.afps_atlas_sequence_parameter_set_id = read_ue("afps_atlas_sequence_parameter_set_id");
@@ -471,14 +470,14 @@ void BitstreamParsing::read_afps(atlas_frame_parameter_set &afps)
     align_bitstream();
 }
 
-void BitstreamParsing::read_atlas_rbsp(atlas_tile_layer_rbsp* rbsp, NAL_UNIT_TYPE nalu_t)
+void Decompression::read_atlas_rbsp(atlas_tile_layer_rbsp* rbsp, NAL_UNIT_TYPE nalu_t)
 {
     read_atlas_tile_header(rbsp->ath, nalu_t);
     read_atlas_tile_data_unit(rbsp->atdu, rbsp->ath);
     align_bitstream();
 }
 
-void BitstreamParsing::read_atlas_tile_header(atlas_tile_header &ath, NAL_UNIT_TYPE nalu_t)
+void Decompression::read_atlas_tile_header(atlas_tile_header &ath, NAL_UNIT_TYPE nalu_t)
 {
     if(nalu_t >= NAL_GBLA_W_LP && nalu_t <= NAL_RSV_IRAP_ACL_29) {
         ath.ath_no_output_of_prior_atlas_frames_flag = read(1, "ath_no_output_of_prior_atlas_frames_flag");
@@ -541,7 +540,7 @@ void BitstreamParsing::read_atlas_tile_header(atlas_tile_header &ath, NAL_UNIT_T
     align_bitstream();
 }
 
-void BitstreamParsing::read_patch_information_data(atlas_tile_header &ath, patch_information_data &pid)
+void Decompression::read_patch_information_data(atlas_tile_header &ath, patch_information_data &pid)
 {
     if (ath.ath_type == SKIP_TILE) {
         // skip mode: currently not supported but added it for convenience. Could
@@ -583,7 +582,7 @@ void BitstreamParsing::read_patch_information_data(atlas_tile_header &ath, patch
     }
 }
 
-void BitstreamParsing::read_patch_data_unit(atlas_tile_header &ath, patch_data_unit &pdu)
+void Decompression::read_patch_data_unit(atlas_tile_header &ath, patch_data_unit &pdu)
 {
     pdu.pdu_2d_pos_x = read_ue("pdu_2d_pos_x");
     pdu.pdu_2d_pos_y = read_ue("pdu_2d_pos_y");
@@ -614,7 +613,7 @@ void BitstreamParsing::read_patch_data_unit(atlas_tile_header &ath, patch_data_u
 }
 
 
-void BitstreamParsing::read_atlas_tile_data_unit(atlas_tile_data_unit &atdu, atlas_tile_header &ath)
+void Decompression::read_atlas_tile_data_unit(atlas_tile_data_unit &atdu, atlas_tile_header &ath)
 {
     uint16_t tileID = ath.ath_id;
     if (ath.ath_type == SKIP_TILE) {
@@ -637,16 +636,14 @@ void BitstreamParsing::read_atlas_tile_data_unit(atlas_tile_data_unit &atdu, atl
     }
 }
 
-void BitstreamParsing::read_atlas_nal_unit(NAL_UNIT_TYPE nal_unit_type, std::size_t nal_unit_size, decompressed_data* output)
+void Decompression::read_atlas_nal_unit(NAL_UNIT_TYPE nal_unit_type, std::size_t nal_unit_size, decompressed_data* output)
 {                
     switch(nal_unit_type) {
             case NAL_UNIT_TYPE::NAL_ASPS:
-                read_asps(output->asps);
-                saved_asps_ = output->asps;
+                read_asps(saved_asps_);
                 break;
             case NAL_UNIT_TYPE::NAL_AFPS:
-                read_afps(output->afps);
-                saved_afps_ = output->afps;
+                read_afps(saved_afps_);
                 break;
             case NAL_UNIT_TYPE::NAL_IDR_N_LP: {
                 atlas_tile_layer_rbsp rbsp;
@@ -664,7 +661,7 @@ void BitstreamParsing::read_atlas_nal_unit(NAL_UNIT_TYPE nal_unit_type, std::siz
         }
 }
 
-void BitstreamParsing::read_atlas_sub_bitstream(std::size_t v3c_payload_size_bytes, decompressed_data* output)
+void Decompression::read_atlas_sub_bitstream(std::size_t v3c_payload_size_bytes, decompressed_data* output)
 {
     uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "Reading V3C atlas data, size " + std::to_string(v3c_payload_size_bytes) + " \n");
 
@@ -694,7 +691,7 @@ void BitstreamParsing::read_atlas_sub_bitstream(std::size_t v3c_payload_size_byt
     }
 }
 
-void BitstreamParsing::decode_atlas_frame(atlas_frame* frame, atlas_tile_layer_rbsp* rbsp)
+void Decompression::decode_atlas_frame(atlas_frame* frame, atlas_tile_layer_rbsp* rbsp)
 {
     // 1 tile per frame: TODO fix this placeholder
     frame->tile_width = saved_asps_.asps_frame_width;
@@ -762,7 +759,7 @@ void BitstreamParsing::decode_atlas_frame(atlas_frame* frame, atlas_tile_layer_r
     }
 }
 
-void BitstreamParsing::convert_video_sub_bitstream(std::size_t v3c_payload_size_bytes, std::string output_path, std::vector<uvgvpcc_dec::video_parameter_set_nalu>* v_params)
+void Decompression::convert_video_sub_bitstream(std::size_t v3c_payload_size_bytes, std::string output_path, std::vector<uvgvpcc_dec::video_parameter_set_nalu>* v_params)
 {
     uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "Reading V3C video data " + std::to_string(v3c_payload_size_bytes) + " \n");
     std::ofstream file(output_path, std::ios::binary);
@@ -791,7 +788,7 @@ void BitstreamParsing::convert_video_sub_bitstream(std::size_t v3c_payload_size_
     file.close();
 }
 
-void BitstreamParsing::decode_video_sub_bitstream(std::string input_path, std::string output_path, video_map* map)
+void Decompression::decode_video_sub_bitstream(std::string input_path, std::string output_path, video_map* map)
 {
     std::stringstream cmd;
     cmd << ffmpeg_path;

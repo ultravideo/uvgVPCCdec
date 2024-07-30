@@ -1,4 +1,5 @@
 #include "formatConversion.hpp"
+#include "Decompression/decompression.hpp"
 
 using namespace uvgvpcc_dec;
 
@@ -14,19 +15,21 @@ void FormatConversion::convertToNominalFormat(decompressed_data* data)
     */
 
     int ConvAtlasID = 0;
-    int attrCount = data->vps.ai_attribute_count;
+    const v3c_parameter_set &vps = Decompression::get_saved_vps();
+    const atlas_sequence_parameter_set &asps = Decompression::get_saved_asps();
+    int attrCount = vps.ai_attribute_count;
 
-    uint32_t OccBitDepthNF = data->vps.occupancy_info.at(ConvAtlasID).oi_occupancy_2d_bit_depth_minus1 + 1;
-    uint32_t GeoBitDepthNF = data->vps.geometry_info.at(ConvAtlasID).gi_geometry_2d_bit_depth_minus1 + 1;
+    uint32_t OccBitDepthNF = vps.occupancy_info.at(ConvAtlasID).oi_occupancy_2d_bit_depth_minus1 + 1;
+    uint32_t GeoBitDepthNF = vps.geometry_info.at(ConvAtlasID).gi_geometry_2d_bit_depth_minus1 + 1;
 
     std::vector<uint32_t> AttrBitDepthNF;
     AttrBitDepthNF.resize(attrCount);
     for (auto attrIdx = 0; attrIdx < attrCount; ++attrIdx) {
-        AttrBitDepthNF.at(attrIdx) = data->vps.attribute_info.at(ConvAtlasID).ai_attribute_2d_bit_depth_minus1.at(attrIdx) + 1;
+        AttrBitDepthNF.at(attrIdx) = vps.attribute_info.at(ConvAtlasID).ai_attribute_2d_bit_depth_minus1.at(attrIdx) + 1;
     }
 
-    uint32_t VideoWidthNF = data->asps.asps_frame_width;
-    uint32_t VideoHeightNF = data->asps.asps_frame_height;
+    uint32_t VideoWidthNF = asps.asps_frame_width;
+    uint32_t VideoHeightNF = asps.asps_frame_height;
     uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Format conversion", "OccBitDepthNF = "
         + std::to_string(OccBitDepthNF) + ", GeoBitDepthNF " + std::to_string(GeoBitDepthNF) + " \n");
 
