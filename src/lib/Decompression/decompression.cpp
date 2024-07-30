@@ -10,9 +10,8 @@
 static const uint8_t* cbuf_;
 static bitstream_position pos_;
 
-v3c_parameter_set saved_vps_;
-atlas_sequence_parameter_set saved_asps_;
-atlas_frame_parameter_set saved_afps_;
+size_t current_gof_index_ = 0;
+std::vector<parameter_sets> saved_params_ = {};
 
 size_t occupancy_width_ = 0;
 size_t occupancy_height_ = 0;
@@ -32,17 +31,9 @@ std::string o_yuv;
 std::string g_yuv;
 std::string a_yuv;
 
-const v3c_parameter_set &Decompression::get_saved_vps()
+const parameter_sets &Decompression::get_saved_params(const size_t gof_index)
 {
-    return saved_vps_;
-}
-const atlas_sequence_parameter_set &Decompression::get_saved_asps()
-{
-    return saved_asps_;
-}
-const atlas_frame_parameter_set &Decompression::get_saved_afps()
-{
-    return saved_afps_;
+    return saved_params_.at(gof_index);
 }
 
 /* TODO: make sure this function works in all cases */
@@ -129,33 +120,40 @@ void Decompression::initializeStaticParameters(const uvgvpcc_dec::Parameters& pa
     a_yuv = "ATTRIBUTE-MAP-" + std::to_string(video_width_) + "x" + std::to_string(video_height_) + ".yuv";
 }
 
-void Decompression::handle_v3c_unit(const uint8_t vuh_unit_type, const size_t payload_size, decompressed_data* output, uvgvpcc_dec::video_parameter_set_nals* v_params)
+void Decompression::handle_v3c_unit(const uint8_t vuh_unit_type, const size_t payload_size, std::vector<decompressed_data>* output, uvgvpcc_dec::video_parameter_set_nals* v_params)
 {
     switch(vuh_unit_type) {
-            case V3C_UNIT_TYPE::V3C_VPS:
-                read_v3c_parameter_set(&saved_vps_);
-                break;
+            case V3C_UNIT_TYPE::V3C_VPS: {
+                decompressed_data new_gof;
+                current_gof_index_ = output->size();
+                new_gof.gof_index = current_gof_index_;
+                output->push_back(std::move(new_gof));
+                uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "Added GOF, index " + std::to_string(current_gof_index_) + " \n");
+                parameter_sets new_params;
+                saved_params_.push_back(new_params);
+                read_v3c_parameter_set(&saved_params_.back().vps);
+                break; }
             case V3C_UNIT_TYPE::V3C_AD:
-                read_atlas_sub_bitstream(payload_size, output);
+                read_atlas_sub_bitstream(payload_size, &output->at(current_gof_index_));
                 break;
             case V3C_UNIT_TYPE::V3C_OVD:
                 convert_video_sub_bitstream(payload_size, o_hevc, &v_params->occupancy_parameters);
-                output->occupancy_map.type = V3C_OVD;
-                decode_video_sub_bitstream(o_hevc, o_yuv, &output->occupancy_map);
+                output->at(current_gof_index_).occupancy_map.type = V3C_OVD;
+                decode_video_sub_bitstream(o_hevc, o_yuv, &output->at(current_gof_index_).occupancy_map);
                 break;
             case V3C_UNIT_TYPE::V3C_GVD: {
                 convert_video_sub_bitstream(payload_size, g_hevc, &v_params->geometry_parameters);
                 video_map new_geo_map;
-                output->geometry_maps.push_back(new_geo_map);
-                output->geometry_maps.back().type = V3C_GVD;
-                decode_video_sub_bitstream(g_hevc, g_yuv, &output->geometry_maps.back());
+                output->at(current_gof_index_).geometry_maps.push_back(new_geo_map);
+                output->at(current_gof_index_).geometry_maps.back().type = V3C_GVD;
+                decode_video_sub_bitstream(g_hevc, g_yuv, &output->at(current_gof_index_).geometry_maps.back());
                 break; }
             case V3C_UNIT_TYPE::V3C_AVD: {
                 convert_video_sub_bitstream(payload_size, a_hevc, &v_params->attribute_parameters);
                 video_map new_atr_map;
-                output->attribute_maps.push_back(new_atr_map);
-                output->attribute_maps.back().type = V3C_AVD;
-                decode_video_sub_bitstream(a_hevc, a_yuv, &output->attribute_maps.back());
+                output->at(current_gof_index_).attribute_maps.push_back(new_atr_map);
+                output->at(current_gof_index_).attribute_maps.back().type = V3C_AVD;
+                decode_video_sub_bitstream(a_hevc, a_yuv, &output->at(current_gof_index_).attribute_maps.back());
                 break; }
             default: 
                 uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "Unkown V3C unit type " + std::to_string(vuh_unit_type) + " \n");
@@ -163,10 +161,9 @@ void Decompression::handle_v3c_unit(const uint8_t vuh_unit_type, const size_t pa
         }
 }
 
-void Decompression::decompressV3CUnitStream(const uvgvpcc_dec::API::v3c_chunk &chunk, decompressed_data* output, uvgvpcc_dec::video_parameter_set_nals* v_params)
+void Decompression::decompressV3CUnitStream(const uvgvpcc_dec::API::v3c_chunk &chunk, std::vector<decompressed_data>* output, uvgvpcc_dec::video_parameter_set_nals* v_params)
 {
     cbuf_ = chunk.data.data();
-    //std::size_t ptr = 0
     pos_.bits = 0;
     pos_.bytes = 0;
     for (size_t i = 0; i < chunk.v3c_unit_sizes.size(); i++) {
@@ -181,10 +178,9 @@ void Decompression::decompressV3CUnitStream(const uvgvpcc_dec::API::v3c_chunk &c
     }
 }
 
-void Decompression::decompressV3CSampleStream(const std::vector<uint8_t> &data, decompressed_data* output, uvgvpcc_dec::video_parameter_set_nals* v_params)
+void Decompression::decompressV3CSampleStream(const std::vector<uint8_t> &data, std::vector<decompressed_data>* output, uvgvpcc_dec::video_parameter_set_nals* v_params)
 {
     cbuf_ = data.data();
-    //std::size_t ptr = 0
     pos_.bits = 0;
     pos_.bytes = 0;
 
@@ -506,21 +502,21 @@ void Decompression::read_atlas_tile_header(atlas_tile_header &ath, NAL_UNIT_TYPE
     uint16_t tileID = ath.ath_id; // default 0
     ath.ath_type = static_cast<ATH_TYPE>(read_ue("ath_type"));
 
-    if(saved_afps_.afps_output_flag_present_flag) {
+    if(saved_params_.back().afps.afps_output_flag_present_flag) {
         ath.ath_atlas_output_flag = read(1, "ath_atlas_output_flag");
     }
-    size_t Log2MaxAtlasFrmOrderCntLsb = saved_asps_.asps_log2_max_atlas_frame_order_cnt_lsb_minus4 + 4;
+    size_t Log2MaxAtlasFrmOrderCntLsb = saved_params_.back().asps.asps_log2_max_atlas_frame_order_cnt_lsb_minus4 + 4;
     ath.ath_atlas_frm_order_cnt_lsb = read(uint8_t(Log2MaxAtlasFrmOrderCntLsb), "ath_atlas_frm_order_cnt_lsb"); //u(v)
 
-    if(saved_asps_.asps_num_ref_atlas_frame_lists_in_asps > 0) {
+    if(saved_params_.back().asps.asps_num_ref_atlas_frame_lists_in_asps > 0) {
         ath.ath_ref_atlas_frame_list_asps_flag = read(1, "ath_ref_atlas_frame_list_asps_flag");
     }
     if(ath.ath_ref_atlas_frame_list_asps_flag == 0) {
         throw std::runtime_error("Using atlas ref frame lists not implemented");
         return;
     }
-    else if (saved_asps_.asps_num_ref_atlas_frame_lists_in_asps > 1) {
-        size_t bit_len = std::ceil(std::log2(saved_asps_.asps_num_ref_atlas_frame_lists_in_asps));
+    else if (saved_params_.back().asps.asps_num_ref_atlas_frame_lists_in_asps > 1) {
+        size_t bit_len = std::ceil(std::log2(saved_params_.back().asps.asps_num_ref_atlas_frame_lists_in_asps));
         ath.ath_ref_atlas_frame_list_idx = read(uint8_t(bit_len), "ath_ref_atlas_frame_list_idx");
     }
 
@@ -530,22 +526,22 @@ void Decompression::read_atlas_tile_header(atlas_tile_header &ath, NAL_UNIT_TYPE
     for (size_t j = 0; j < NumLtrAtlasFrmEntries; j++) {
         ath.ath_additional_afoc_lsb_present_flag.at(j) = read(1, "ath_additional_afoc_lsb_present_flag");
         if(ath.ath_additional_afoc_lsb_present_flag.at(j)) {
-            ath.ath_additional_afoc_lsb_val.at(j) = read(saved_afps_.afps_additional_lt_afoc_lsb_len, "ath_additional_afoc_lsb_val");
+            ath.ath_additional_afoc_lsb_val.at(j) = read(saved_params_.back().afps.afps_additional_lt_afoc_lsb_len, "ath_additional_afoc_lsb_val");
         }
     }
     if(ath.ath_type != SKIP_TILE) {
-        if(saved_asps_.asps_normal_axis_limits_quantization_enabled_flag) {
+        if(saved_params_.back().asps.asps_normal_axis_limits_quantization_enabled_flag) {
             ath.ath_pos_min_d_quantizer = read(5, "ath_pos_min_d_quantizer");
-            if(saved_asps_.asps_normal_axis_max_delta_value_enabled_flag) {
+            if(saved_params_.back().asps.asps_normal_axis_max_delta_value_enabled_flag) {
                 ath.ath_pos_delta_max_d_quantizer = read(5, "ath_pos_delta_max_d_quantizer");
             }
         }
-        if(saved_asps_.asps_patch_size_quantizer_present_flag) {
+        if(saved_params_.back().asps.asps_patch_size_quantizer_present_flag) {
             ath.ath_patch_size_x_info_quantizer = read(3, "ath_patch_size_x_info_quantizer");
             ath.ath_patch_size_y_info_quantizer = read(3, "ath_patch_size_y_info_quantizer");
         }
-        if(saved_afps_.afps_raw_3d_offset_bit_count_explicit_mode_flag) {
-            size_t bit_len = std::floor(std::log2(saved_asps_.asps_geometry_3d_bit_depth_minus1 + 1));
+        if(saved_params_.back().afps.afps_raw_3d_offset_bit_count_explicit_mode_flag) {
+            size_t bit_len = std::floor(std::log2(saved_params_.back().asps.asps_geometry_3d_bit_depth_minus1 + 1));
             ath.ath_raw_3d_offset_axis_bit_count_minus1 = read(uint8_t(bit_len), "ath_raw_3d_offset_axis_bit_count_minus1");
         }
         if( ath.ath_type == ATH_TYPE::P_TILE && NumLtrAtlasFrmEntries > 1 ) {
@@ -607,18 +603,18 @@ void Decompression::read_patch_data_unit(atlas_tile_header &ath, patch_data_unit
     pdu.pdu_2d_size_x_minus1 = read_ue("pdu_2d_size_x_minus1");
     pdu.pdu_2d_size_y_minus1 = read_ue("pdu_2d_size_y_minus1");
 
-    pdu.pdu_3d_offset_u = read(saved_asps_.asps_geometry_3d_bit_depth_minus1 + 1, "pdu_3d_offset_u");
-    pdu.pdu_3d_offset_v = read(saved_asps_.asps_geometry_3d_bit_depth_minus1 + 1, "pdu_3d_offset_v");
-    pdu.pdu_3d_offset_d = read(saved_asps_.asps_geometry_3d_bit_depth_minus1 - ath.ath_pos_min_d_quantizer + 1, "pdu_3d_offset_d");
+    pdu.pdu_3d_offset_u = read(saved_params_.back().asps.asps_geometry_3d_bit_depth_minus1 + 1, "pdu_3d_offset_u");
+    pdu.pdu_3d_offset_v = read(saved_params_.back().asps.asps_geometry_3d_bit_depth_minus1 + 1, "pdu_3d_offset_v");
+    pdu.pdu_3d_offset_d = read(saved_params_.back().asps.asps_geometry_3d_bit_depth_minus1 - ath.ath_pos_min_d_quantizer + 1, "pdu_3d_offset_d");
 
-    if(saved_asps_.asps_normal_axis_max_delta_value_enabled_flag) {
-        uint32_t rangeDBitDepth = std::min(saved_asps_.asps_geometry_2d_bit_depth_minus1, saved_asps_.asps_geometry_3d_bit_depth_minus1) + 1;
+    if(saved_params_.back().asps.asps_normal_axis_max_delta_value_enabled_flag) {
+        uint32_t rangeDBitDepth = std::min(saved_params_.back().asps.asps_geometry_2d_bit_depth_minus1, saved_params_.back().asps.asps_geometry_3d_bit_depth_minus1) + 1;
         pdu.pdu_3d_range_d = read(rangeDBitDepth - ath.ath_pos_delta_max_d_quantizer, "pdu_3d_range_d");
     }
     pdu.pdu_projection_id = read(ceil(log2(6)), "pdu_projection_id");
     pdu.pdu_orientation_index = read(false ? 3 : 1, "pdu_orientation_index");
 
-    if(saved_afps_.afps_lod_mode_enabled_flag) {
+    if(saved_params_.back().afps.afps_lod_mode_enabled_flag) {
         pdu.pdu_lod_enabled_flag = read(1, "pdu_lod_enabled_flag");
         if(pdu.pdu_lod_enabled_flag) {
 
@@ -658,10 +654,10 @@ void Decompression::read_atlas_nal_unit(NAL_UNIT_TYPE nal_unit_type, std::size_t
 {                
     switch(nal_unit_type) {
             case NAL_UNIT_TYPE::NAL_ASPS:
-                read_asps(saved_asps_);
+                read_asps(saved_params_.back().asps);
                 break;
             case NAL_UNIT_TYPE::NAL_AFPS:
-                read_afps(saved_afps_);
+                read_afps(saved_params_.back().afps);
                 break;
             case NAL_UNIT_TYPE::NAL_IDR_N_LP: {
                 atlas_tile_layer_rbsp rbsp;
@@ -712,21 +708,21 @@ void Decompression::read_atlas_sub_bitstream(std::size_t v3c_payload_size_bytes,
 void Decompression::decode_atlas_frame(atlas_frame* frame, atlas_tile_layer_rbsp* rbsp)
 {
     // 1 tile per frame
-    frame->frame_width = saved_asps_.asps_frame_width;
-    frame->frame_height = saved_asps_.asps_frame_height;
+    frame->frame_width = saved_params_.back().asps.asps_frame_width;
+    frame->frame_height = saved_params_.back().asps.asps_frame_height;
 
     std::size_t pid_count = rbsp->atdu.pid_vec.size();
 
     const size_t minLevel = pow( 2., double(rbsp->ath.ath_pos_min_d_quantizer)); // this line from TMC2
     int32_t quantizerSizeX = 1 << rbsp->ath.ath_patch_size_x_info_quantizer; // ath.getPatchSizeXinfoQuantizer(); // tmc2
     int32_t quantizerSizeY = 1 << rbsp->ath.ath_patch_size_y_info_quantizer; //ath.getPatchSizeYinfoQuantizer(); // tmc2
-    int32_t packingBlockSize       = 1 << saved_asps_.asps_log2_patch_packing_block_size;
+    int32_t packingBlockSize       = 1 << saved_params_.back().asps.asps_log2_patch_packing_block_size;
     double  packingBlockSizeD      = static_cast<double>( packingBlockSize );
 
     for(std::size_t i = 0; i < pid_count; ++i) {
         const patch_data_unit &pdu = rbsp->atdu.pid_vec.at(i).patch;
         patch p;
-        p.occupancy_resolution = size_t(1) << saved_asps_.asps_log2_patch_packing_block_size;
+        p.occupancy_resolution = size_t(1) << saved_params_.back().asps.asps_log2_patch_packing_block_size;
         p.TilePatch2dPosX = pdu.pdu_2d_pos_x;
         p.TilePatch2dPosY = pdu.pdu_2d_pos_y;
         p.TilePatch3dOffsetU = pdu.pdu_3d_offset_u;
@@ -741,7 +737,7 @@ void Decompression::decode_atlas_frame(atlas_frame* frame, atlas_tile_layer_rbsp
             p.TilePatchLoDScaleY = 1;
         }
         p.TilePatch3dRangeD = pdu.pdu_3d_range_d == 0 ? 0 : (pdu.pdu_3d_range_d * minLevel - 1);
-        if ( saved_asps_.asps_patch_size_quantizer_present_flag ) {
+        if ( saved_params_.back().asps.asps_patch_size_quantizer_present_flag ) {
             p.size2DXInPixel_ = (pdu.pdu_2d_size_x_minus1 + 1) * quantizerSizeX;
             p.size2DYInPixel_ = (pdu.pdu_2d_size_y_minus1 + 1) * quantizerSizeY;
             p.TilePatch2dSizeX = ceil( static_cast<double>( p.size2DXInPixel_ ) / packingBlockSizeD );

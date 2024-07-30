@@ -14,7 +14,7 @@ int main() {
     param.video_height = 1280;
     uvgvpcc_dec::API::initializeDecoder(param);
 
-    std::string filename = "decoder-testing-1f.vpcc";
+    std::string filename = "decoder-testing-128f.vpcc";
 
     if (true) { // decode v3c sample stream
         std::vector<uint8_t> data;

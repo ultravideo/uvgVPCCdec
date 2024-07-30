@@ -200,7 +200,8 @@ void Reconstruction::generateBlockToPatchFromOccupancyMapVideo(atlas_frame* fram
 
 void Reconstruction::construct_point_cloud_frame(decompressed_data* data, point_cloud_frame* reconstruct, size_t const frame_index)
 {
-    Logger::log(LogLevel::INFO, "Reconstruction", "Reconstructing point cloud frame " + std::to_string(frame_index) + " \n");
+    Logger::log(LogLevel::INFO, "Reconstruction", "Reconstructing point cloud frame " + std::to_string(frame_index)
+        + " in GOF " + std::to_string(data->gof_index) + " \n");
 
     atlas_frame* current_atlas_frame = data->atlas_map.at(frame_index).get();
     size_t atlas_index = current_atlas_frame->atlas_index;
@@ -208,9 +209,9 @@ void Reconstruction::construct_point_cloud_frame(decompressed_data* data, point_
     size_t frame_width = current_atlas_frame->frame_width;
     size_t frame_height = current_atlas_frame->frame_height;
 
-    const v3c_parameter_set &vps = Decompression::get_saved_vps();
-    const atlas_sequence_parameter_set &asps = Decompression::get_saved_asps();
-    const atlas_frame_parameter_set &afps = Decompression::get_saved_afps();
+    const v3c_parameter_set &vps = Decompression::get_saved_params(data->gof_index).vps;
+    const atlas_sequence_parameter_set &asps = Decompression::get_saved_params(data->gof_index).asps;
+    const atlas_frame_parameter_set &afps = Decompression::get_saved_params(data->gof_index).afps;
 
     std::vector<point3d> &pointToPixel = current_atlas_frame->pointToPixel_;
     pointToPixel.resize( 0 );

@@ -8,15 +8,19 @@ struct bitstream_position {
   uint8_t  bits = 0;
 };
 
+struct parameter_sets {
+   v3c_parameter_set vps;
+    atlas_sequence_parameter_set asps;
+    atlas_frame_parameter_set afps; 
+};
+
 class Decompression {
 public: 
     static void initializeStaticParameters(const uvgvpcc_dec::Parameters& param);
-    static void decompressV3CSampleStream(const std::vector<uint8_t> &data, decompressed_data* output, uvgvpcc_dec::video_parameter_set_nals* v_params);
-    static void decompressV3CUnitStream(const uvgvpcc_dec::API::v3c_chunk &chunk, decompressed_data* output, uvgvpcc_dec::video_parameter_set_nals* v_params);
+    static void decompressV3CSampleStream(const std::vector<uint8_t> &data, std::vector<decompressed_data>* output, uvgvpcc_dec::video_parameter_set_nals* v_params);
+    static void decompressV3CUnitStream(const uvgvpcc_dec::API::v3c_chunk &chunk, std::vector<decompressed_data>* output, uvgvpcc_dec::video_parameter_set_nals* v_params);
 
-    const static v3c_parameter_set &get_saved_vps();
-    const static atlas_sequence_parameter_set &get_saved_asps();
-    const static atlas_frame_parameter_set &get_saved_afps();
+    const static parameter_sets &get_saved_params(const size_t gof_index);
 
 private:
     /* Read functions that can print the values if debug mode is enabled */
@@ -34,7 +38,7 @@ private:
     static void align_bitstream();
 
     /* high-level" decompression functions */
-    static void handle_v3c_unit(const uint8_t vuh_unit_type, const size_t payload_size, decompressed_data* output, uvgvpcc_dec::video_parameter_set_nals* v_params);
+    static void handle_v3c_unit(const uint8_t vuh_unit_type, const size_t payload_size, std::vector<decompressed_data>* output, uvgvpcc_dec::video_parameter_set_nals* v_params);
     static void decode_atlas_frame(atlas_frame* frame, atlas_tile_layer_rbsp* rbsp);
     static void convert_video_sub_bitstream(std::size_t v3c_payload_size_bytes, std::string output_path, std::vector<uvgvpcc_dec::video_parameter_set_nalu>* v_params);
     static void decode_video_sub_bitstream(std::string input_path, std::string output_path, video_map* map);

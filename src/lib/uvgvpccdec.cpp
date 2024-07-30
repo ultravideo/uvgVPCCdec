@@ -20,37 +20,50 @@ void API::initializeDecoder(const Parameters& param)
 
 void API::decodeV3CChunk(v3c_chunk &chunk)
 {
-    decompressed_data decompressed;
+    std::vector<decompressed_data> decompressed_gofs;
     video_parameter_set_nals long_term_video_parameters;
-    Decompression::decompressV3CUnitStream(chunk, &decompressed, &long_term_video_parameters);
-    FormatConversion::convertToNominalFormat(&decompressed);
-    for (size_t frame_index = 0; frame_index < decompressed.frame_count; frame_index++) {
-        point_cloud_frame reconstructed_point_cloud_frame;
-        Reconstruction::construct_point_cloud_frame(&decompressed, &reconstructed_point_cloud_frame, frame_index);
-        PostReconstruction::PostProcess(&decompressed, &reconstructed_point_cloud_frame, frame_index);
-        Adaptation::convertYUV8ToRGB8(&reconstructed_point_cloud_frame);
-        std::string out_name = "output-test-f" + std::to_string(frame_index) + ".ply";
-        Adaptation::write(out_name, &reconstructed_point_cloud_frame);
+
+    // Unit stream decompression per input bitstream
+    Decompression::decompressV3CUnitStream(chunk, &decompressed_gofs, &long_term_video_parameters);
+    for (size_t gof_i = 0; gof_i < decompressed_gofs.size(); gof_i++) {
+
+        // Format conversion per GOF
+        FormatConversion::convertToNominalFormat(&decompressed_gofs.at(gof_i));
+        for (size_t frame_index = 0; frame_index < decompressed_gofs.at(gof_i).frame_count; frame_index++) {
+            // Point cloud reconstruction -> per frame
+            point_cloud_frame reconstructed_point_cloud_frame;
+            Reconstruction::construct_point_cloud_frame(&decompressed_gofs.at(gof_i), &reconstructed_point_cloud_frame, frame_index);
+            PostReconstruction::PostProcess(&decompressed_gofs.at(gof_i), &reconstructed_point_cloud_frame, frame_index);
+            Adaptation::convertYUV8ToRGB8(&reconstructed_point_cloud_frame);
+            std::string out_name = "output-test-gof" + std::to_string(gof_i) + "-f" + std::to_string(frame_index) + ".ply";
+            Adaptation::write(out_name, &reconstructed_point_cloud_frame);
+        }
     }
 }
 
 void API::decodeV3CSampleStream(std::vector<uint8_t> &data)
 {
-    decompressed_data decompressed;
+    std::vector<decompressed_data> decompressed_gofs;
     video_parameter_set_nals long_term_video_parameters;
-    Decompression::decompressV3CSampleStream(data, &decompressed, &long_term_video_parameters);
-    FormatConversion::convertToNominalFormat(&decompressed);
-    for (size_t frame_index = 0; frame_index < decompressed.frame_count; frame_index++) {
-        point_cloud_frame reconstructed_point_cloud_frame;
-        Reconstruction::construct_point_cloud_frame(&decompressed, &reconstructed_point_cloud_frame, frame_index);
-        PostReconstruction::PostProcess(&decompressed, &reconstructed_point_cloud_frame, frame_index);
-        Adaptation::convertYUV8ToRGB8(&reconstructed_point_cloud_frame);
-        std::string out_name = "output-test-f" + std::to_string(frame_index) + ".ply";
-        Adaptation::write(out_name, &reconstructed_point_cloud_frame);
+
+    // Sample stream decompression per input bitstream
+    Decompression::decompressV3CSampleStream(data, &decompressed_gofs, &long_term_video_parameters);
+    for (size_t gof_i = 0; gof_i < decompressed_gofs.size(); gof_i++) {
+
+        // Format conversion per GOF
+        FormatConversion::convertToNominalFormat(&decompressed_gofs.at(gof_i));
+        for (size_t frame_index = 0; frame_index < decompressed_gofs.at(gof_i).frame_count; frame_index++) {
+
+            // Point cloud reconstruction -> per frame
+            point_cloud_frame reconstructed_point_cloud_frame;
+            Reconstruction::construct_point_cloud_frame(&decompressed_gofs.at(gof_i), &reconstructed_point_cloud_frame, frame_index);
+            PostReconstruction::PostProcess(&decompressed_gofs.at(gof_i), &reconstructed_point_cloud_frame, frame_index);
+            Adaptation::convertYUV8ToRGB8(&reconstructed_point_cloud_frame);
+            std::string out_name = "output-test-gof" + std::to_string(gof_i) + "-f" + std::to_string(frame_index) + ".ply";
+            Adaptation::write(out_name, &reconstructed_point_cloud_frame);
+        }
     }
-    
-    
-    
+
     //reconstruct_multiple_frames.appendPointSet( reconstructed_point_cloud_frame );
     //if ( !decoderParams.reconstructedDataPath_.empty() ) {
     //reconstructs.write( decoderParams.reconstructedDataPath_, frameNumber, decoderParams.nbThread_ );

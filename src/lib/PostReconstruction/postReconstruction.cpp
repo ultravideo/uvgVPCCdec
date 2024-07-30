@@ -6,7 +6,7 @@ using namespace uvgvpcc_dec;
 void PostReconstruction::PostProcess(decompressed_data* data, point_cloud_frame* reconstruct, const size_t frame_index)
 {
     Logger::log(LogLevel::TRACE, "Post-reconstruction", "Post-processing point cloud frame " + std::to_string(frame_index) + " \n");
-    const v3c_parameter_set &vps = Decompression::get_saved_vps();
+    const v3c_parameter_set &vps = Decompression::get_saved_params(data->gof_index).vps;
     bool multipleStreams = vps.vps_multiple_map_streams_present_flag.at(0);
     uint8_t attributeCount = vps.ai_attribute_count;
     color_point_cloud(reconstruct, data, frame_index, multipleStreams, attributeCount);
@@ -18,7 +18,7 @@ size_t PostReconstruction::color_point_cloud(point_cloud_frame* reconstruct, dec
 
     /*const*/ video_map &videoAttributeMap0 = data->attribute_maps.at(0);
 
-    const v3c_parameter_set &vps = Decompression::get_saved_vps();
+    const v3c_parameter_set &vps = Decompression::get_saved_params(data->gof_index).vps;
     const size_t mapCount = vps.vps_map_count_minus1.at(current_atlas_frame->atlas_index) + 1;
     if ( attributeCount == 0 ) {
         Logger::log(LogLevel::INFO, "Post-reconstruction", "No attribute data \n");
