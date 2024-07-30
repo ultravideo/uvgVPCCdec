@@ -4,6 +4,6 @@
 
 class FormatConversion {
 public: 
-    static void convertToNominalFormat(decompressed_data* data);
+    static void convertToNominalFormat(decompressed_gof* data);
 
 };

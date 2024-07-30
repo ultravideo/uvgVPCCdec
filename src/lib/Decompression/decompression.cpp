@@ -120,11 +120,11 @@ void Decompression::initializeStaticParameters(const uvgvpcc_dec::Parameters& pa
     a_yuv = "ATTRIBUTE-MAP-" + std::to_string(video_width_) + "x" + std::to_string(video_height_) + ".yuv";
 }
 
-void Decompression::handle_v3c_unit(const uint8_t vuh_unit_type, const size_t payload_size, std::vector<decompressed_data>* output, uvgvpcc_dec::video_parameter_set_nals* v_params)
+void Decompression::handle_v3c_unit(const uint8_t vuh_unit_type, const size_t payload_size, std::vector<decompressed_gof>* output, uvgvpcc_dec::video_parameter_set_nals* v_params)
 {
     switch(vuh_unit_type) {
             case V3C_UNIT_TYPE::V3C_VPS: {
-                decompressed_data new_gof;
+                decompressed_gof new_gof;
                 current_gof_index_ = output->size();
                 new_gof.gof_index = current_gof_index_;
                 output->push_back(std::move(new_gof));
@@ -161,7 +161,7 @@ void Decompression::handle_v3c_unit(const uint8_t vuh_unit_type, const size_t pa
         }
 }
 
-void Decompression::decompressV3CUnitStream(const uvgvpcc_dec::API::v3c_chunk &chunk, std::vector<decompressed_data>* output, uvgvpcc_dec::video_parameter_set_nals* v_params)
+void Decompression::decompressV3CUnitStream(const uvgvpcc_dec::API::v3c_chunk &chunk, std::vector<decompressed_gof>* output, uvgvpcc_dec::video_parameter_set_nals* v_params)
 {
     cbuf_ = chunk.data.data();
     pos_.bits = 0;
@@ -178,7 +178,7 @@ void Decompression::decompressV3CUnitStream(const uvgvpcc_dec::API::v3c_chunk &c
     }
 }
 
-void Decompression::decompressV3CSampleStream(const std::vector<uint8_t> &data, std::vector<decompressed_data>* output, uvgvpcc_dec::video_parameter_set_nals* v_params)
+void Decompression::decompressV3CSampleStream(const std::vector<uint8_t> &data, std::vector<decompressed_gof>* output, uvgvpcc_dec::video_parameter_set_nals* v_params)
 {
     cbuf_ = data.data();
     pos_.bits = 0;
@@ -650,7 +650,7 @@ void Decompression::read_atlas_tile_data_unit(atlas_tile_data_unit &atdu, atlas_
     }
 }
 
-void Decompression::read_atlas_nal_unit(NAL_UNIT_TYPE nal_unit_type, std::size_t nal_unit_size, decompressed_data* output)
+void Decompression::read_atlas_nal_unit(NAL_UNIT_TYPE nal_unit_type, std::size_t nal_unit_size, decompressed_gof* output)
 {                
     switch(nal_unit_type) {
             case NAL_UNIT_TYPE::NAL_ASPS:
@@ -675,7 +675,7 @@ void Decompression::read_atlas_nal_unit(NAL_UNIT_TYPE nal_unit_type, std::size_t
         }
 }
 
-void Decompression::read_atlas_sub_bitstream(std::size_t v3c_payload_size_bytes, decompressed_data* output)
+void Decompression::read_atlas_sub_bitstream(std::size_t v3c_payload_size_bytes, decompressed_gof* output)
 {
     uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "Reading V3C atlas data, size " + std::to_string(v3c_payload_size_bytes) + " \n");
 

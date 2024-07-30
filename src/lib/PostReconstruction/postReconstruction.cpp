@@ -3,7 +3,7 @@
 
 using namespace uvgvpcc_dec;
 
-void PostReconstruction::PostProcess(decompressed_data* data, point_cloud_frame* reconstruct, const size_t frame_index)
+void PostReconstruction::PostProcess(decompressed_gof* data, point_cloud_frame* reconstruct, const size_t frame_index)
 {
     Logger::log(LogLevel::TRACE, "Post-reconstruction", "Post-processing point cloud frame " + std::to_string(frame_index) + " \n");
     const v3c_parameter_set &vps = Decompression::get_saved_params(data->gof_index).vps;
@@ -12,7 +12,7 @@ void PostReconstruction::PostProcess(decompressed_data* data, point_cloud_frame*
     color_point_cloud(reconstruct, data, frame_index, multipleStreams, attributeCount);
 }
 
-size_t PostReconstruction::color_point_cloud(point_cloud_frame* reconstruct, decompressed_data* data, const size_t frame_index, const size_t multipleStreams, const uint8_t attributeCount )
+size_t PostReconstruction::color_point_cloud(point_cloud_frame* reconstruct, decompressed_gof* data, const size_t frame_index, const size_t multipleStreams, const uint8_t attributeCount )
 {
     atlas_frame* current_atlas_frame = data->atlas_map.at(frame_index).get();
 

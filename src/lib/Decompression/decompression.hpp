@@ -17,8 +17,8 @@ struct parameter_sets {
 class Decompression {
 public: 
     static void initializeStaticParameters(const uvgvpcc_dec::Parameters& param);
-    static void decompressV3CSampleStream(const std::vector<uint8_t> &data, std::vector<decompressed_data>* output, uvgvpcc_dec::video_parameter_set_nals* v_params);
-    static void decompressV3CUnitStream(const uvgvpcc_dec::API::v3c_chunk &chunk, std::vector<decompressed_data>* output, uvgvpcc_dec::video_parameter_set_nals* v_params);
+    static void decompressV3CSampleStream(const std::vector<uint8_t> &data, std::vector<decompressed_gof>* output, uvgvpcc_dec::video_parameter_set_nals* v_params);
+    static void decompressV3CUnitStream(const uvgvpcc_dec::API::v3c_chunk &chunk, std::vector<decompressed_gof>* output, uvgvpcc_dec::video_parameter_set_nals* v_params);
 
     const static parameter_sets &get_saved_params(const size_t gof_index);
 
@@ -38,7 +38,7 @@ private:
     static void align_bitstream();
 
     /* high-level" decompression functions */
-    static void handle_v3c_unit(const uint8_t vuh_unit_type, const size_t payload_size, std::vector<decompressed_data>* output, uvgvpcc_dec::video_parameter_set_nals* v_params);
+    static void handle_v3c_unit(const uint8_t vuh_unit_type, const size_t payload_size, std::vector<decompressed_gof>* output, uvgvpcc_dec::video_parameter_set_nals* v_params);
     static void decode_atlas_frame(atlas_frame* frame, atlas_tile_layer_rbsp* rbsp);
     static void convert_video_sub_bitstream(std::size_t v3c_payload_size_bytes, std::string output_path, std::vector<uvgvpcc_dec::video_parameter_set_nalu>* v_params);
     static void decode_video_sub_bitstream(std::string input_path, std::string output_path, video_map* map);
@@ -46,8 +46,8 @@ private:
     /* "low-level" parsing functions */
     static void read_v3c_parameter_set(v3c_parameter_set* vps);
     static void read_profile_tier_level(profile_tier_level* ptl);
-    static void read_atlas_sub_bitstream(std::size_t v3c_payload_size_bytes, decompressed_data* output);
-    static void read_atlas_nal_unit(NAL_UNIT_TYPE nal_unit_type, std::size_t nal_unit_size, decompressed_data* output);
+    static void read_atlas_sub_bitstream(std::size_t v3c_payload_size_bytes, decompressed_gof* output);
+    static void read_atlas_nal_unit(NAL_UNIT_TYPE nal_unit_type, std::size_t nal_unit_size, decompressed_gof* output);
     static void read_asps(atlas_sequence_parameter_set &asps);
     static void read_afps(atlas_frame_parameter_set &afps);
     static void read_atlas_rbsp(atlas_tile_layer_rbsp* rbsp, NAL_UNIT_TYPE nalu_t);

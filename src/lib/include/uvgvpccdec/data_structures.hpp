@@ -510,7 +510,7 @@ struct atlas_frame {
     void set_number_of_points( size_t val ) { number_of_points = val; }
 };
 
-struct decompressed_data { // of a gof currently
+struct decompressed_gof { // of a gof currently
     size_t gof_index = 0;
     size_t frame_count = 0; // this is fetched from the number of atlas frames
     std::vector<std::unique_ptr<atlas_frame>> atlas_map; // frames or tiles? currently 1 tile per frame
@@ -518,5 +518,5 @@ struct decompressed_data { // of a gof currently
     std::vector<video_map> geometry_maps = {};
     std::vector<video_map> attribute_maps = {};
 
-    decompressed_data() = default;
+    decompressed_gof() = default;
 };
