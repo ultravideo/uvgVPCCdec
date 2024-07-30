@@ -20,6 +20,10 @@ public:
     static void decompressV3CSampleStream(const std::vector<uint8_t> &data, decompressed_data* output, uvgvpcc_dec::video_parameter_set_nals* v_params);
     static void decompressV3CUnitStream(const uvgvpcc_dec::API::v3c_chunk &chunk, decompressed_data* output, uvgvpcc_dec::video_parameter_set_nals* v_params);
 
+    const static v3c_parameter_set &get_saved_vps();
+    const static atlas_sequence_parameter_set &get_saved_asps();
+    const static atlas_frame_parameter_set &get_saved_afps();
+
 private:
     static uint32_t read_bits(uint8_t bits);
     static uint32_t read_bits_ue();

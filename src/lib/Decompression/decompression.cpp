@@ -24,6 +24,19 @@ std::string o_yuv = "OCCUPANCY-MAP-640x640-8bit.yuv";
 std::string g_yuv = "GEOMETRY-MAP-1280x1280-8bit.yuv";
 std::string a_yuv = "ATTRIBUTE-MAP-1280x1280-8bit.yuv";
 
+const v3c_parameter_set &BitstreamParsing::get_saved_vps()
+{
+    return saved_vps_;
+}
+const atlas_sequence_parameter_set &BitstreamParsing::get_saved_asps()
+{
+    return saved_asps_;
+}
+const atlas_frame_parameter_set &BitstreamParsing::get_saved_afps()
+{
+    return saved_afps_;
+}
+
 /* TODO: make sure this function works in all cases */
 void BitstreamParsing::advance_bitstream(std::size_t bits)
 {
@@ -102,6 +115,7 @@ void BitstreamParsing::handle_v3c_unit(const uint8_t vuh_unit_type, const size_t
     switch(vuh_unit_type) {
             case V3C_UNIT_TYPE::V3C_VPS:
                 read_v3c_parameter_set(&output->vps);
+                saved_vps_ = output->vps;
                 break;
             case V3C_UNIT_TYPE::V3C_AD:
                 read_atlas_sub_bitstream(payload_size, output);
