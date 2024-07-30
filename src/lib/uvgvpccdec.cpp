@@ -14,6 +14,7 @@ void readFile(const std::string filename, std::vector<uint8_t> &data);
 void API::initializeDecoder(const Parameters& param)
 {
     Logger::log(LogLevel::INFO, "API", "Initialize decoder " + std::to_string(param.hello) + "\n");
+    Decompression::initializeStaticParameters(param);
 
 }
 

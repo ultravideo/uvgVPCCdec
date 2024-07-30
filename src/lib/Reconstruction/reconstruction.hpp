@@ -21,7 +21,7 @@ public:
     /* ------------------------ ripped from tmc2------------------------ */
     static std::vector<point3d> generate_points(const patch &patch, std::vector<video_map>& videoGeometryMultiple,
         const size_t videoFrameIndex, const size_t u, const size_t v, const size_t x,
-        const size_t y, const size_t mapCountMinus1, const bool multipleStreams, const bool absoluteD1_);
+        const size_t y, const size_t map_count, const bool multipleStreams, const bool absoluteD1_);
 
     /* ------------------------ ripped from tmc2------------------------ */
     static int patchBlock2CanvasBlock( const size_t uBlk, const size_t vBlk, const size_t blockToPatchWidth, const size_t blockToPatchHeight,

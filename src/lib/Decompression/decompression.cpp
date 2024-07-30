@@ -14,15 +14,23 @@ v3c_parameter_set saved_vps_;
 atlas_sequence_parameter_set saved_asps_;
 atlas_frame_parameter_set saved_afps_;
 
+size_t occupancy_width_ = 0;
+size_t occupancy_height_ = 0;
+// geometry and attribute
+size_t video_width_ = 0;
+size_t video_height_ = 0;
+
 std::string ffmpeg_path = "ffmpeg";
 
-std::string o_hevc = "OCCUPANCY.hevc";
-std::string g_hevc = "GEOMETRY.hevc";
-std::string a_hevc = "ATTRIBUTE.hevc";
+// HEVC map filenames Occ, Geo, Atr
+std::string o_hevc;
+std::string g_hevc;
+std::string a_hevc;
 
-std::string o_yuv = "OCCUPANCY-MAP-640x640-8bit.yuv";
-std::string g_yuv = "GEOMETRY-MAP-1280x1280-8bit.yuv";
-std::string a_yuv = "ATTRIBUTE-MAP-1280x1280-8bit.yuv";
+// Decoded YUV map filenames Occ, Geo, Atr
+std::string o_yuv;
+std::string g_yuv;
+std::string a_yuv;
 
 const v3c_parameter_set &Decompression::get_saved_vps()
 {
@@ -107,7 +115,18 @@ uint32_t Decompression::read_ue(const std::string &name)
 
 void Decompression::initializeStaticParameters(const uvgvpcc_dec::Parameters& param)
 {
-    int x = param.hello;
+    occupancy_width_ = param.occupancy_width;
+    occupancy_height_ = param.occupancy_height;
+    // geometry and attribute
+    video_width_ = param.video_width;
+    video_height_ = param.video_height;
+
+    o_hevc = "OCCUPANCY-MAP.hevc";
+    g_hevc = "GEOMETRY-MAP.hevc";
+    a_hevc = "ATTRIBUTE-MAP.hevc";
+    o_yuv = "OCCUPANCY-MAP-" + std::to_string(occupancy_width_) + "x" + std::to_string(occupancy_height_) + ".yuv";
+    g_yuv = "GEOMETRY-MAP-" + std::to_string(video_width_) + "x" + std::to_string(video_height_) + ".yuv";
+    a_yuv = "ATTRIBUTE-MAP-" + std::to_string(video_width_) + "x" + std::to_string(video_height_) + ".yuv";
 }
 
 void Decompression::handle_v3c_unit(const uint8_t vuh_unit_type, const size_t payload_size, decompressed_data* output, uvgvpcc_dec::video_parameter_set_nals* v_params)
@@ -142,7 +161,6 @@ void Decompression::handle_v3c_unit(const uint8_t vuh_unit_type, const size_t pa
                 uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "Unkown V3C unit type " + std::to_string(vuh_unit_type) + " \n");
                 break;
         }
-        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "V3C unit stream parsed, pos_.bytes at " + std::to_string(pos_.bytes) + " \n");
 }
 
 void Decompression::decompressV3CUnitStream(const uvgvpcc_dec::API::v3c_chunk &chunk, decompressed_data* output, uvgvpcc_dec::video_parameter_set_nals* v_params)
@@ -693,9 +711,9 @@ void Decompression::read_atlas_sub_bitstream(std::size_t v3c_payload_size_bytes,
 
 void Decompression::decode_atlas_frame(atlas_frame* frame, atlas_tile_layer_rbsp* rbsp)
 {
-    // 1 tile per frame: TODO fix this placeholder
-    frame->tile_width = saved_asps_.asps_frame_width;
-    frame->tile_height = saved_asps_.asps_frame_height;
+    // 1 tile per frame
+    frame->frame_width = saved_asps_.asps_frame_width;
+    frame->frame_height = saved_asps_.asps_frame_height;
 
     std::size_t pid_count = rbsp->atdu.pid_vec.size();
 
@@ -809,15 +827,15 @@ void Decompression::decode_video_sub_bitstream(std::string input_path, std::stri
         throw std::runtime_error("Bitstream reading : Could not open output file " + output_path);
     }
 
-    uint32_t width = 1280;
-    uint32_t height = 1280;
+    size_t width = video_width_;
+    size_t height = video_height_;
     if(map->type == V3C_OVD) {
-        width = 640;
-        height = 640;
+        width = occupancy_width_;
+        height = occupancy_height_;
     }
     map->width = width;
     map->height = height;
-    uint32_t frameSize = (width * height * 3) / 2;
+    size_t frameSize = (width * height * 3) / 2;
 
     while (decompressed_video.peek() != EOF) {
         picture frame420;

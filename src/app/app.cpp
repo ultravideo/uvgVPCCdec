@@ -5,27 +5,25 @@
 void readFile(const std::string filename, std::vector<uint8_t> &data);
 void readFile(const std::string filename, uvgvpcc_dec::API::v3c_unit_stream &unit_stream);
 
-size_t read_value(uint8_t* src, size_t len) {
-    size_t value = 0;
-    for (size_t i = 0; i < len; ++i) {
-        value |= static_cast<size_t>(src[i]) << (8 * (len - 1 - i));
-    }
-    return value;
-}
-
 int main() {
     uvgvpcc_dec::Logger::setLogLevel(uvgvpcc_dec::LogLevel::DEBUG);
     uvgvpcc_dec::Parameters param;
+    param.occupancy_width = 640;
+    param.occupancy_height = 640;
+    param.video_width = 1280;
+    param.video_height = 1280;
     uvgvpcc_dec::API::initializeDecoder(param);
+
+    std::string filename = "decoder-testing-1f.vpcc";
 
     if (true) { // decode v3c sample stream
         std::vector<uint8_t> data;
-        readFile("decoder-testing-3f.vpcc", data);
+        readFile(filename, data);
         uvgvpcc_dec::API::decodeV3CSampleStream(data);
     }
     else {  // decode one chunk at a time
         uvgvpcc_dec::API::v3c_unit_stream unit_stream;
-        readFile("decoder-testing-3f.vpcc", unit_stream);
+        readFile(filename, unit_stream);
         uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Application", "Number of V3C chunks " + std::to_string(unit_stream.v3c_chunks.size()) + " \n");
         for (size_t i = 0; i < unit_stream.v3c_chunks.size(); ++i) {
             /*const*/ auto& chunk = unit_stream.v3c_chunks.front();
@@ -56,6 +54,14 @@ void readFile(const std::string filename, std::vector<uint8_t> &data)
     else {
         throw std::runtime_error("Error reading input file");
     }
+}
+
+size_t read_value(uint8_t* src, size_t len) {
+    size_t value = 0;
+    for (size_t i = 0; i < len; ++i) {
+        value |= static_cast<size_t>(src[i]) << (8 * (len - 1 - i));
+    }
+    return value;
 }
 
 void readFile(const std::string filename, uvgvpcc_dec::API::v3c_unit_stream &unit_stream)
