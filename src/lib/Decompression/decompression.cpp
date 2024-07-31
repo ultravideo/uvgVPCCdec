@@ -19,6 +19,7 @@ size_t occupancy_height_ = 0;
 size_t video_width_ = 0;
 size_t video_height_ = 0;
 
+bool keep_intermediate_files_ = false;
 std::string ffmpeg_path = "ffmpeg";
 
 // HEVC map filenames Occ, Geo, Atr
@@ -111,6 +112,7 @@ void Decompression::initializeStaticParameters(const uvgvpcc_dec::Parameters& pa
     // geometry and attribute
     video_width_ = param.video_width;
     video_height_ = param.video_height;
+    keep_intermediate_files_ = param.keep_intermediate_files;
 
     o_hevc = "OCCUPANCY-MAP.hevc";
     g_hevc = "GEOMETRY-MAP.hevc";
@@ -870,7 +872,7 @@ void Decompression::decode_video_sub_bitstream(const std::string input_path, con
             break;
         }
     }
-
+    if (keep_intermediate_files_) {return;}
     std::remove(input_path.c_str());
     std::remove(output_path.c_str());
 }

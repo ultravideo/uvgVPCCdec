@@ -18,6 +18,8 @@ struct Parameters {
     size_t video_width = 0;
     size_t video_height = 0;
 
+    bool keep_intermediate_files = false;
+
 };
 
 // HEVC NAL units (intended for VPS, SPS or PPS)

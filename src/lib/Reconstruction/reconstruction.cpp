@@ -293,7 +293,7 @@ void Reconstruction::construct_point_cloud_frame(const decompressed_gof &gof, po
             }
         }
     }   
-    Logger::log(LogLevel::DEBUG, "Reconstruction", "pointToPixel size " + std::to_string(frame_index) 
+    Logger::log(LogLevel::DEBUG, "Reconstruction", "pointToPixel size " + std::to_string(pointToPixel.size()) 
         + ", reconstruct.pointCount " + std::to_string(reconstruct->getPointCount()) + " \n");
 }
 
