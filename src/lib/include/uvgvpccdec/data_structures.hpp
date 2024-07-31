@@ -467,6 +467,8 @@ struct point_cloud_frame {
     std::vector<point3d> positions = {};
     std::vector<uvg_color> colors = {};
 
+    size_t num_of_used_points = 0;
+
     point3d& operator[]( size_t i ) {
         return positions[i];
     }
@@ -479,12 +481,16 @@ struct point_cloud_frame {
         colors[index] = color;
     }
 
-    size_t getPointCount() const { return positions.size(); }
+    size_t getPointCount() const { return num_of_used_points; }
 
     size_t addPoint( const point3d& position ) {
         const size_t index = getPointCount();
-        //positions.resize( index + 1 ); // NOTE - COSTLY OPERATION?
+        if(index == positions.size()) {
+            positions.resize(num_of_used_points + 1);
+            //std::cout << "resized positions to " << num_of_used_points + 1 << std::endl;
+        }
         positions[index] = position;
+        num_of_used_points++;
         return index;
     }
 };

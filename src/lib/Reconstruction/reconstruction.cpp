@@ -218,6 +218,10 @@ void Reconstruction::construct_point_cloud_frame(const decompressed_gof &gof, po
     size_t frame_width = current_atlas_frame->frame_width;
     size_t frame_height = current_atlas_frame->frame_height;
 
+    if(max_points_ != 0) {
+        reconstruct->positions.resize(max_points_);
+    }
+
     const v3c_parameter_set &vps = Decompression::get_saved_params(gof.gof_index).vps;
     const atlas_sequence_parameter_set &asps = Decompression::get_saved_params(gof.gof_index).asps;
     const atlas_frame_parameter_set &afps = Decompression::get_saved_params(gof.gof_index).afps;
