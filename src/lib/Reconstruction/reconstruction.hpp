@@ -10,16 +10,16 @@ public:
     static void construct_point_cloud_frame(const decompressed_gof &gof, point_cloud_frame* reconstruct, const size_t frame_index);
 
     static void create_points_from_patch(const patch &p, const decompressed_gof &gof, const size_t patch_index_plus_1,
-        const size_t video_frame_index, const std::vector<uint8_t> &occupancy_map,
-        atlas_frame &atlas_frame, std::vector<point3d> &created_points);
+        const size_t video_frame_index, const std::vector<uint8_t> &occupancy_map, std::vector<point3d> &point_to_pixel,
+        const atlas_frame &atlas_frame, std::vector<point3d> &created_points, const std::vector<size_t> &block_to_patch);
 
     /* ------------------------ ripped from tmc2------------------------ */
     static size_t patch_to_canvas(const size_t u, const size_t v, const size_t canvasStride, const size_t canvasHeight,
         size_t& x, size_t& y, const patch &p);
 
     /* ------------------------ ripped from tmc2------------------------ */
-    static void generateBlockToPatchFromOccupancyMapVideo(atlas_frame* frame, const picture &occupancyMapImage,
-        const size_t blockToPatchWidth, const size_t blockToPatchHeight, const size_t occupancyPrecision );
+    static void generateBlockToPatchFromOccupancyMapVideo(const atlas_frame &frame, const picture &occupancyMapImage,
+        std::vector<size_t> &block_to_patch, const size_t patch_packing_block_size, const size_t occupancyPrecision );
 
     /* ------------------------ ripped from tmc2------------------------ */
     static void generateOccupancyMap( const size_t width, const size_t height, const picture &videoFrame,

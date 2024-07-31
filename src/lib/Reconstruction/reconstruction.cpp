@@ -175,15 +175,17 @@ int Reconstruction::patchBlock2CanvasBlock( const size_t uBlk, const size_t vBlk
 }
 
 /* ------------------------ ripped from tmc2------------------------ */
-void Reconstruction::generateBlockToPatchFromOccupancyMapVideo(atlas_frame* frame, const picture &occupancyMapImage,
-        const size_t blockToPatchWidth, const size_t blockToPatchHeight, const size_t occupancyPrecision )
+void Reconstruction::generateBlockToPatchFromOccupancyMapVideo(const atlas_frame &frame, const picture &occupancyMapImage,
+    std::vector<size_t> &block_to_patch, const size_t patch_packing_block_size, const size_t occupancyPrecision )
 {
+    const size_t blockToPatchWidth = frame.frame_width / patch_packing_block_size;
+    const size_t blockToPatchHeight = frame.frame_height / patch_packing_block_size;
+
     const size_t blockCount         = blockToPatchWidth * blockToPatchHeight;
-    auto&        blockToPatch       = frame->block_to_patch;
-    blockToPatch.resize( blockCount );
-    std::fill( blockToPatch.begin(), blockToPatch.end(), 0 );
-    for ( size_t patchIndex = 0; patchIndex < frame->patches_map.size(); ++patchIndex ) {
-        const patch& patch = frame->patches_map.at(patchIndex);
+    block_to_patch.resize( blockCount );
+    std::fill( block_to_patch.begin(), block_to_patch.end(), 0 );
+    for ( size_t patchIndex = 0; patchIndex < frame.patches_map.size(); ++patchIndex ) {
+        const patch& patch = frame.patches_map.at(patchIndex);
         size_t nonZeroPixel = 0;
         size_t nonZeroCount = 0;
         for ( size_t v0 = 0; v0 < patch.TilePatch2dSizeY; ++v0 ) {
@@ -196,12 +198,12 @@ void Reconstruction::generateBlockToPatchFromOccupancyMapVideo(atlas_frame* fram
                         const size_t u = u0 * patch.occupancy_resolution + u1;
                         size_t       x;
                         size_t       y;
-                        patch_to_canvas(u, v, frame->frame_width, frame->frame_height, x, y, patch);
+                        patch_to_canvas(u, v, frame.frame_width, frame.frame_height, x, y, patch);
                         nonZeroPixel += static_cast<unsigned long long>(
                             occupancyMapImage.get_Y_value(x / occupancyPrecision, y / occupancyPrecision ) != 0);
                     }
                 }
-                if ( nonZeroPixel > 0 ) { blockToPatch[blockIndex] = patchIndex + 1; nonZeroCount++; }
+                if ( nonZeroPixel > 0 ) { block_to_patch[blockIndex] = patchIndex + 1; nonZeroCount++; }
             }
         }
     }
@@ -218,29 +220,23 @@ void Reconstruction::construct_point_cloud_frame(const decompressed_gof &gof, po
     size_t frame_width = current_atlas_frame->frame_width;
     size_t frame_height = current_atlas_frame->frame_height;
 
-    if(max_points_ != 0) {
-        reconstruct->positions.resize(max_points_);
-    }
+    if(max_points_ != 0) { reconstruct->positions.resize(max_points_); }
 
     const v3c_parameter_set &vps = Decompression::get_saved_params(gof.gof_index).vps;
     const atlas_sequence_parameter_set &asps = Decompression::get_saved_params(gof.gof_index).asps;
-    const atlas_frame_parameter_set &afps = Decompression::get_saved_params(gof.gof_index).afps;
 
-    std::vector<point3d> &pointToPixel = current_atlas_frame->pointToPixel_;
-    pointToPixel.resize( 0 );
+    /* --- Strictly speaking, occupancy map generation and block to patch generation belong to decoding,
+       --- but in terms of software structure, they may be better done here. */
     size_t occupancyPrecision = vps.vps_frame_width.at(atlas_index) / gof.occupancy_map.width;
     std::vector<uint8_t> occupancyMap = {};
-
     generateOccupancyMap( frame_width, frame_height, current_occupancy_frame, &occupancyMap, occupancyPrecision);
     Logger::log(LogLevel::TRACE, "Reconstruction", "Occupancy map generated \n");
 
     size_t patch_packing_block_size = size_t( 1 ) << asps.asps_log2_patch_packing_block_size;
-    const size_t blockToPatchWidth = frame_width / patch_packing_block_size;
-    const size_t blockToPatchHeight = frame_height / patch_packing_block_size;
-    generateBlockToPatchFromOccupancyMapVideo(current_atlas_frame, current_occupancy_frame,
-        blockToPatchWidth, blockToPatchHeight, occupancyPrecision);
+    std::vector<size_t> block_to_patch;
+    generateBlockToPatchFromOccupancyMapVideo(*current_atlas_frame, current_occupancy_frame,
+        block_to_patch, patch_packing_block_size, occupancyPrecision);
     Logger::log(LogLevel::TRACE, "Reconstruction", "Block to patch generated \n");
-    // Above this belong to decoding instead of reconstruction??
     
     /* ------------------------ reconstruction ------------------------ */
     const bool patchPrecedenceOrderFlag = asps.asps_patch_precedence_order_flag;
@@ -251,9 +247,8 @@ void Reconstruction::construct_point_cloud_frame(const decompressed_gof &gof, po
     size_t geoFrameCount = gof.geometry_maps.at(0).frame_count;
     if ( geoFrameCount < ( videoFrameIndex + mapCount ) ) { throw std::runtime_error("Invalid geoFrameCount");}
 
-    /*if(data->asps.asps_vpcc_remove_duplicate_point_enabled_flag) {
-        < "TODO: Implement duplicate point removal" << std::endl;
-    }*/
+    std::vector<point3d> &pointToPixel = current_atlas_frame->pointToPixel_;
+    pointToPixel.resize( 0 );
     
     for ( std::size_t index = 0; index < current_atlas_frame->patches_map.size(); index++ ) {
         size_t patchIndex = patchPrecedenceOrderFlag  ? ( patch_count - index - 1 ) : index;
@@ -261,8 +256,10 @@ void Reconstruction::construct_point_cloud_frame(const decompressed_gof &gof, po
         const patch& patch  = current_atlas_frame->patches_map[patchIndex];
 
         std::vector<point3d> created_points = {};
-        create_points_from_patch(patch, gof, patchIndexPlusOne, videoFrameIndex, occupancyMap, *current_atlas_frame, created_points);
+        create_points_from_patch(patch, gof, patchIndexPlusOne, videoFrameIndex, occupancyMap, pointToPixel,
+            *current_atlas_frame, created_points, block_to_patch);
 
+        // TODO: When multithreading, get a mutex for this loop
         for (size_t i = 0; i < created_points.size(); ++i) {
             reconstruct->addPoint(created_points.at(i));
         }
@@ -272,18 +269,12 @@ void Reconstruction::construct_point_cloud_frame(const decompressed_gof &gof, po
 }
 
 void Reconstruction::create_points_from_patch(const patch &p, const decompressed_gof &gof, const size_t patch_index_plus_1,
-    const size_t video_frame_index, const std::vector<uint8_t> &occupancy_map,
-    atlas_frame &atlas_frame, std::vector<point3d> &created_points)
+    const size_t video_frame_index, const std::vector<uint8_t> &occupancy_map, std::vector<point3d> &point_to_pixel,
+    const atlas_frame &atlas_frame, std::vector<point3d> &created_points, const std::vector<size_t> &block_to_patch)
 {
-    // TODO: get pointToPixel out of atlas frame to be able to make it const
-    // TODO: return points and at the end, apped them to the reconstruct
-
-
     const size_t frame_width = atlas_frame.frame_width;
     const size_t frame_height = atlas_frame.frame_height;
     const size_t atlas_index = atlas_frame.atlas_index;
-    const std::vector<size_t> &blockToPatch = atlas_frame.block_to_patch;
-    std::vector<point3d> &pointToPixel = atlas_frame.pointToPixel_;
 
     const atlas_sequence_parameter_set &asps = Decompression::get_saved_params(gof.gof_index).asps;
     size_t patch_packing_block_size = size_t( 1 ) << asps.asps_log2_patch_packing_block_size;
@@ -297,7 +288,7 @@ void Reconstruction::create_points_from_patch(const patch &p, const decompressed
     for ( size_t v0 = 0; v0 < p.TilePatch2dSizeY; ++v0 ) {
         for ( size_t u0 = 0; u0 < p.TilePatch2dSizeX; ++u0 ) {
             const size_t blockIndex = patchBlock2CanvasBlock(u0, v0, block_to_patch_width, block_to_patch_height, p);
-            if ( blockToPatch[blockIndex] == patch_index_plus_1 ) {
+            if ( block_to_patch[blockIndex] == patch_index_plus_1 ) {
                 for ( size_t v1 = 0; v1 < p.occupancy_resolution; ++v1 ) {
                     const size_t v = v0 * p.occupancy_resolution + v1;
                     for ( size_t u1 = 0; u1 < p.occupancy_resolution; ++u1 ) {
@@ -327,7 +318,7 @@ void Reconstruction::create_points_from_patch(const patch &p, const decompressed
                                     created_points.push_back(tmp);
                                 }
                                 assert(i < 2);
-                                pointToPixel.emplace_back( x, y, i);
+                                point_to_pixel.emplace_back( x, y, i);
                             }
                         }
                     }

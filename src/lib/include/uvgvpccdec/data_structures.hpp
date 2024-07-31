@@ -510,8 +510,7 @@ struct atlas_frame {
     // These are the picture widths and heights, as we only have 1 tile per frame
     size_t frame_width = 0;
     size_t frame_height = 0;
-
-    std::vector<size_t> block_to_patch;
+    
     size_t number_of_points = 0;
     void set_number_of_points( size_t val ) { number_of_points = val; }
 };
