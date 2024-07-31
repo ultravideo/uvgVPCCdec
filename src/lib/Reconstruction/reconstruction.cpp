@@ -243,13 +243,10 @@ void Reconstruction::construct_point_cloud_frame(const decompressed_gof &gof, po
     // Above this belong to decoding instead of reconstruction??
     
     /* ------------------------ reconstruction ------------------------ */
-    auto &blockToPatch = current_atlas_frame->block_to_patch;
     const bool patchPrecedenceOrderFlag = asps.asps_patch_precedence_order_flag;
     const size_t patch_count = current_atlas_frame->patches_map.size();
 
     const size_t mapCount = vps.vps_map_count_minus1.at(atlas_index) + 1;
-
-    const size_t geometryBitDepth3D_ = vps.geometry_info.at(0).gi_geometry_2d_bit_depth_minus1 + 1;
     size_t videoFrameIndex = frame_index * mapCount;
     size_t geoFrameCount = gof.geometry_maps.at(0).frame_count;
     if ( geoFrameCount < ( videoFrameIndex + mapCount ) ) { throw std::runtime_error("Invalid geoFrameCount");}
@@ -262,42 +259,71 @@ void Reconstruction::construct_point_cloud_frame(const decompressed_gof &gof, po
         size_t patchIndex = patchPrecedenceOrderFlag  ? ( patch_count - index - 1 ) : index;
         const size_t patchIndexPlusOne = patchIndex + 1;
         const patch& patch  = current_atlas_frame->patches_map[patchIndex];
-        for ( size_t v0 = 0; v0 < patch.TilePatch2dSizeY; ++v0 ) {
-            for ( size_t u0 = 0; u0 < patch.TilePatch2dSizeX; ++u0 ) {
-                const size_t blockIndex = patchBlock2CanvasBlock(u0, v0, blockToPatchWidth, blockToPatchHeight, patch);
-                if ( blockToPatch[blockIndex] == patchIndexPlusOne ) {
-                    for ( size_t v1 = 0; v1 < patch.occupancy_resolution; ++v1 ) {
-                        const size_t v = v0 * patch.occupancy_resolution + v1;
-                        for ( size_t u1 = 0; u1 < patch.occupancy_resolution; ++u1 ) {
-                            const size_t u = u0 * patch.occupancy_resolution + u1;
-                            size_t x; // value filled in patch_to_canvas
-                            size_t y; // value filled in patch_to_canvas
-                            size_t canvasIndex = patch_to_canvas(u, v, frame_width, frame_height, x, y, patch);
-                            bool         occupancy     = false;
 
-                            occupancy = occupancyMap[canvasIndex] != 0;
-                            bool multipleStreams_ = vps.vps_multiple_map_streams_present_flag.at(atlas_index);
-                            bool absoluteD1_ = mapCount == 1 || vps.vps_map_absolute_coding_enabled_flag.at(atlas_index).at(1);
-                            
-                            if ( !occupancy ) { continue; }
-                            std::vector<point3d> createdPoints;
-                            createdPoints = generate_points(patch, gof.geometry_maps, videoFrameIndex, u,
-                                                v, x, y, mapCount, multipleStreams_, absoluteD1_);
-                            if ( !createdPoints.empty() ) {
-                                for ( size_t i = 0; i < createdPoints.size(); i++ ) {
-                                    if ( ( i == 0 ) || ( createdPoints[i] != createdPoints[0] )  ) {
+        process_patch(patch, gof, patchIndexPlusOne, videoFrameIndex, occupancyMap, *current_atlas_frame, reconstruct);
+    }   
+    Logger::log(LogLevel::DEBUG, "Reconstruction", "pointToPixel size " + std::to_string(pointToPixel.size()) 
+        + ", reconstruct.pointCount " + std::to_string(reconstruct->getPointCount()) + " \n");
+}
 
-                                        if ( patch.axisOfAdditionalPlane_ == 0 ) {
-                                            reconstruct->addPoint( createdPoints[i] );
-                                        } else {
-                                            point3d tmp;
-                                            inverseRotatePosition45DegreeOnAxis( patch.axisOfAdditionalPlane_,
-                                                                                geometryBitDepth3D_, createdPoints[i], tmp );
-                                            reconstruct->addPoint( tmp );
-                                        }
-                                        assert(i < 2);
-                                        pointToPixel.emplace_back( x, y, i);
+void Reconstruction::process_patch(const patch &p, const decompressed_gof &gof, const size_t patch_index_plus_1,
+    const size_t video_frame_index, const std::vector<uint8_t> &occupancy_map,
+    atlas_frame &atlas_frame, point_cloud_frame* reconstruct)
+{
+    // TODO: get pointToPixel out of atlas frame to be able to make it const
+    // TODO: return points and at the end, apped them to the reconstruct
+    
+
+    const size_t frame_width = atlas_frame.frame_width;
+    const size_t frame_height = atlas_frame.frame_height;
+    const size_t atlas_index = atlas_frame.atlas_index;
+    const std::vector<size_t> &blockToPatch = atlas_frame.block_to_patch;
+    std::vector<point3d> &pointToPixel = atlas_frame.pointToPixel_;
+
+    const atlas_sequence_parameter_set &asps = Decompression::get_saved_params(gof.gof_index).asps;
+    size_t patch_packing_block_size = size_t( 1 ) << asps.asps_log2_patch_packing_block_size;
+    const size_t block_to_patch_width = frame_width / patch_packing_block_size;
+    const size_t block_to_patch_height = frame_height / patch_packing_block_size;
+
+    const v3c_parameter_set &vps = Decompression::get_saved_params(gof.gof_index).vps;
+    const size_t map_count = vps.vps_map_count_minus1.at(atlas_index) + 1;
+    const size_t geo_bit_depth_3d = vps.geometry_info.at(0).gi_geometry_2d_bit_depth_minus1 + 1;
+
+    for ( size_t v0 = 0; v0 < p.TilePatch2dSizeY; ++v0 ) {
+        for ( size_t u0 = 0; u0 < p.TilePatch2dSizeX; ++u0 ) {
+            const size_t blockIndex = patchBlock2CanvasBlock(u0, v0, block_to_patch_width, block_to_patch_height, p);
+            if ( blockToPatch[blockIndex] == patch_index_plus_1 ) {
+                for ( size_t v1 = 0; v1 < p.occupancy_resolution; ++v1 ) {
+                    const size_t v = v0 * p.occupancy_resolution + v1;
+                    for ( size_t u1 = 0; u1 < p.occupancy_resolution; ++u1 ) {
+                        const size_t u = u0 * p.occupancy_resolution + u1;
+                        size_t x; // value filled in patch_to_canvas
+                        size_t y; // value filled in patch_to_canvas
+                        size_t canvasIndex = patch_to_canvas(u, v, frame_width, frame_height, x, y, p);
+                        bool         occupancy     = false;
+
+                        occupancy = occupancy_map[canvasIndex] != 0;
+                        bool multipleStreams_ = vps.vps_multiple_map_streams_present_flag.at(atlas_index);
+                        bool absoluteD1_ = map_count == 1 || vps.vps_map_absolute_coding_enabled_flag.at(atlas_index).at(1);
+                        
+                        if ( !occupancy ) { continue; }
+                        std::vector<point3d> createdPoints;
+                        createdPoints = generate_points(p, gof.geometry_maps, video_frame_index, u,
+                                            v, x, y, map_count, multipleStreams_, absoluteD1_);
+                        if ( !createdPoints.empty() ) {
+                            for ( size_t i = 0; i < createdPoints.size(); i++ ) {
+                                if ( ( i == 0 ) || ( createdPoints[i] != createdPoints[0] )  ) {
+
+                                    if ( p.axisOfAdditionalPlane_ == 0 ) {
+                                        reconstruct->addPoint( createdPoints[i] );
+                                    } else {
+                                        point3d tmp;
+                                        inverseRotatePosition45DegreeOnAxis( p.axisOfAdditionalPlane_,
+                                                                            geo_bit_depth_3d, createdPoints[i], tmp );
+                                        reconstruct->addPoint( tmp );
                                     }
+                                    assert(i < 2);
+                                    pointToPixel.emplace_back( x, y, i);
                                 }
                             }
                         }
@@ -305,11 +331,8 @@ void Reconstruction::construct_point_cloud_frame(const decompressed_gof &gof, po
                 }
             }
         }
-    }   
-    Logger::log(LogLevel::DEBUG, "Reconstruction", "pointToPixel size " + std::to_string(pointToPixel.size()) 
-        + ", reconstruct.pointCount " + std::to_string(reconstruct->getPointCount()) + " \n");
+    }
 }
-
 /* ------------------------ ripped from tmc2------------------------ */
 void Reconstruction::inverseRotatePosition45DegreeOnAxis( size_t axis, size_t lod, point3d &input, point3d& output ) {
     size_t s = ( 1u << ( lod - 1 ) ) - 1;

@@ -16,7 +16,7 @@ int main() {
     //param.max_points = 1003907;
     uvgvpcc_dec::API::initializeDecoder(param);
 
-    std::string input_file = "soldierf1.vpcc";
+    std::string input_file = "decoder-testing-6f-gof2.vpcc";
 
     if (false) { // decode v3c sample stream
         std::vector<uint8_t> data;
