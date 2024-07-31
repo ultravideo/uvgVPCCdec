@@ -14,18 +14,18 @@ void PostReconstruction::PostProcess(const decompressed_gof &gof, point_cloud_fr
 
 size_t PostReconstruction::color_point_cloud(point_cloud_frame* reconstruct, const decompressed_gof &gof, const size_t frame_index, const size_t multipleStreams, const uint8_t attributeCount )
 {
-    atlas_frame* current_atlas_frame = gof.atlas_map.at(frame_index).get();
+    const size_t atlas_index = gof.atlas_map.at(frame_index).get()->atlas_index;
 
     const video_map &videoAttributeMap0 = gof.attribute_maps.at(0);
 
     const v3c_parameter_set &vps = Decompression::get_saved_params(gof.gof_index).vps;
-    const size_t mapCount = vps.vps_map_count_minus1.at(current_atlas_frame->atlas_index) + 1;
+    const size_t mapCount = vps.vps_map_count_minus1.at(atlas_index) + 1;
     if ( attributeCount == 0 ) {
         Logger::log(LogLevel::INFO, "Post-reconstruction", "No attribute data \n");
         return 0;
     }
 
-    std::vector<point3d> &pointToPixel = current_atlas_frame->pointToPixel_;
+    std::vector<point3d> &pointToPixel = reconstruct->point_to_pixel;
     auto&  color8bit = reconstruct->colors;
     color8bit.resize(reconstruct->getPointCount());
     size_t pointCount = reconstruct->getPointCount();

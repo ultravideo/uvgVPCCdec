@@ -247,7 +247,7 @@ void Reconstruction::construct_point_cloud_frame(const decompressed_gof &gof, po
     size_t geoFrameCount = gof.geometry_maps.at(0).frame_count;
     if ( geoFrameCount < ( videoFrameIndex + mapCount ) ) { throw std::runtime_error("Invalid geoFrameCount");}
 
-    std::vector<point3d> &pointToPixel = current_atlas_frame->pointToPixel_;
+    std::vector<point3d> &pointToPixel = reconstruct->point_to_pixel;
     pointToPixel.resize( 0 );
     
     for ( std::size_t index = 0; index < current_atlas_frame->patches_map.size(); index++ ) {

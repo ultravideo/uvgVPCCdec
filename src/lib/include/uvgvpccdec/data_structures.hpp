@@ -467,6 +467,10 @@ struct point_cloud_frame {
     std::vector<point3d> positions = {};
     std::vector<uvg_color> colors = {};
 
+    /* PointToPixel is filled during Reconstruction. It is used in Post-reconstruction to pick the correct
+       color values from the attribute map  */
+    std::vector<point3d> point_to_pixel = {};
+
     size_t num_of_used_points = 0;
 
     point3d& operator[]( size_t i ) {
@@ -500,17 +504,13 @@ struct atlas_frame {
     // otherwise tiles would be in between frame and patch
     std::vector<patch> patches_map = {};
 
-    /* PointToPixel is filled during Reconstruction. It is used in Post-reconstruction to pick the correct
-       color values from the attribute map  */
-    std::vector<point3d> pointToPixel_ = {};
-
     /* Always 0 for now. Single atlas can contain several atlas frames */
     size_t atlas_index = 0;
 
     // These are the picture widths and heights, as we only have 1 tile per frame
     size_t frame_width = 0;
     size_t frame_height = 0;
-    
+
     size_t number_of_points = 0;
     void set_number_of_points( size_t val ) { number_of_points = val; }
 };
