@@ -220,7 +220,10 @@ void Reconstruction::construct_point_cloud_frame(const decompressed_gof &gof, po
     size_t frame_width = current_atlas_frame->frame_width;
     size_t frame_height = current_atlas_frame->frame_height;
 
-    if(max_points_ != 0) { reconstruct->positions.resize(max_points_); }
+    if(max_points_ != 0) {
+        reconstruct->positions.resize(max_points_);
+        reconstruct->point_to_pixel.resize(max_points_);
+    }
 
     const v3c_parameter_set &vps = Decompression::get_saved_params(gof.gof_index).vps;
     const atlas_sequence_parameter_set &asps = Decompression::get_saved_params(gof.gof_index).asps;
@@ -246,25 +249,23 @@ void Reconstruction::construct_point_cloud_frame(const decompressed_gof &gof, po
     size_t videoFrameIndex = frame_index * mapCount;
     size_t geoFrameCount = gof.geometry_maps.at(0).frame_count;
     if ( geoFrameCount < ( videoFrameIndex + mapCount ) ) { throw std::runtime_error("Invalid geoFrameCount");}
-
-    std::vector<point3d> &pointToPixel = reconstruct->point_to_pixel;
-    pointToPixel.resize( 0 );
     
     for ( std::size_t index = 0; index < current_atlas_frame->patches_map.size(); index++ ) {
         size_t patchIndex = patchPrecedenceOrderFlag  ? ( patch_count - index - 1 ) : index;
         const size_t patchIndexPlusOne = patchIndex + 1;
         const patch& patch  = current_atlas_frame->patches_map[patchIndex];
 
+        std::vector<point3d> created_point_to_pixel = {};
         std::vector<point3d> created_points = {};
-        create_points_from_patch(patch, gof, patchIndexPlusOne, videoFrameIndex, occupancyMap, pointToPixel,
+        create_points_from_patch(patch, gof, patchIndexPlusOne, videoFrameIndex, occupancyMap, created_point_to_pixel,
             *current_atlas_frame, created_points, block_to_patch);
 
         // TODO: When multithreading, get a mutex for this loop
         for (size_t i = 0; i < created_points.size(); ++i) {
-            reconstruct->addPoint(created_points.at(i));
+            reconstruct->addPoint(created_points.at(i), created_point_to_pixel.at(i));
         }
     }   
-    Logger::log(LogLevel::DEBUG, "Reconstruction", "pointToPixel size " + std::to_string(pointToPixel.size()) 
+    Logger::log(LogLevel::DEBUG, "Reconstruction", "pointToPixel size " + std::to_string(reconstruct->point_to_pixel.size()) 
         + ", frame point count " + std::to_string(reconstruct->getPointCount()) + " \n");
 }
 

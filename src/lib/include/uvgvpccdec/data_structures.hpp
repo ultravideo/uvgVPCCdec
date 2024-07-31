@@ -487,13 +487,15 @@ struct point_cloud_frame {
 
     size_t getPointCount() const { return num_of_used_points; }
 
-    size_t addPoint( const point3d& position ) {
+    size_t addPoint( const point3d& position, const point3d &p_to_p) {
         const size_t index = getPointCount();
         if(index == positions.size()) {
             positions.resize(num_of_used_points + 1);
+            point_to_pixel.resize(num_of_used_points + 1);
             //std::cout << "resized positions to " << num_of_used_points + 1 << std::endl;
         }
         positions[index] = position;
+        point_to_pixel[index] = p_to_p;
         num_of_used_points++;
         return index;
     }
@@ -510,9 +512,6 @@ struct atlas_frame {
     // These are the picture widths and heights, as we only have 1 tile per frame
     size_t frame_width = 0;
     size_t frame_height = 0;
-
-    size_t number_of_points = 0;
-    void set_number_of_points( size_t val ) { number_of_points = val; }
 };
 
 struct decompressed_gof { // of a gof currently
