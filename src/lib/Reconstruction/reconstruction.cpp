@@ -4,6 +4,15 @@
 
 using namespace uvgvpcc_dec;
 
+size_t max_points_ = 0;
+
+void Reconstruction::initializeStaticParameters(const uvgvpcc_dec::Parameters& param)
+{
+    if(param.max_points != 0) { // if its 0, its not specified
+        max_points_ = param.max_points;
+    }
+}
+
 /* ------------------------ ripped from tmc2------------------------ */
 size_t Reconstruction::patch_to_canvas(const size_t u, const size_t v, const size_t canvasStride, const size_t canvasHeight,
     size_t& x, size_t& y, const patch &p)

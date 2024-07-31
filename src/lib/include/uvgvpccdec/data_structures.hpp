@@ -483,7 +483,7 @@ struct point_cloud_frame {
 
     size_t addPoint( const point3d& position ) {
         const size_t index = getPointCount();
-        positions.resize( index + 1 ); // NOTE - COSTLY OPERATION?
+        //positions.resize( index + 1 ); // NOTE - COSTLY OPERATION?
         positions[index] = position;
         return index;
     }

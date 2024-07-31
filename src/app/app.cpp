@@ -13,6 +13,7 @@ int main() {
     param.video_width = 1280;
     param.video_height = 1280;
     param.keep_intermediate_files = false;
+    param.max_points = 1003907;
     uvgvpcc_dec::API::initializeDecoder(param);
 
     std::string input_file = "soldierf1.vpcc";

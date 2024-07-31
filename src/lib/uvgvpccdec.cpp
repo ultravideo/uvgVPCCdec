@@ -15,7 +15,7 @@ void API::initializeDecoder(const Parameters& param)
 {
     Logger::log(LogLevel::INFO, "API", "Initialize decoder " + std::to_string(param.hello) + "\n");
     Decompression::initializeStaticParameters(param);
-
+    Reconstruction::initializeStaticParameters(param);
 }
 
 void API::decodeV3CChunk(v3c_chunk &chunk)

@@ -4,6 +4,9 @@
 
 class Reconstruction {
 public:
+
+    static void initializeStaticParameters(const uvgvpcc_dec::Parameters& param);
+    
     static void construct_point_cloud_frame(const decompressed_gof &gof, point_cloud_frame* reconstruct, const size_t frame_index);
 
     /* ------------------------ ripped from tmc2------------------------ */
