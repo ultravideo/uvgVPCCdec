@@ -9,9 +9,9 @@ public:
 
     static void construct_point_cloud_frame(const decompressed_gof &gof, point_cloud_frame* reconstruct, const size_t frame_index);
 
-    static void process_patch(const patch &p, const decompressed_gof &gof, const size_t patch_index_plus_1,
+    static void create_points_from_patch(const patch &p, const decompressed_gof &gof, const size_t patch_index_plus_1,
         const size_t video_frame_index, const std::vector<uint8_t> &occupancy_map,
-        atlas_frame &atlas_frame, point_cloud_frame* reconstruct);
+        atlas_frame &atlas_frame, std::vector<point3d> &created_points);
 
     /* ------------------------ ripped from tmc2------------------------ */
     static size_t patch_to_canvas(const size_t u, const size_t v, const size_t canvasStride, const size_t canvasHeight,

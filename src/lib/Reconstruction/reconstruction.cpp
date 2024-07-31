@@ -260,19 +260,24 @@ void Reconstruction::construct_point_cloud_frame(const decompressed_gof &gof, po
         const size_t patchIndexPlusOne = patchIndex + 1;
         const patch& patch  = current_atlas_frame->patches_map[patchIndex];
 
-        process_patch(patch, gof, patchIndexPlusOne, videoFrameIndex, occupancyMap, *current_atlas_frame, reconstruct);
+        std::vector<point3d> created_points = {};
+        create_points_from_patch(patch, gof, patchIndexPlusOne, videoFrameIndex, occupancyMap, *current_atlas_frame, created_points);
+
+        for (size_t i = 0; i < created_points.size(); ++i) {
+            reconstruct->addPoint(created_points.at(i));
+        }
     }   
     Logger::log(LogLevel::DEBUG, "Reconstruction", "pointToPixel size " + std::to_string(pointToPixel.size()) 
-        + ", reconstruct.pointCount " + std::to_string(reconstruct->getPointCount()) + " \n");
+        + ", frame point count " + std::to_string(reconstruct->getPointCount()) + " \n");
 }
 
-void Reconstruction::process_patch(const patch &p, const decompressed_gof &gof, const size_t patch_index_plus_1,
+void Reconstruction::create_points_from_patch(const patch &p, const decompressed_gof &gof, const size_t patch_index_plus_1,
     const size_t video_frame_index, const std::vector<uint8_t> &occupancy_map,
-    atlas_frame &atlas_frame, point_cloud_frame* reconstruct)
+    atlas_frame &atlas_frame, std::vector<point3d> &created_points)
 {
     // TODO: get pointToPixel out of atlas frame to be able to make it const
     // TODO: return points and at the end, apped them to the reconstruct
-    
+
 
     const size_t frame_width = atlas_frame.frame_width;
     const size_t frame_height = atlas_frame.frame_height;
@@ -307,24 +312,22 @@ void Reconstruction::process_patch(const patch &p, const decompressed_gof &gof, 
                         bool absoluteD1_ = map_count == 1 || vps.vps_map_absolute_coding_enabled_flag.at(atlas_index).at(1);
                         
                         if ( !occupancy ) { continue; }
-                        std::vector<point3d> createdPoints;
-                        createdPoints = generate_points(p, gof.geometry_maps, video_frame_index, u,
+                        std::vector<point3d> generated_points;
+                        generated_points = generate_points(p, gof.geometry_maps, video_frame_index, u,
                                             v, x, y, map_count, multipleStreams_, absoluteD1_);
-                        if ( !createdPoints.empty() ) {
-                            for ( size_t i = 0; i < createdPoints.size(); i++ ) {
-                                if ( ( i == 0 ) || ( createdPoints[i] != createdPoints[0] )  ) {
+                        for ( size_t i = 0; i < generated_points.size(); i++ ) {
+                            if ( ( i == 0 ) || ( generated_points[i] != generated_points[0] )  ) {
 
-                                    if ( p.axisOfAdditionalPlane_ == 0 ) {
-                                        reconstruct->addPoint( createdPoints[i] );
-                                    } else {
-                                        point3d tmp;
-                                        inverseRotatePosition45DegreeOnAxis( p.axisOfAdditionalPlane_,
-                                                                            geo_bit_depth_3d, createdPoints[i], tmp );
-                                        reconstruct->addPoint( tmp );
-                                    }
-                                    assert(i < 2);
-                                    pointToPixel.emplace_back( x, y, i);
+                                if ( p.axisOfAdditionalPlane_ == 0 ) {
+                                    created_points.push_back(generated_points[i]);
+                                } else {
+                                    point3d tmp;
+                                    inverseRotatePosition45DegreeOnAxis( p.axisOfAdditionalPlane_,
+                                                                        geo_bit_depth_3d, generated_points[i], tmp );
+                                    created_points.push_back(tmp);
                                 }
+                                assert(i < 2);
+                                pointToPixel.emplace_back( x, y, i);
                             }
                         }
                     }
