@@ -23,6 +23,13 @@ else()
   add_library(uvgvpccdec STATIC ${LIB_SOURCES})
 endif()
 
+# Find and link libavcodec using pkg-config
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(AVCODEC REQUIRED libavcodec)
+
+include_directories(${AVCODEC_INCLUDE_DIRS})
+link_directories(${AVCODEC_LIBRARY_DIRS})
+
 target_link_libraries(uvgvpccdec
     decompressionLibrary
     formatConversionLibrary
@@ -31,6 +38,7 @@ target_link_libraries(uvgvpccdec
     adaptationLibrary
     utilsLibrary
     logLibrary
+    ${AVCODEC_LIBRARIES}
 )
 
 # Include directories for headers

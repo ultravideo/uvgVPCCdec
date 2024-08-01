@@ -12,6 +12,8 @@ option(BUILD_SHARED_LIBS "Build using shared uvgVPCCdec library" ON)
 
 project(uvgVPCCdec VERSION ${uvgVPCCdec_VER})
 
+#set(CMAKE_BUILD_TYPE Debug)
+
 if(MSVC)
 add_compile_options(/W3 /WX)
 else()
