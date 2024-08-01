@@ -160,31 +160,34 @@ void Decompression::handle_v3c_unit(const uint8_t vuh_unit_type, const size_t pa
                 break;
             case V3C_UNIT_TYPE::V3C_OVD: {
                 std::vector<uint8_t> temp = {};
-                convert_video_sub_bitstream(payload_size, temp, &v_params->occupancy_parameters);
+                std::vector<size_t> cut_offs = {};
+                convert_video_sub_bitstream(payload_size, temp, cut_offs, &v_params->occupancy_parameters);
                 //convert_video_sub_bitstream(payload_size, o_hevc, &v_params->occupancy_parameters);
                 output->at(current_gof_index_).occupancy_map.type = V3C_OVD;
                 //decode_video_sub_bitstream(o_hevc, o_yuv, &output->at(current_gof_index_).occupancy_map);
-                decode_video_sub_bitstream(temp, &output->at(current_gof_index_).occupancy_map);
+                decode_video_sub_bitstream(temp, cut_offs, &output->at(current_gof_index_).occupancy_map);
                 break; }
             case V3C_UNIT_TYPE::V3C_GVD: {
                 std::vector<uint8_t> temp = {};
-                convert_video_sub_bitstream(payload_size, temp, &v_params->geometry_parameters);
+                std::vector<size_t> cut_offs = {};
+                convert_video_sub_bitstream(payload_size, temp, cut_offs, &v_params->geometry_parameters);
                 //convert_video_sub_bitstream(payload_size, g_hevc, &v_params->geometry_parameters);
                 video_map new_geo_map;
                 output->at(current_gof_index_).geometry_maps.push_back(new_geo_map);
                 output->at(current_gof_index_).geometry_maps.back().type = V3C_GVD;
                 //decode_video_sub_bitstream(g_hevc, g_yuv, &output->at(current_gof_index_).geometry_maps.back());
-                decode_video_sub_bitstream(temp, &output->at(current_gof_index_).geometry_maps.back());
+                decode_video_sub_bitstream(temp, cut_offs, &output->at(current_gof_index_).geometry_maps.back());
                 break; }
             case V3C_UNIT_TYPE::V3C_AVD: {
                 std::vector<uint8_t> temp = {};
-                convert_video_sub_bitstream(payload_size, temp, &v_params->attribute_parameters);
+                std::vector<size_t> cut_offs = {};
+                convert_video_sub_bitstream(payload_size, temp, cut_offs, &v_params->attribute_parameters);
                 //convert_video_sub_bitstream(payload_size, a_hevc, &v_params->attribute_parameters);
                 video_map new_atr_map;
                 output->at(current_gof_index_).attribute_maps.push_back(new_atr_map);
                 output->at(current_gof_index_).attribute_maps.back().type = V3C_AVD;
                 //decode_video_sub_bitstream(a_hevc, a_yuv, &output->at(current_gof_index_).attribute_maps.back());
-                decode_video_sub_bitstream(temp, &output->at(current_gof_index_).attribute_maps.back());
+                decode_video_sub_bitstream(temp, cut_offs, &output->at(current_gof_index_).attribute_maps.back());
                 break; }
             default: 
                 uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "Unkown V3C unit type " + std::to_string(vuh_unit_type) + " \n");
@@ -833,11 +836,12 @@ void Decompression::convert_video_sub_bitstream(const std::size_t v3c_payload_si
     file.close();
 }
 
-void Decompression::convert_video_sub_bitstream(const std::size_t v3c_payload_size_bytes, std::vector<uint8_t> &output, std::vector<uvgvpcc_dec::video_parameter_set_nalu>* v_params)
+void Decompression::convert_video_sub_bitstream(const std::size_t v3c_payload_size_bytes, std::vector<uint8_t> &output, std::vector<size_t> &cut_offs, std::vector<uvgvpcc_dec::video_parameter_set_nalu>* v_params)
 {
     uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "Converting V3C video data " + std::to_string(v3c_payload_size_bytes) + " \n");
     output.resize(v3c_payload_size_bytes);
     size_t write_ptr = 0;
+    cut_offs.push_back(write_ptr); 
     std::size_t end_point = pos_.bytes + v3c_payload_size_bytes;
     const char hevc_start_code[4] = {0x00, 0x00, 0x00, 0x01};
     while (true) {
@@ -858,46 +862,55 @@ void Decompression::convert_video_sub_bitstream(const std::size_t v3c_payload_si
         write_ptr += 4;
         memcpy(&output[write_ptr], &cbuf_[pos_.bytes], nalu_size);
         write_ptr += nalu_size;
+        if(hevc_nal_type == 19 || hevc_nal_type == 1) {
+            //std::cout << "new cutoff at " << write_ptr << std::endl;
+            cut_offs.push_back(write_ptr); 
+        }
+        
         advance_bitstream(nalu_size * 8);
         //std::cout << "write_ptr " << write_ptr << std::endl;
     }
     //std::cout << "end of s " << std::endl;
 }
 
-std::vector<AVFrame*> Decompression::decode_video_data(std::vector<uint8_t> &input)
+std::vector<AVFrame*> Decompression::decode_video_data(std::vector<uint8_t> &input, std::vector<size_t> &cut_offs)
 {
     uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::INFO, "Decompression", "Start decoding HEVC data \n");
     if (!codec_context_) {
         throw std::runtime_error("Codec context is not initialized");
     }
     std::vector<AVFrame*> output = {};
-    AVPacket* packet = av_packet_alloc();
-    if (!packet) {
-        throw std::runtime_error("Could not allocate AVPacket");
-    }
-
     size_t data_size = input.size();
     /* From avcodec_send_packet() documentation: The input buffer, avpkt->data must be
     AV_INPUT_BUFFER_PADDING_SIZE larger than the actual read bytes. */
     size_t padded_size = data_size + AV_INPUT_BUFFER_PADDING_SIZE;
     input.resize(padded_size, 0);
 
-    packet->data = input.data();
-    packet->size = data_size;
+    // Process full frames through individual packets
+    for (size_t frame_index = 0; frame_index < cut_offs.size() - 1; frame_index++) {
+        AVPacket* packet = av_packet_alloc();
+        if (!packet) {
+            throw std::runtime_error("Could not allocate AVPacket");
+        }
+        packet->data = &input.data()[cut_offs.at(frame_index)];
+        size_t packet_size = cut_offs.at(frame_index + 1) - cut_offs.at(frame_index);
+        packet->size = packet_size;
 
-    int ret = avcodec_send_packet(codec_context_, packet);
-    std::cout << "send ret " << int(ret) << std::endl;
-    if (ret == AVERROR(EAGAIN)) {
-        std::cout << "send EAGAIN" << std::endl;
-    }
-    else if (ret == AVERROR_EOF) {
-        std::cout << "send EOF" << std::endl;
-    }
-    else if (ret < 0) {
-        av_packet_free(&packet);
-        throw std::runtime_error("Error sending packet to decoder");
-    }
-    while (true) {
+        std::cout << "decoding data at " << cut_offs.at(frame_index) << " with size of " << packet_size << std::endl;
+
+        int ret = avcodec_send_packet(codec_context_, packet);
+        std::cout << "send ret " << int(ret) << std::endl;
+        if (ret == AVERROR(EAGAIN)) {
+            std::cout << "send EAGAIN" << std::endl;
+        }
+        else if (ret == AVERROR_EOF) {
+            std::cout << "send EOF" << std::endl;
+        }
+        else if (ret < 0) {
+            av_packet_free(&packet);
+            throw std::runtime_error("Error sending packet to decoder");
+        }
+        // Receive frame
         AVFrame* frame = av_frame_alloc();
         if (!frame) {
             throw std::runtime_error("Could not allocate video frame");
@@ -908,12 +921,10 @@ std::vector<AVFrame*> Decompression::decode_video_data(std::vector<uint8_t> &inp
         if (ret == AVERROR(EAGAIN)) {
             std::cout << "EAGAIN" << std::endl;
             av_frame_free(&frame);
-            break;
         }
         else if (ret == AVERROR_EOF) {
             std::cout << "EOF" << std::endl;
             av_frame_free(&frame);
-            break;
         } else if (ret < 0) {
             throw std::runtime_error("Error receiving frame from decoder");
         }
@@ -921,17 +932,17 @@ std::vector<AVFrame*> Decompression::decode_video_data(std::vector<uint8_t> &inp
             std::cout << "decoded succesfully"<< std::endl;
             output.push_back(frame);
         }
+        av_packet_free(&packet);
     }
 
     uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::INFO, "Decompression", "Decoded " + std::to_string(output.size()) + " HEVC frames \n");
-    av_packet_free(&packet);
     return output;
 }
 
-void Decompression::decode_video_sub_bitstream(std::vector<uint8_t> &input, video_map* map)
+void Decompression::decode_video_sub_bitstream(std::vector<uint8_t> &input, std::vector<size_t> &cut_offs, video_map* map)
 {
     std::vector<AVFrame*> frames = {};
-    frames = decode_video_data(input);
+    frames = decode_video_data(input, cut_offs);
     if(frames.empty()) {
         throw std::runtime_error("No frame decoded");
     }
