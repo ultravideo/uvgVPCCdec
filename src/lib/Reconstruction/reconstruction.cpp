@@ -275,7 +275,7 @@ void Reconstruction::construct_point_cloud_frame(const decompressed_gof &gof, po
     for (auto i : jobs) {
         dec_context_->queue->waitForJob(i);
     }
-    Logger::log(LogLevel::DEBUG, "Reconstruction", "pointToPixel size " + std::to_string(reconstruct->point_to_pixel.size()) 
+    Logger::log(LogLevel::TRACE, "Reconstruction", "pointToPixel size " + std::to_string(reconstruct->point_to_pixel.size()) 
         + ", frame point count " + std::to_string(reconstruct->getPointCount()) + " \n");
 }
 

@@ -67,7 +67,7 @@ ThreadQueue::~ThreadQueue() {
 void ThreadQueue::pushJob(std::shared_ptr<Job> job) {
     assert(job->getState() == threadqueue_job_state::THREADQUEUE_JOB_STATE_PAUSED
         || job->getState() == threadqueue_job_state::THREADQUEUE_JOB_STATE_WAITING);
-    Logger::log(LogLevel::TRACE, "ThreadQueue", "Job " + job->getName() + " pushed to the queue\n");
+    Logger::log(LogLevel::DEBUG, "ThreadQueue", "Job " + job->getName() + " pushed to the queue\n");
     job->setState(threadqueue_job_state::THREADQUEUE_JOB_STATE_READY);
     jobs_[job->priority].push_back(job);
 }
@@ -122,7 +122,7 @@ void ThreadQueue::workerThread() {
             }
             // job = jobs_.front();
             // jobs_.pop_front();
-            Logger::log(LogLevel::TRACE, "ThreadQueue", "Job " + job->getName() + " popped from the queue\n");
+            Logger::log(LogLevel::DEBUG, "ThreadQueue", "Job " + job->getName() + " popped from the queue\n");
         }
         std::unique_lock lockJ(job->mtx_);
         assert(job->getState() == threadqueue_job_state::THREADQUEUE_JOB_STATE_READY);

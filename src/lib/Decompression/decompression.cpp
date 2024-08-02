@@ -138,7 +138,7 @@ void Decompression::initializeStaticParameters(const uvgvpcc_dec::Parameters& pa
     if (avcodec_open2(codec_context_, codec, nullptr) < 0){
         throw std::runtime_error("Could not initialize avcodec context");
     }
-    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "Video decoder initialized \n");
+    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "Video decoder initialized \n");
     
 }
 
@@ -150,7 +150,7 @@ void Decompression::handle_v3c_unit(const uint8_t vuh_unit_type, const size_t pa
                 current_gof_index_ = output->size();
                 new_gof.gof_index = current_gof_index_;
                 output->push_back(std::move(new_gof));
-                uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "Added GOF, index " + std::to_string(current_gof_index_) + " \n");
+                uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "Added GOF, index " + std::to_string(current_gof_index_) + " \n");
                 parameter_sets new_params;
                 saved_params_.push_back(new_params);
                 read_v3c_parameter_set(&saved_params_.back().vps);
@@ -175,7 +175,7 @@ void Decompression::handle_v3c_unit(const uint8_t vuh_unit_type, const size_t pa
                 decompress_video_sub_bitstream(payload_size, &output->at(current_gof_index_).attribute_maps.back());
                 break; }
             default: 
-                uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "Unkown V3C unit type " + std::to_string(vuh_unit_type) + " \n");
+                uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::WARNING, "Decompression", "Unkown V3C unit type " + std::to_string(vuh_unit_type) + " \n");
                 break;
         }
 }
@@ -186,12 +186,12 @@ void Decompression::decompressV3CUnitStream(const uvgvpcc_dec::API::v3c_chunk &c
     pos_.bits = 0;
     pos_.bytes = 0;
     for (size_t i = 0; i < chunk.v3c_unit_sizes.size(); i++) {
-        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "V3C unit size " + std::to_string(chunk.v3c_unit_sizes.at(i)) + " \n");
+        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "V3C unit size " + std::to_string(chunk.v3c_unit_sizes.at(i)) + " \n");
         size_t v3c_unit_payload_size = chunk.v3c_unit_sizes.at(i) - 4; // not incl. header
 
         // Next 4 bytes are the V3C unit header
         uint8_t vuh_unit_type = read(5, "vuh_unit_type");
-        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "V3C unit type " + std::to_string(vuh_unit_type) + " \n");
+        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "V3C unit type " + std::to_string(vuh_unit_type) + " \n");
         advance_bitstream(4 * 8 - 5); // skip the rest of v3c header for now
         handle_v3c_unit(vuh_unit_type, v3c_unit_payload_size, output);
     }
@@ -205,7 +205,7 @@ void Decompression::decompressV3CSampleStream(const std::vector<uint8_t> &data, 
 
     // 3 bits for v3c unit size precision - 1 and 5 reserved
     uint8_t v3c_size_precision_bytes = read(3, "v3c_size_precision_in_bytes") + 1;
-    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "V3C unit size precision " + std::to_string(v3c_size_precision_bytes) + " \n");
+    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "V3C unit size precision " + std::to_string(v3c_size_precision_bytes) + " \n");
     std::size_t v3c_unit_precision_bits = v3c_size_precision_bytes * 8;
 
     advance_bitstream(5);
@@ -217,23 +217,23 @@ void Decompression::decompressV3CSampleStream(const std::vector<uint8_t> &data, 
         std::size_t v3c_unit_size = read(v3c_unit_precision_bits, "v3c unit size");
 
         // Inside v3c unit now
-        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "Current V3C unit location " + std::to_string(pos_.bytes) + ", size " + std::to_string(v3c_unit_size) + " \n");
+        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "Current V3C unit location " + std::to_string(pos_.bytes) + ", size " + std::to_string(v3c_unit_size) + " \n");
         
 
         // Next 4 bytes are the V3C unit header
         uint8_t vuh_unit_type = read(5, "vuh_unit_type");
-        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "V3C unit type " + std::to_string(vuh_unit_type) + " \n");
+        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "V3C unit type " + std::to_string(vuh_unit_type) + " \n");
         advance_bitstream(4 * 8 - 5); // skip the rest of v3c header for now
 
         std::size_t v3c_unit_payload_size_bytes = v3c_unit_size - 4;
         handle_v3c_unit(vuh_unit_type, v3c_unit_payload_size_bytes, output);
     }
-    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "File parsed, pos_.bytes at " + std::to_string(pos_.bytes) + " \n");
+    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "File parsed, pos_.bytes at " + std::to_string(pos_.bytes) + " \n");
 }
 
 void Decompression::read_v3c_parameter_set(v3c_parameter_set* vps)
 {
-    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "Reading V3C parameter set \n");
+    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "Reading V3C parameter set \n");
     // profile_tier_level
     read_profile_tier_level(&vps->ptl);
     
@@ -696,13 +696,13 @@ void Decompression::read_atlas_nal_unit(NAL_UNIT_TYPE nal_unit_type, std::size_t
 
 void Decompression::read_atlas_sub_bitstream(std::size_t v3c_payload_size_bytes, decompressed_gof* output)
 {
-    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "Reading V3C atlas data, size " + std::to_string(v3c_payload_size_bytes) + " \n");
+    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "Reading V3C atlas data, size " + std::to_string(v3c_payload_size_bytes) + " \n");
 
     std::size_t end_ptr = pos_.bytes + v3c_payload_size_bytes;
     //advance_bitstream(v3c_payload_size_bytes * 8);
     // 3 bits for nAL unit size precision - 1 and 5 reserved
     uint8_t nal_size_precision_bytes = read(3, "nal_size_precision_in_bytes") + 1;
-    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "NAL size precision " + std::to_string(nal_size_precision_bytes) + " \n");
+    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "NAL size precision " + std::to_string(nal_size_precision_bytes) + " \n");
     std::size_t nal_unit_precision_bits = nal_size_precision_bytes * 8;
 
     advance_bitstream(5);
@@ -714,7 +714,7 @@ void Decompression::read_atlas_sub_bitstream(std::size_t v3c_payload_size_bytes,
         std::size_t nal_unit_size = read(nal_unit_precision_bits, "nal unit size");
 
         // Inside nal unit now
-        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "Current NAL unit location " + std::to_string(pos_.bytes) + ", size " + std::to_string(nal_unit_size) + " \n");
+        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "Current NAL unit location " + std::to_string(pos_.bytes) + ", size " + std::to_string(nal_unit_size) + " \n");
         
         read(1, "nal_forbidden_zero_bit");
         NAL_UNIT_TYPE nal_unit_type = static_cast<NAL_UNIT_TYPE>(read(6, "nal_unit_type"));
@@ -794,7 +794,7 @@ void Decompression::decode_atlas_frame(atlas_frame* frame, const atlas_tile_laye
 
 /*void Decompression::convert_video_sub_bitstream(const std::size_t v3c_payload_size_bytes, const std::string output_path, std::vector<uvgvpcc_dec::video_parameter_set_nalu>* v_params)
 {
-    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "Reading V3C video data " + std::to_string(v3c_payload_size_bytes) + " \n");
+    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "Reading V3C video data " + std::to_string(v3c_payload_size_bytes) + " \n");
     std::ofstream file(output_path, std::ios::binary);
     if(!file.is_open()) {
         throw std::runtime_error("Bitstream writing : Could not open output file " + output_path);
@@ -808,7 +808,7 @@ void Decompression::decode_atlas_frame(atlas_frame* frame, const atlas_tile_laye
         std::size_t nalu_size = read(32, "hevc nal unit size");
         std::size_t hevc_nal_type = cbuf_[pos_.bytes] >> 1;
         if (hevc_nal_type == 32 || hevc_nal_type == 33 || hevc_nal_type == 34) {
-            uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "Parameter set (type " + std::to_string(hevc_nal_type) + ") found, size " + std::to_string(nalu_size) + " \n");
+            uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "Parameter set (type " + std::to_string(hevc_nal_type) + ") found, size " + std::to_string(nalu_size) + " \n");
             std::unique_ptr<uint8_t[]> data(new uint8_t[nalu_size]);
             memcpy(data.get(), &cbuf_[pos_.bytes], nalu_size);
             v_params->push_back({hevc_nal_type, nalu_size, std::move(data)});
@@ -831,7 +831,7 @@ void Decompression::decompress_video_sub_bitstream(const std::size_t v3c_payload
 
 void Decompression::convert_video_sub_bitstream(const std::size_t v3c_payload_size_bytes, std::vector<uint8_t> &output, std::vector<size_t> &frame_boundaries)
 {
-    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "Converting V3C video data " + std::to_string(v3c_payload_size_bytes) + " \n");
+    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "Converting V3C video data " + std::to_string(v3c_payload_size_bytes) + " \n");
     output.resize(v3c_payload_size_bytes);
     size_t write_ptr = 0;
     frame_boundaries.push_back(write_ptr); 
@@ -843,7 +843,7 @@ void Decompression::convert_video_sub_bitstream(const std::size_t v3c_payload_si
         }
         std::size_t nalu_size = read(32, "hevc nal unit size");
         std::size_t hevc_nal_type = cbuf_[pos_.bytes] >> 1;
-        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "HEVC NAL unit (type " + std::to_string(hevc_nal_type) + ") found, size " + std::to_string(nalu_size) + " \n");
+        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "HEVC NAL unit (type " + std::to_string(hevc_nal_type) + ") found, size " + std::to_string(nalu_size) + " \n");
         
         memcpy(&output[write_ptr], hevc_start_code, 4);
         write_ptr += 4;
@@ -862,7 +862,7 @@ void Decompression::convert_video_sub_bitstream(const std::size_t v3c_payload_si
 
 std::vector<AVFrame*> Decompression::decode_video_frames(std::vector<uint8_t> &input, std::vector<size_t> &frame_boundaries)
 {
-    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "Start decoding HEVC data \n");
+    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "Start decoding HEVC data \n");
     if (!codec_context_) {
         throw std::runtime_error("Codec context is not initialized");
     }
@@ -884,7 +884,7 @@ std::vector<AVFrame*> Decompression::decode_video_frames(std::vector<uint8_t> &i
         packet->size = packet_size;
 
         //std::cout << "decoding data at " << cut_offs.at(frame_index) << " with size of " << packet_size << std::endl;
-
+        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "send_packet \n");
         int ret = avcodec_send_packet(codec_context_, packet);
         //std::cout << "send ret " << int(ret) << std::endl;
         if (ret < 0) {
@@ -897,6 +897,7 @@ std::vector<AVFrame*> Decompression::decode_video_frames(std::vector<uint8_t> &i
             throw std::runtime_error("Could not allocate video frame");
         }
         ret = avcodec_receive_frame(codec_context_, frame);
+        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "receive frame \n");
         //std::cout << "recv ret " << int(ret) << std::endl;
 
         if (ret == AVERROR(EAGAIN)) {
@@ -914,7 +915,7 @@ std::vector<AVFrame*> Decompression::decode_video_frames(std::vector<uint8_t> &i
         av_packet_free(&packet);
     }
 
-    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "Decoded " + std::to_string(output.size()) + " HEVC frames \n");
+    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "Decoded " + std::to_string(output.size()) + " HEVC frames \n");
     return output;
 }
 
@@ -957,7 +958,7 @@ void Decompression::decode_video_sub_bitstream(std::vector<uint8_t> &input, std:
         if(frame420.format == PCCCOLORFORMAT::YUV420) {
             frame444.convert_yuv_420_to_444(&frame420);
         }
-        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "Added video frame \n");
+        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "Added video frame \n");
         map->pictures.push_back(std::move(frame444));
         map->frame_count++;
         av_frame_free(&fr);
@@ -1023,7 +1024,7 @@ void Decompression::decode_video_sub_bitstream(std::vector<uint8_t> &input, std:
         }
 
         if (data_read == frameSize) {
-            uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "Added video frame \n");
+            uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "Added video frame \n");
             map->pictures.push_back(std::move(frame444));
             map->frame_count++;
         }
