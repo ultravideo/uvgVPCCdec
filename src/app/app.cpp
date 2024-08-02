@@ -5,6 +5,14 @@
 void readFile(const std::string filename, std::vector<uint8_t> &data);
 void readFile(const std::string filename, uvgvpcc_dec::API::v3c_unit_stream &unit_stream);
 
+size_t read_value(const uint8_t* src, size_t len) {
+    size_t value = 0;
+    for (size_t i = 0; i < len; ++i) {
+        value |= static_cast<size_t>(src[i]) << (8 * (len - 1 - i));
+    }
+    return value;
+}
+
 int main() {
     uvgvpcc_dec::Logger::setLogLevel(uvgvpcc_dec::LogLevel::TRACE);
     uvgvpcc_dec::Parameters param;
@@ -56,14 +64,6 @@ void readFile(const std::string filename, std::vector<uint8_t> &data)
     else {
         throw std::runtime_error("Error reading input file");
     }
-}
-
-size_t read_value(uint8_t* src, size_t len) {
-    size_t value = 0;
-    for (size_t i = 0; i < len; ++i) {
-        value |= static_cast<size_t>(src[i]) << (8 * (len - 1 - i));
-    }
-    return value;
 }
 
 void readFile(const std::string filename, uvgvpcc_dec::API::v3c_unit_stream &unit_stream)

@@ -159,20 +159,23 @@ void Decompression::handle_v3c_unit(const uint8_t vuh_unit_type, const size_t pa
                 read_atlas_sub_bitstream(payload_size, &output->at(current_gof_index_));
                 break;
             case V3C_UNIT_TYPE::V3C_OVD: {
-                decompress_video_sub_bitstream(payload_size, &output->at(current_gof_index_).occupancy_map);
+                decompress_video_sub_bitstream(payload_size, pos_.bytes, &output->at(current_gof_index_).occupancy_map);
+                advance_bitstream(payload_size * 8);
                 //output->at(current_gof_index_).occupancy_map.type = V3C_OVD;
                 break; }
             case V3C_UNIT_TYPE::V3C_GVD: {
                 video_map new_geo_map;
                 output->at(current_gof_index_).geometry_maps.push_back(new_geo_map);
                 //output->at(current_gof_index_).geometry_maps.back().type = V3C_GVD;
-                decompress_video_sub_bitstream(payload_size, &output->at(current_gof_index_).geometry_maps.back());
+                decompress_video_sub_bitstream(payload_size, pos_.bytes, &output->at(current_gof_index_).geometry_maps.back());
+                advance_bitstream(payload_size * 8);
                 break; }
             case V3C_UNIT_TYPE::V3C_AVD: {
                 video_map new_atr_map;
                 output->at(current_gof_index_).attribute_maps.push_back(new_atr_map);
                 //output->at(current_gof_index_).attribute_maps.back().type = V3C_AVD;
-                decompress_video_sub_bitstream(payload_size, &output->at(current_gof_index_).attribute_maps.back());
+                decompress_video_sub_bitstream(payload_size, pos_.bytes, &output->at(current_gof_index_).attribute_maps.back());
+                advance_bitstream(payload_size * 8);
                 break; }
             default: 
                 uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::WARNING, "Decompression", "Unkown V3C unit type " + std::to_string(vuh_unit_type) + " \n");
@@ -821,40 +824,47 @@ void Decompression::decode_atlas_frame(atlas_frame* frame, const atlas_tile_laye
     file.close();
 }*/
 
-void Decompression::decompress_video_sub_bitstream(const std::size_t v3c_payload_size_bytes, video_map* map)
+void Decompression::decompress_video_sub_bitstream(const std::size_t ptr, const std::size_t v3c_payload_size_bytes, video_map* map)
 {
     std::vector<uint8_t> temp = {};
     std::vector<size_t> frame_boundaries = {};
-    convert_video_sub_bitstream(v3c_payload_size_bytes, temp, frame_boundaries);
+    convert_video_sub_bitstream(v3c_payload_size_bytes, ptr, temp, frame_boundaries);
     decode_video_sub_bitstream(temp, frame_boundaries, map);
 }
 
-void Decompression::convert_video_sub_bitstream(const std::size_t v3c_payload_size_bytes, std::vector<uint8_t> &output, std::vector<size_t> &frame_boundaries)
+void Decompression::convert_video_sub_bitstream(const std::size_t ptr, const std::size_t v3c_payload_size_bytes, std::vector<uint8_t> &output, std::vector<size_t> &frame_boundaries)
 {
     uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "Converting V3C video data " + std::to_string(v3c_payload_size_bytes) + " \n");
     output.resize(v3c_payload_size_bytes);
     size_t write_ptr = 0;
-    frame_boundaries.push_back(write_ptr); 
-    std::size_t end_point = pos_.bytes + v3c_payload_size_bytes;
+    frame_boundaries.push_back(write_ptr);
+
+    // Copy the current location so we dont mess up the position on the whole V-PCC bitstream
+    std::size_t read_ptr = ptr;
+    const std::size_t end_point = read_ptr + v3c_payload_size_bytes;
     const char hevc_start_code[4] = {0x00, 0x00, 0x00, 0x01};
     while (true) {
-        if (pos_.bytes >= end_point) {
+        if (read_ptr >= end_point) {
             break;
         }
-        std::size_t nalu_size = read(32, "hevc nal unit size");
-        std::size_t hevc_nal_type = cbuf_[pos_.bytes] >> 1;
+        std::size_t nalu_size = read_value(&cbuf_[read_ptr], 4); //read(32, "hevc nal unit size");
+        read_ptr += 4;
+        std::size_t hevc_nal_type = cbuf_[read_ptr] >> 1;
         uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "HEVC NAL unit (type " + std::to_string(hevc_nal_type) + ") found, size " + std::to_string(nalu_size) + " \n");
         
         memcpy(&output[write_ptr], hevc_start_code, 4);
         write_ptr += 4;
-        memcpy(&output[write_ptr], &cbuf_[pos_.bytes], nalu_size);
+
+        memcpy(&output[write_ptr], &cbuf_[read_ptr], nalu_size);
         write_ptr += nalu_size;
+        read_ptr += nalu_size;
         if(hevc_nal_type == 19 || hevc_nal_type == 1) {
             //std::cout << "new cutoff at " << write_ptr << std::endl;
             frame_boundaries.push_back(write_ptr); 
         }
         
-        advance_bitstream(nalu_size * 8);
+        // Dont do this here to not mess up the bitstream
+        //advance_bitstream(nalu_size * 8);
         //std::cout << "write_ptr " << write_ptr << std::endl;
     }
     //std::cout << "end of s " << std::endl;
