@@ -21,10 +21,9 @@ void API::initializeDecoder(const Parameters& param)
 void API::decodeV3CChunk(v3c_chunk &chunk)
 {
     std::vector<decompressed_gof> decompressed_gofs;
-    video_parameter_set_nals long_term_video_parameters;
 
     // Unit stream decompression per input bitstream
-    Decompression::decompressV3CUnitStream(chunk, &decompressed_gofs, &long_term_video_parameters);
+    Decompression::decompressV3CUnitStream(chunk, &decompressed_gofs);
     for (size_t gof_i = 0; gof_i < decompressed_gofs.size(); gof_i++) {
 
         // Format conversion per GOF
@@ -44,10 +43,9 @@ void API::decodeV3CChunk(v3c_chunk &chunk)
 void API::decodeV3CSampleStream(std::vector<uint8_t> &data)
 {
     std::vector<decompressed_gof> decompressed_gofs;
-    video_parameter_set_nals long_term_video_parameters;
 
     // Sample stream decompression per input bitstream
-    Decompression::decompressV3CSampleStream(data, &decompressed_gofs, &long_term_video_parameters);
+    Decompression::decompressV3CSampleStream(data, &decompressed_gofs);
     for (size_t gof_i = 0; gof_i < decompressed_gofs.size(); gof_i++) {
 
         // Format conversion per GOF

@@ -23,8 +23,8 @@ struct parameter_sets {
 class Decompression {
 public: 
     static void initializeStaticParameters(const uvgvpcc_dec::Parameters& param);
-    static void decompressV3CSampleStream(const std::vector<uint8_t> &data, std::vector<decompressed_gof>* output, uvgvpcc_dec::video_parameter_set_nals* v_params);
-    static void decompressV3CUnitStream(const uvgvpcc_dec::API::v3c_chunk &chunk, std::vector<decompressed_gof>* output, uvgvpcc_dec::video_parameter_set_nals* v_params);
+    static void decompressV3CSampleStream(const std::vector<uint8_t> &data, std::vector<decompressed_gof>* output);
+    static void decompressV3CUnitStream(const uvgvpcc_dec::API::v3c_chunk &chunk, std::vector<decompressed_gof>* output);
 
     const static parameter_sets &get_saved_params(const size_t gof_index);
 
@@ -44,17 +44,18 @@ private:
     static void align_bitstream();
 
     /* high-level" decompression functions */
-    static void handle_v3c_unit(const uint8_t vuh_unit_type, const size_t payload_size, std::vector<decompressed_gof>* output, uvgvpcc_dec::video_parameter_set_nals* v_params);
+    static void handle_v3c_unit(const uint8_t vuh_unit_type, const size_t payload_size, std::vector<decompressed_gof>* output);
     static void decode_atlas_frame(atlas_frame* frame, const atlas_tile_layer_rbsp &rbsp);
+    static void decompress_video_sub_bitstream(const std::size_t v3c_payload_size_bytes, video_map* map);
 
     /* FFMPEG LIB functions */
-    static void convert_video_sub_bitstream(const std::size_t v3c_payload_size_bytes, std::vector<uint8_t> &output, std::vector<size_t> &cut_offs, std::vector<uvgvpcc_dec::video_parameter_set_nalu>* v_params);
-    static void decode_video_sub_bitstream(std::vector<uint8_t> &input, std::vector<size_t> &cut_offs, video_map* map);
-    static std::vector<AVFrame*> decode_video_data(std::vector<uint8_t> &input, std::vector<size_t> &cut_offs);
+    static void convert_video_sub_bitstream(const std::size_t v3c_payload_size_bytes, std::vector<uint8_t> &output, std::vector<size_t> &frame_boundaries);
+    static void decode_video_sub_bitstream(std::vector<uint8_t> &input, std::vector<size_t> &frame_boundaries, video_map* map);
+    static std::vector<AVFrame*> decode_video_data(std::vector<uint8_t> &input, std::vector<size_t> &frame_boundaries);
 
     /* FFMPEG APP functions */
-    static void convert_video_sub_bitstream(const std::size_t v3c_payload_size_bytes, const std::string output_path, std::vector<uvgvpcc_dec::video_parameter_set_nalu>* v_params);
-    static void decode_video_sub_bitstream(const std::string input_path, const std::string output_path, video_map* map);
+    //static void convert_video_sub_bitstream(const std::size_t v3c_payload_size_bytes, const std::string output_path, std::vector<uvgvpcc_dec::video_parameter_set_nalu>* v_params);
+    //static void decode_video_sub_bitstream(const std::string input_path, const std::string output_path, video_map* map);
 
 
 
