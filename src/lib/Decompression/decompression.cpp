@@ -200,40 +200,6 @@ void Decompression::decompressV3CUnitStream(const uvgvpcc_dec::API::v3c_chunk &c
     }
 }
 
-void Decompression::decompressV3CSampleStream(const std::vector<uint8_t> &data, std::vector<decompressed_gof>* output)
-{
-    cbuf_ = data.data();
-    pos_.bits = 0;
-    pos_.bytes = 0;
-
-    // 3 bits for v3c unit size precision - 1 and 5 reserved
-    uint8_t v3c_size_precision_bytes = read(3, "v3c_size_precision_in_bytes") + 1;
-    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "V3C unit size precision " + std::to_string(v3c_size_precision_bytes) + " \n");
-    std::size_t v3c_unit_precision_bits = v3c_size_precision_bytes * 8;
-
-    advance_bitstream(5);
-
-    while (true) {
-        if (pos_.bytes >= data.size()) {
-            break;
-        }
-        std::size_t v3c_unit_size = read(v3c_unit_precision_bits, "v3c unit size");
-
-        // Inside v3c unit now
-        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "Current V3C unit location " + std::to_string(pos_.bytes) + ", size " + std::to_string(v3c_unit_size) + " \n");
-        
-
-        // Next 4 bytes are the V3C unit header
-        uint8_t vuh_unit_type = read(5, "vuh_unit_type");
-        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "V3C unit type " + std::to_string(vuh_unit_type) + " \n");
-        advance_bitstream(4 * 8 - 5); // skip the rest of v3c header for now
-
-        std::size_t v3c_unit_payload_size_bytes = v3c_unit_size - 4;
-        handle_v3c_unit(vuh_unit_type, v3c_unit_payload_size_bytes, output);
-    }
-    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "File parsed, pos_.bytes at " + std::to_string(pos_.bytes) + " \n");
-}
-
 void Decompression::read_v3c_parameter_set(v3c_parameter_set* vps)
 {
     uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "Reading V3C parameter set \n");

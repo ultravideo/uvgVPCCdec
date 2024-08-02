@@ -26,21 +26,15 @@ int main() {
 
     std::string input_file = "longdress-f1.vpcc";
 
-    if (false) { // decode v3c sample stream
-        std::vector<uint8_t> data;
-        readFile(input_file, data);
-        uvgvpcc_dec::API::decodeV3CSampleStream(data);
+    uvgvpcc_dec::API::v3c_unit_stream unit_stream;
+    readFile(input_file, unit_stream);
+    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Application", "Number of V3C chunks " + std::to_string(unit_stream.v3c_chunks.size()) + " \n");
+    for (size_t i = 0; i < unit_stream.v3c_chunks.size(); ++i) {
+        /*const*/ auto& chunk = unit_stream.v3c_chunks.front();
+        uvgvpcc_dec::API::decodeV3CChunk(chunk);
+        unit_stream.v3c_chunks.pop();
     }
-    else {  // decode one chunk at a time
-        uvgvpcc_dec::API::v3c_unit_stream unit_stream;
-        readFile(input_file, unit_stream);
-        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Application", "Number of V3C chunks " + std::to_string(unit_stream.v3c_chunks.size()) + " \n");
-        for (size_t i = 0; i < unit_stream.v3c_chunks.size(); ++i) {
-            /*const*/ auto& chunk = unit_stream.v3c_chunks.front();
-            uvgvpcc_dec::API::decodeV3CChunk(chunk);
-            unit_stream.v3c_chunks.pop();
-        }
-    }
+    
         
     uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::INFO, "Application", "Done \n");
     return 0;

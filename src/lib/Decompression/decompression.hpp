@@ -23,7 +23,6 @@ struct parameter_sets {
 class Decompression {
 public: 
     static void initializeStaticParameters(const uvgvpcc_dec::Parameters& param);
-    static void decompressV3CSampleStream(const std::vector<uint8_t> &data, std::vector<decompressed_gof>* output);
     static void decompressV3CUnitStream(const uvgvpcc_dec::API::v3c_chunk &chunk, std::vector<decompressed_gof>* output);
 
     static size_t read_value(const uint8_t* src, size_t len) {
