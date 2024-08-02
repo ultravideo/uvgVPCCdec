@@ -325,7 +325,6 @@ struct picture {
 };
 
 struct video_map {
-    V3C_UNIT_TYPE type;
     size_t height = 0;
     size_t width = 0;
     size_t frame_count = 0;

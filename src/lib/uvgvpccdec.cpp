@@ -19,7 +19,7 @@ void API::initializeDecoder(const Parameters& param)
 {
     Logger::log(LogLevel::INFO, "API", "Initialize decoder " + std::to_string(param.hello) + "\n");
     dec_context_.queue = std::make_shared<ThreadQueue>(num_threads_);
-    Decompression::initializeStaticParameters(param);
+    Decompression::initializeStaticParameters(param, &dec_context_);
     Reconstruction::initializeStaticParameters(param, &dec_context_);
 }
 

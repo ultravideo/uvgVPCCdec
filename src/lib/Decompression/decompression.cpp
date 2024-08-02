@@ -9,8 +9,11 @@
 /* In debug mode print out some extra info */
 #define BITSTREAM_DEBUG false
 
+using namespace uvgvpcc_dec;
+
 static const uint8_t* cbuf_;
 static bitstream_position pos_;
+uvgvpcc_dec::context* dec_context1_;
 
 size_t current_gof_index_ = 0;
 std::vector<parameter_sets> saved_params_ = {};
@@ -34,7 +37,9 @@ std::string o_yuv;
 std::string g_yuv;
 std::string a_yuv;
 
-AVCodecContext* codec_context_ = nullptr;
+AVCodecContext* occupancy_codec_ctx_ = nullptr;
+AVCodecContext* geometry_codec_ctx_ = nullptr;
+AVCodecContext* attribute_codec_ctx_ = nullptr;
 
 const parameter_sets &Decompression::get_saved_params(const size_t gof_index)
 {
@@ -109,8 +114,9 @@ uint32_t Decompression::read_ue(const std::string &name)
     return value;
 }
 
-void Decompression::initializeStaticParameters(const uvgvpcc_dec::Parameters& param)
+void Decompression::initializeStaticParameters(const uvgvpcc_dec::Parameters& param, uvgvpcc_dec::context* context)
 {
+    dec_context1_ = context;
     occupancy_width_ = param.occupancy_width;
     occupancy_height_ = param.occupancy_height;
     // geometry and attribute
@@ -130,57 +136,25 @@ void Decompression::initializeStaticParameters(const uvgvpcc_dec::Parameters& pa
         throw std::runtime_error("Codec not found");
     }
 
-    codec_context_ = avcodec_alloc_context3(codec);
-    if (!codec_context_){
+    occupancy_codec_ctx_ = avcodec_alloc_context3(codec);
+    geometry_codec_ctx_ = avcodec_alloc_context3(codec);
+    attribute_codec_ctx_ = avcodec_alloc_context3(codec);
+
+    if (!occupancy_codec_ctx_ || !geometry_codec_ctx_ || !attribute_codec_ctx_){
         throw std::runtime_error("Could not allocate avcodec context");
     }
 
-    if (avcodec_open2(codec_context_, codec, nullptr) < 0){
+    if (avcodec_open2(occupancy_codec_ctx_, codec, nullptr) < 0){
+        throw std::runtime_error("Could not initialize avcodec context");
+    }
+    if (avcodec_open2(geometry_codec_ctx_, codec, nullptr) < 0){
+        throw std::runtime_error("Could not initialize avcodec context");
+    }
+    if (avcodec_open2(attribute_codec_ctx_, codec, nullptr) < 0){
         throw std::runtime_error("Could not initialize avcodec context");
     }
     uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "Video decoder initialized \n");
     
-}
-
-void Decompression::handle_v3c_unit(const uint8_t vuh_unit_type, const size_t payload_size, std::vector<decompressed_gof>* output)
-{
-    switch(vuh_unit_type) {
-            case V3C_UNIT_TYPE::V3C_VPS: {
-                decompressed_gof new_gof;
-                current_gof_index_ = output->size();
-                new_gof.gof_index = current_gof_index_;
-                output->push_back(std::move(new_gof));
-                uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "Added GOF, index " + std::to_string(current_gof_index_) + " \n");
-                parameter_sets new_params;
-                saved_params_.push_back(new_params);
-                read_v3c_parameter_set(&saved_params_.back().vps);
-                break; }
-            case V3C_UNIT_TYPE::V3C_AD:
-                read_atlas_sub_bitstream(payload_size, &output->at(current_gof_index_));
-                break;
-            case V3C_UNIT_TYPE::V3C_OVD: {
-                decompress_video_sub_bitstream(payload_size, pos_.bytes, &output->at(current_gof_index_).occupancy_map);
-                advance_bitstream(payload_size * 8);
-                //output->at(current_gof_index_).occupancy_map.type = V3C_OVD;
-                break; }
-            case V3C_UNIT_TYPE::V3C_GVD: {
-                video_map new_geo_map;
-                output->at(current_gof_index_).geometry_maps.push_back(new_geo_map);
-                //output->at(current_gof_index_).geometry_maps.back().type = V3C_GVD;
-                decompress_video_sub_bitstream(payload_size, pos_.bytes, &output->at(current_gof_index_).geometry_maps.back());
-                advance_bitstream(payload_size * 8);
-                break; }
-            case V3C_UNIT_TYPE::V3C_AVD: {
-                video_map new_atr_map;
-                output->at(current_gof_index_).attribute_maps.push_back(new_atr_map);
-                //output->at(current_gof_index_).attribute_maps.back().type = V3C_AVD;
-                decompress_video_sub_bitstream(payload_size, pos_.bytes, &output->at(current_gof_index_).attribute_maps.back());
-                advance_bitstream(payload_size * 8);
-                break; }
-            default: 
-                uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::WARNING, "Decompression", "Unkown V3C unit type " + std::to_string(vuh_unit_type) + " \n");
-                break;
-        }
 }
 
 void Decompression::decompressV3CUnitStream(const uvgvpcc_dec::API::v3c_chunk &chunk, std::vector<decompressed_gof>* output)
@@ -188,6 +162,13 @@ void Decompression::decompressV3CUnitStream(const uvgvpcc_dec::API::v3c_chunk &c
     cbuf_ = chunk.data.data();
     pos_.bits = 0;
     pos_.bytes = 0;
+
+    //std::vector<std::shared_ptr<Job>> video_dec_jobs = {};
+    std::shared_ptr<Job> occ_job;
+    std::shared_ptr<Job> geo_job;
+    std::shared_ptr<Job> atr_job;
+
+    /* In the current version, a single chunk should only have 1 of each type of V3C unit! */
     for (size_t i = 0; i < chunk.v3c_unit_sizes.size(); i++) {
         uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "V3C unit size " + std::to_string(chunk.v3c_unit_sizes.at(i)) + " \n");
         size_t v3c_unit_payload_size = chunk.v3c_unit_sizes.at(i) - 4; // not incl. header
@@ -196,8 +177,54 @@ void Decompression::decompressV3CUnitStream(const uvgvpcc_dec::API::v3c_chunk &c
         uint8_t vuh_unit_type = read(5, "vuh_unit_type");
         uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "V3C unit type " + std::to_string(vuh_unit_type) + " \n");
         advance_bitstream(4 * 8 - 5); // skip the rest of v3c header for now
-        handle_v3c_unit(vuh_unit_type, v3c_unit_payload_size, output);
+
+        if(vuh_unit_type == V3C_UNIT_TYPE::V3C_VPS) {
+            decompressed_gof new_gof;
+            current_gof_index_ = output->size();
+            new_gof.gof_index = current_gof_index_;
+            output->push_back(std::move(new_gof));
+            uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "Added GOF, index " + std::to_string(current_gof_index_) + " \n");
+            parameter_sets new_params;
+            saved_params_.push_back(new_params);
+            read_v3c_parameter_set(&saved_params_.back().vps);
+        }
+        else if (vuh_unit_type == V3C_UNIT_TYPE::V3C_AD) {
+            read_atlas_sub_bitstream(v3c_unit_payload_size, &output->at(current_gof_index_));
+        }
+        else if (vuh_unit_type == V3C_UNIT_TYPE::V3C_OVD) {
+            occ_job = std::make_shared<Job>("Decompression::decompress_video_sub_bitstream type " + std::to_string(vuh_unit_type),
+                3, Decompression::decompress_video_sub_bitstream, v3c_unit_payload_size, pos_.bytes,
+                std::ref(output->at(current_gof_index_).occupancy_map), occupancy_codec_ctx_);
+            dec_context1_->queue->submitJob(occ_job);
+            advance_bitstream(v3c_unit_payload_size * 8);
+        }
+        else if (vuh_unit_type == V3C_UNIT_TYPE::V3C_GVD) {
+            video_map new_geo_map;
+            output->at(current_gof_index_).geometry_maps.push_back(new_geo_map);
+            geo_job = std::make_shared<Job>("Decompression::decompress_video_sub_bitstream type " + std::to_string(vuh_unit_type),
+                3, Decompression::decompress_video_sub_bitstream, v3c_unit_payload_size, pos_.bytes,
+                std::ref(output->at(current_gof_index_).geometry_maps.back()), geometry_codec_ctx_);
+            dec_context1_->queue->submitJob(geo_job);
+            advance_bitstream(v3c_unit_payload_size * 8);
+        }
+        else if(vuh_unit_type == V3C_UNIT_TYPE::V3C_AVD) {
+            video_map new_atr_map;
+            output->at(current_gof_index_).attribute_maps.push_back(new_atr_map);
+            atr_job = std::make_shared<Job>("Decompression::decompress_video_sub_bitstream type " + std::to_string(vuh_unit_type),
+                3, Decompression::decompress_video_sub_bitstream, v3c_unit_payload_size, pos_.bytes,
+                std::ref(output->at(current_gof_index_).attribute_maps.back()), attribute_codec_ctx_);
+            dec_context1_->queue->submitJob(atr_job);
+            advance_bitstream(v3c_unit_payload_size * 8);
+        }
+        else {
+            uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::FATAL, "Decompression", "Unkown V3C unit type " + std::to_string(vuh_unit_type) + " \n");
+        }
     }
+    
+    dec_context1_->queue->waitForJob(occ_job);
+    dec_context1_->queue->waitForJob(geo_job);
+    dec_context1_->queue->waitForJob(atr_job);
+        
 }
 
 void Decompression::read_v3c_parameter_set(v3c_parameter_set* vps)
@@ -790,12 +817,12 @@ void Decompression::decode_atlas_frame(atlas_frame* frame, const atlas_tile_laye
     file.close();
 }*/
 
-void Decompression::decompress_video_sub_bitstream(const std::size_t ptr, const std::size_t v3c_payload_size_bytes, video_map* map)
+void Decompression::decompress_video_sub_bitstream(const std::size_t ptr, const std::size_t v3c_payload_size_bytes, video_map &map, AVCodecContext* codec_ctx)
 {
     std::vector<uint8_t> temp = {};
     std::vector<size_t> frame_boundaries = {};
     convert_video_sub_bitstream(v3c_payload_size_bytes, ptr, temp, frame_boundaries);
-    decode_video_sub_bitstream(temp, frame_boundaries, map);
+    decode_video_sub_bitstream(temp, frame_boundaries, map, codec_ctx);
 }
 
 void Decompression::convert_video_sub_bitstream(const std::size_t ptr, const std::size_t v3c_payload_size_bytes, std::vector<uint8_t> &output, std::vector<size_t> &frame_boundaries)
@@ -836,10 +863,11 @@ void Decompression::convert_video_sub_bitstream(const std::size_t ptr, const std
     //std::cout << "end of s " << std::endl;
 }
 
-std::vector<AVFrame*> Decompression::decode_video_frames(std::vector<uint8_t> &input, std::vector<size_t> &frame_boundaries)
+std::vector<AVFrame*> Decompression::decode_video_frames(std::vector<uint8_t> &input, std::vector<size_t> &frame_boundaries, AVCodecContext* codec_ctx)
 {
     uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "Start decoding HEVC data \n");
-    if (!codec_context_) {
+    AVCodecContext* context = codec_ctx;
+    if (!context) {
         throw std::runtime_error("Codec context is not initialized");
     }
     std::vector<AVFrame*> output = {};
@@ -859,9 +887,9 @@ std::vector<AVFrame*> Decompression::decode_video_frames(std::vector<uint8_t> &i
         size_t packet_size = frame_boundaries.at(frame_index + 1) - frame_boundaries.at(frame_index);
         packet->size = packet_size;
 
-        //std::cout << "decoding data at " << cut_offs.at(frame_index) << " with size of " << packet_size << std::endl;
+        //std::cout << "decoding data at " << frame_boundaries.at(frame_index) << " with size of " << packet_size << std::endl;
         uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "send_packet \n");
-        int ret = avcodec_send_packet(codec_context_, packet);
+        int ret = avcodec_send_packet(context, packet);
         //std::cout << "send ret " << int(ret) << std::endl;
         if (ret < 0) {
             av_packet_free(&packet);
@@ -872,7 +900,7 @@ std::vector<AVFrame*> Decompression::decode_video_frames(std::vector<uint8_t> &i
         if (!frame) {
             throw std::runtime_error("Could not allocate video frame");
         }
-        ret = avcodec_receive_frame(codec_context_, frame);
+        ret = avcodec_receive_frame(context, frame);
         uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "receive frame \n");
         //std::cout << "recv ret " << int(ret) << std::endl;
 
@@ -895,15 +923,15 @@ std::vector<AVFrame*> Decompression::decode_video_frames(std::vector<uint8_t> &i
     return output;
 }
 
-void Decompression::decode_video_sub_bitstream(std::vector<uint8_t> &input, std::vector<size_t> &frame_boundaries, video_map* map)
+void Decompression::decode_video_sub_bitstream(std::vector<uint8_t> &input, std::vector<size_t> &frame_boundaries, video_map &map, AVCodecContext* codec_ctx)
 {
     std::vector<AVFrame*> frames = {};
-    frames = decode_video_frames(input, frame_boundaries);
+    frames = decode_video_frames(input, frame_boundaries, codec_ctx);
     if(frames.empty()) {
         throw std::runtime_error("No frames decoded");
     }
-    map->width = frames.front()->width; // not perfect solution
-    map->height = frames.front()->height; // not perfect solution
+    map.width = frames.front()->width; // not perfect solution
+    map.height = frames.front()->height; // not perfect solution
 
     for (size_t i = 0; i < frames.size(); ++i) {
         AVFrame* fr = frames.at(i);
@@ -935,8 +963,8 @@ void Decompression::decode_video_sub_bitstream(std::vector<uint8_t> &input, std:
             frame444.convert_yuv_420_to_444(&frame420);
         }
         uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "Added video frame \n");
-        map->pictures.push_back(std::move(frame444));
-        map->frame_count++;
+        map.pictures.push_back(std::move(frame444));
+        map.frame_count++;
         av_frame_free(&fr);
     }
 }

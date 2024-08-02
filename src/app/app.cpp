@@ -14,14 +14,14 @@ size_t read_value(const uint8_t* src, size_t len) {
 }
 
 int main() {
-    uvgvpcc_dec::Logger::setLogLevel(uvgvpcc_dec::LogLevel::TRACE);
+    uvgvpcc_dec::Logger::setLogLevel(uvgvpcc_dec::LogLevel::DEBUG);
     uvgvpcc_dec::Parameters param;
     param.occupancy_width = 640;
     param.occupancy_height = 640;
     param.video_width = 1280;
     param.video_height = 1280;
     param.keep_intermediate_files = false;
-    //param.max_points = 738590;
+    param.max_points = 738590;
     uvgvpcc_dec::API::initializeDecoder(param);
 
     std::string input_file = "longdress-f1.vpcc";
