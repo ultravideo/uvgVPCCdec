@@ -851,9 +851,8 @@ void Decompression::convert_video_sub_bitstream(const std::size_t v3c_payload_si
         //std::cout << "still going " << std::endl;
         std::size_t nalu_size = read(32, "hevc nal unit size");
         std::size_t hevc_nal_type = cbuf_[pos_.bytes] >> 1;
-        std::cout << "-- HEVC nal type " << hevc_nal_type << std::endl;
+        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "HEVC NAL unit (type " + std::to_string(hevc_nal_type) + ") found, size " + std::to_string(nalu_size) + " \n");
         if (hevc_nal_type == 32 || hevc_nal_type == 33 || hevc_nal_type == 34) {
-            uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "Parameter set (type " + std::to_string(hevc_nal_type) + ") found, size " + std::to_string(nalu_size) + " \n");
             std::unique_ptr<uint8_t[]> data(new uint8_t[nalu_size]);
             memcpy(data.get(), &cbuf_[pos_.bytes], nalu_size);
             v_params->push_back({hevc_nal_type, nalu_size, std::move(data)});
@@ -875,7 +874,7 @@ void Decompression::convert_video_sub_bitstream(const std::size_t v3c_payload_si
 
 std::vector<AVFrame*> Decompression::decode_video_data(std::vector<uint8_t> &input, std::vector<size_t> &cut_offs)
 {
-    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::INFO, "Decompression", "Start decoding HEVC data \n");
+    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "Start decoding HEVC data \n");
     if (!codec_context_) {
         throw std::runtime_error("Codec context is not initialized");
     }
@@ -896,10 +895,10 @@ std::vector<AVFrame*> Decompression::decode_video_data(std::vector<uint8_t> &inp
         size_t packet_size = cut_offs.at(frame_index + 1) - cut_offs.at(frame_index);
         packet->size = packet_size;
 
-        std::cout << "decoding data at " << cut_offs.at(frame_index) << " with size of " << packet_size << std::endl;
+        //std::cout << "decoding data at " << cut_offs.at(frame_index) << " with size of " << packet_size << std::endl;
 
         int ret = avcodec_send_packet(codec_context_, packet);
-        std::cout << "send ret " << int(ret) << std::endl;
+        //std::cout << "send ret " << int(ret) << std::endl;
         if (ret == AVERROR(EAGAIN)) {
             std::cout << "send EAGAIN" << std::endl;
         }
@@ -916,7 +915,7 @@ std::vector<AVFrame*> Decompression::decode_video_data(std::vector<uint8_t> &inp
             throw std::runtime_error("Could not allocate video frame");
         }
         ret = avcodec_receive_frame(codec_context_, frame);
-        std::cout << "recv ret " << int(ret) << std::endl;
+        //std::cout << "recv ret " << int(ret) << std::endl;
 
         if (ret == AVERROR(EAGAIN)) {
             std::cout << "EAGAIN" << std::endl;
@@ -929,13 +928,12 @@ std::vector<AVFrame*> Decompression::decode_video_data(std::vector<uint8_t> &inp
             throw std::runtime_error("Error receiving frame from decoder");
         }
         else {
-            std::cout << "decoded succesfully"<< std::endl;
             output.push_back(frame);
         }
         av_packet_free(&packet);
     }
 
-    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::INFO, "Decompression", "Decoded " + std::to_string(output.size()) + " HEVC frames \n");
+    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "Decoded " + std::to_string(output.size()) + " HEVC frames \n");
     return output;
 }
 
