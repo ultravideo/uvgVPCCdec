@@ -13,10 +13,10 @@ int main() {
     param.video_width = 1280;
     param.video_height = 1280;
     param.keep_intermediate_files = false;
-    //param.max_points = 1003907;
+    //param.max_points = 738590;
     uvgvpcc_dec::API::initializeDecoder(param);
 
-    std::string input_file = "decoder-testing-6f-gof2.vpcc";
+    std::string input_file = "longdress-f1.vpcc";
 
     if (false) { // decode v3c sample stream
         std::vector<uint8_t> data;

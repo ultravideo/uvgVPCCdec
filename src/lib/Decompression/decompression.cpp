@@ -165,13 +165,13 @@ void Decompression::handle_v3c_unit(const uint8_t vuh_unit_type, const size_t pa
             case V3C_UNIT_TYPE::V3C_GVD: {
                 video_map new_geo_map;
                 output->at(current_gof_index_).geometry_maps.push_back(new_geo_map);
-                output->at(current_gof_index_).geometry_maps.back().type = V3C_GVD;
+                //output->at(current_gof_index_).geometry_maps.back().type = V3C_GVD;
                 decompress_video_sub_bitstream(payload_size, &output->at(current_gof_index_).geometry_maps.back());
                 break; }
             case V3C_UNIT_TYPE::V3C_AVD: {
                 video_map new_atr_map;
                 output->at(current_gof_index_).attribute_maps.push_back(new_atr_map);
-                output->at(current_gof_index_).attribute_maps.back().type = V3C_AVD;
+                //output->at(current_gof_index_).attribute_maps.back().type = V3C_AVD;
                 decompress_video_sub_bitstream(payload_size, &output->at(current_gof_index_).attribute_maps.back());
                 break; }
             default: 
@@ -860,7 +860,7 @@ void Decompression::convert_video_sub_bitstream(const std::size_t v3c_payload_si
     //std::cout << "end of s " << std::endl;
 }
 
-std::vector<AVFrame*> Decompression::decode_video_data(std::vector<uint8_t> &input, std::vector<size_t> &frame_boundaries)
+std::vector<AVFrame*> Decompression::decode_video_frames(std::vector<uint8_t> &input, std::vector<size_t> &frame_boundaries)
 {
     uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Decompression", "Start decoding HEVC data \n");
     if (!codec_context_) {
@@ -921,9 +921,9 @@ std::vector<AVFrame*> Decompression::decode_video_data(std::vector<uint8_t> &inp
 void Decompression::decode_video_sub_bitstream(std::vector<uint8_t> &input, std::vector<size_t> &frame_boundaries, video_map* map)
 {
     std::vector<AVFrame*> frames = {};
-    frames = decode_video_data(input, frame_boundaries);
+    frames = decode_video_frames(input, frame_boundaries);
     if(frames.empty()) {
-        throw std::runtime_error("No frame decoded");
+        throw std::runtime_error("No frames decoded");
     }
     map->width = frames.front()->width; // not perfect solution
     map->height = frames.front()->height; // not perfect solution

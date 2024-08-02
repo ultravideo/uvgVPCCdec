@@ -23,6 +23,11 @@ struct Parameters {
 
 };
 
+struct context{
+    const Parameters* p_;
+    std::shared_ptr<ThreadQueue> queue;
+};
+
 // HEVC NAL units (intended for VPS, SPS or PPS)
 /*struct video_parameter_set_nalu {
     size_t hevc_nal_type = 0;

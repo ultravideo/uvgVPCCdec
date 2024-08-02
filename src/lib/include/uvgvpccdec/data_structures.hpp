@@ -472,6 +472,7 @@ struct point_cloud_frame {
     std::vector<point3d> point_to_pixel = {};
 
     size_t num_of_used_points = 0;
+    std::mutex add_points_mtx;
 
     point3d& operator[]( size_t i ) {
         return positions[i];
@@ -486,6 +487,18 @@ struct point_cloud_frame {
     }
 
     size_t getPointCount() const { return num_of_used_points; }
+
+    void add_points_thread_safe(const std::vector<point3d>& positions, const std::vector<point3d> &p_to_ps) {
+        if (positions.size() != p_to_ps.size()) {
+            throw std::runtime_error("Error: positions size " + std::to_string(positions.size())
+                + " != p_to_ps size: " + std::to_string(p_to_ps.size()));
+        }
+        add_points_mtx.lock();
+        for (size_t i = 0; i < positions.size(); i++) {
+            addPoint(positions.at(i), p_to_ps.at(i));
+        }
+        add_points_mtx.unlock();
+    }
 
     size_t addPoint( const point3d& position, const point3d &p_to_p) {
         const size_t index = getPointCount();

@@ -9,13 +9,18 @@
 
 namespace uvgvpcc_dec
 {
+
+context dec_context_;
+size_t num_threads_ = 16;
+
 void readFile(const std::string filename, std::vector<uint8_t> &data);
 
 void API::initializeDecoder(const Parameters& param)
 {
     Logger::log(LogLevel::INFO, "API", "Initialize decoder " + std::to_string(param.hello) + "\n");
+    dec_context_.queue = std::make_shared<ThreadQueue>(num_threads_);
     Decompression::initializeStaticParameters(param);
-    Reconstruction::initializeStaticParameters(param);
+    Reconstruction::initializeStaticParameters(param, &dec_context_);
 }
 
 void API::decodeV3CChunk(v3c_chunk &chunk)

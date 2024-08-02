@@ -5,12 +5,14 @@
 using namespace uvgvpcc_dec;
 
 size_t max_points_ = 0;
+uvgvpcc_dec::context* dec_context_;
 
-void Reconstruction::initializeStaticParameters(const uvgvpcc_dec::Parameters& param)
+void Reconstruction::initializeStaticParameters(const uvgvpcc_dec::Parameters& param, uvgvpcc_dec::context* context)
 {
     if(param.max_points != 0) { // if its 0, its not specified
         max_points_ = param.max_points;
     }
+    dec_context_ = context;
 }
 
 /* ------------------------ ripped from tmc2------------------------ */
@@ -209,6 +211,11 @@ void Reconstruction::generateBlockToPatchFromOccupancyMapVideo(const atlas_frame
     }
 }
 
+void add_points(point_cloud_frame* reconstruct, const std::vector<point3d> &created_points, const std::vector<point3d> &created_point_to_pixel)
+{
+    reconstruct->add_points_thread_safe(created_points, created_point_to_pixel);
+}
+
 void Reconstruction::construct_point_cloud_frame(const decompressed_gof &gof, point_cloud_frame* reconstruct, size_t const frame_index)
 {
     Logger::log(LogLevel::INFO, "Reconstruction", "Reconstructing point cloud frame " + std::to_string(frame_index)
@@ -250,29 +257,35 @@ void Reconstruction::construct_point_cloud_frame(const decompressed_gof &gof, po
     size_t geoFrameCount = gof.geometry_maps.at(0).frame_count;
     if ( geoFrameCount < ( videoFrameIndex + mapCount ) ) { throw std::runtime_error("Invalid geoFrameCount");}
     
+    std::vector<std::shared_ptr<Job>> jobs = {};
+
     for ( std::size_t index = 0; index < current_atlas_frame->patches_map.size(); index++ ) {
         size_t patchIndex = patchPrecedenceOrderFlag  ? ( patch_count - index - 1 ) : index;
         const size_t patchIndexPlusOne = patchIndex + 1;
         const patch& patch  = current_atlas_frame->patches_map[patchIndex];
 
-        std::vector<point3d> created_point_to_pixel = {};
-        std::vector<point3d> created_points = {};
-        create_points_from_patch(patch, gof, patchIndexPlusOne, videoFrameIndex, occupancyMap, created_point_to_pixel,
-            *current_atlas_frame, created_points, block_to_patch);
+        auto create_job = std::make_shared<Job>("Index " + std::to_string(index)  + " Reconstruction::create_points_from_patch",
+            3, Reconstruction::create_points_from_patch, reconstruct,
+            std::cref(patch), std::cref(gof), patchIndexPlusOne, videoFrameIndex, std::cref(occupancyMap),
+             std::cref(*current_atlas_frame), std::cref(block_to_patch));
 
-        // TODO: When multithreading, get a mutex for this loop
-        for (size_t i = 0; i < created_points.size(); ++i) {
-            reconstruct->addPoint(created_points.at(i), created_point_to_pixel.at(i));
-        }
+        jobs.push_back(create_job);
+        dec_context_->queue->submitJob(create_job);
     }   
+    for (auto i : jobs) {
+        dec_context_->queue->waitForJob(i);
+    }
     Logger::log(LogLevel::DEBUG, "Reconstruction", "pointToPixel size " + std::to_string(reconstruct->point_to_pixel.size()) 
         + ", frame point count " + std::to_string(reconstruct->getPointCount()) + " \n");
 }
 
-void Reconstruction::create_points_from_patch(const patch &p, const decompressed_gof &gof, const size_t patch_index_plus_1,
-    const size_t video_frame_index, const std::vector<uint8_t> &occupancy_map, std::vector<point3d> &point_to_pixel,
-    const atlas_frame &atlas_frame, std::vector<point3d> &created_points, const std::vector<size_t> &block_to_patch)
+void Reconstruction::create_points_from_patch(point_cloud_frame* reconstruct, const patch &p, const decompressed_gof &gof, const size_t patch_index_plus_1,
+    const size_t video_frame_index, const std::vector<uint8_t> &occupancy_map,
+    const atlas_frame &atlas_frame, const std::vector<size_t> &block_to_patch)
 {
+    std::vector<point3d> point_to_pixel = {};
+    std::vector<point3d> created_points = {};
+
     const size_t frame_width = atlas_frame.frame_width;
     const size_t frame_height = atlas_frame.frame_height;
     const size_t atlas_index = atlas_frame.atlas_index;
@@ -327,7 +340,9 @@ void Reconstruction::create_points_from_patch(const patch &p, const decompressed
             }
         }
     }
+    reconstruct->add_points_thread_safe(created_points, point_to_pixel);
 }
+
 /* ------------------------ ripped from tmc2------------------------ */
 void Reconstruction::inverseRotatePosition45DegreeOnAxis( size_t axis, size_t lod, point3d &input, point3d& output ) {
     size_t s = ( 1u << ( lod - 1 ) ) - 1;

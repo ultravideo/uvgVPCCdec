@@ -51,7 +51,7 @@ private:
     /* FFMPEG LIB functions */
     static void convert_video_sub_bitstream(const std::size_t v3c_payload_size_bytes, std::vector<uint8_t> &output, std::vector<size_t> &frame_boundaries);
     static void decode_video_sub_bitstream(std::vector<uint8_t> &input, std::vector<size_t> &frame_boundaries, video_map* map);
-    static std::vector<AVFrame*> decode_video_data(std::vector<uint8_t> &input, std::vector<size_t> &frame_boundaries);
+    static std::vector<AVFrame*> decode_video_frames(std::vector<uint8_t> &input, std::vector<size_t> &frame_boundaries);
 
     /* FFMPEG APP functions */
     //static void convert_video_sub_bitstream(const std::size_t v3c_payload_size_bytes, const std::string output_path, std::vector<uvgvpcc_dec::video_parameter_set_nalu>* v_params);
