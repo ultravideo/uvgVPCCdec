@@ -13,7 +13,14 @@ size_t read_value(const uint8_t* src, size_t len) {
     return value;
 }
 
-int main() {
+int main(int argc, char* argv[]) {
+
+    if (argc != 2) {
+        std::cout << "invalid number of arguments, enter .vpcc filename " << std::endl;
+    }
+    //std::string input_file = "longdress-f1.vpcc";
+    std::string input_file = argv[1];
+
     uvgvpcc_dec::Logger::setLogLevel(uvgvpcc_dec::LogLevel::DEBUG);
     uvgvpcc_dec::Parameters param;
     param.occupancy_width = 640;
@@ -21,10 +28,8 @@ int main() {
     param.video_width = 1280;
     param.video_height = 1280;
     param.keep_intermediate_files = false;
-    param.max_points = 738590;
+    //param.max_points = 738590;
     uvgvpcc_dec::API::initializeDecoder(param);
-
-    std::string input_file = "longdress-f1.vpcc";
 
     uvgvpcc_dec::API::v3c_unit_stream unit_stream;
     readFile(input_file, unit_stream);
