@@ -20,7 +20,7 @@ int main(int argc, char* argv[]) {
     //std::string input_file = "longdress-f1.vpcc";
     std::string input_file = argv[1];
 
-    uvgvpcc_dec::Logger::setLogLevel(uvgvpcc_dec::LogLevel::TRACE);
+    uvgvpcc_dec::Logger::setLogLevel(uvgvpcc_dec::LogLevel::DEBUG);
     uvgvpcc_dec::Parameters param;
     param.occupancy_width = 640;
     param.occupancy_height = 640;

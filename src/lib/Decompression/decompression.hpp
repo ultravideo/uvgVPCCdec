@@ -29,7 +29,10 @@ public:
     static void parse_gofs(const uvgvpcc_dec::API::v3c_chunk &chunk, std::vector<uvgvpcc_dec::gof_info> &infos);
 
     static void decompress_vps(const size_t location, const size_t gof_index);
-    static void read_atlas_sub_bitstream(const size_t v3c_payload_size_bytes, decompressed_gof* output, const size_t location);
+    static void decompress_atlas_sub_bitstream(const size_t v3c_payload_size_bytes, decompressed_gof* output, const size_t location);
+
+    static void decompress_video_sub_bitstream(const uint8_t* buf, const size_t ptr, const size_t v3c_payload_size_bytes, video_map &map, AVCodecContext* codec_ctx);
+
 
     static size_t read_value(const uint8_t* src, size_t len) {
         size_t value = 0;
@@ -58,21 +61,14 @@ private:
 
     /* high-level" decompression functions */
     static void decode_atlas_frame(atlas_frame* frame, const atlas_tile_layer_rbsp &rbsp);
-    static void decompress_video_sub_bitstream(const std::size_t ptr, const std::size_t v3c_payload_size_bytes, video_map &map, AVCodecContext* codec_ctx);
 
     /* FFMPEG LIB functions */
-    static void convert_video_sub_bitstream(const std::size_t ptr, const std::size_t v3c_payload_size_bytes, std::vector<uint8_t> &output, std::vector<size_t> &frame_boundaries);
+    static void convert_video_sub_bitstream(const uint8_t* buf, const size_t ptr, const size_t v3c_payload_size_bytes, std::vector<uint8_t> &output, std::vector<size_t> &frame_boundaries);
     static void decode_video_sub_bitstream(std::vector<uint8_t> &input, std::vector<size_t> &frame_boundaries, video_map &map, AVCodecContext* codec_ctx);
     static std::vector<AVFrame*> decode_video_frames(std::vector<uint8_t> &input, std::vector<size_t> &frame_boundaries, AVCodecContext* codec_ctx);
 
-    /* FFMPEG APP functions */
-    //static void convert_video_sub_bitstream(const std::size_t v3c_payload_size_bytes, const std::string output_path, std::vector<uvgvpcc_dec::video_parameter_set_nalu>* v_params);
-    //static void decode_video_sub_bitstream(const std::string input_path, const std::string output_path, video_map* map);
-
-
-
     /* "low-level" parsing functions */
-    static void read_v3c_parameter_set(v3c_parameter_set* vps, bitstream_position ptr);
+    static void read_v3c_parameter_set(v3c_parameter_set* vps, bitstream_position &ptr);
     static void read_profile_tier_level(profile_tier_level* ptl, bitstream_position &ptr);
     static void read_atlas_nal_unit(NAL_UNIT_TYPE nal_unit_type, std::size_t nal_unit_size, decompressed_gof* output, bitstream_position &ptr);
     static void read_asps(atlas_sequence_parameter_set &asps, bitstream_position &ptr);

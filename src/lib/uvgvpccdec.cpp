@@ -13,6 +13,10 @@ namespace uvgvpcc_dec
 context dec_context_;
 size_t num_threads_ = 16;
 
+AVCodecContext* occupancy_codec_ctx_ = nullptr;
+AVCodecContext* geometry_codec_ctx_ = nullptr;
+AVCodecContext* attribute_codec_ctx_ = nullptr;
+
 void readFile(const std::string filename, std::vector<uint8_t> &data);
 
 void API::initializeDecoder(const Parameters& param)
@@ -21,6 +25,29 @@ void API::initializeDecoder(const Parameters& param)
     dec_context_.queue = std::make_shared<ThreadQueue>(num_threads_);
     Decompression::initializeStaticParameters(param, &dec_context_);
     Reconstruction::initializeStaticParameters(param, &dec_context_);
+
+    const AVCodec* codec = avcodec_find_decoder(AV_CODEC_ID_H265);
+    if (!codec){
+        throw std::runtime_error("Codec not found");
+    }
+
+    occupancy_codec_ctx_ = avcodec_alloc_context3(codec);
+    geometry_codec_ctx_ = avcodec_alloc_context3(codec);
+    attribute_codec_ctx_ = avcodec_alloc_context3(codec);
+
+    if (!occupancy_codec_ctx_ || !geometry_codec_ctx_ || !attribute_codec_ctx_){
+        throw std::runtime_error("Could not allocate avcodec context");
+    }
+
+    if (avcodec_open2(occupancy_codec_ctx_, codec, nullptr) < 0){
+        throw std::runtime_error("Could not initialize avcodec context");
+    }
+    if (avcodec_open2(geometry_codec_ctx_, codec, nullptr) < 0){
+        throw std::runtime_error("Could not initialize avcodec context");
+    }
+    if (avcodec_open2(attribute_codec_ctx_, codec, nullptr) < 0){
+        throw std::runtime_error("Could not initialize avcodec context");
+    }
 }
 
 void API::decodeV3CChunk(v3c_chunk &chunk) 
@@ -30,12 +57,58 @@ void API::decodeV3CChunk(v3c_chunk &chunk)
     for (size_t gof_index = 0; gof_index < gofs_infos.size(); gof_index++) {
         uvgvpcc_dec::gof_info current_raw_gof = gofs_infos.at(gof_index);
         decompressed_gof current_gof;
+        const uint8_t* buf = chunk.data.data();
 
-        Decompression::decompress_vps(current_raw_gof.vps_start, gof_index);
-        Decompression::read_atlas_sub_bitstream(current_raw_gof.ad_size, &current_gof, current_raw_gof.ad_start);
+        size_t vps_payload_start = current_raw_gof.vps_start + 4;
+        Decompression::decompress_vps(vps_payload_start, gof_index);
+        size_t atlas_payload_start = current_raw_gof.ad_start + 4;
+        size_t atlas_payload_size = current_raw_gof.ad_size - 4;
+        Decompression::decompress_atlas_sub_bitstream(atlas_payload_size, &current_gof, atlas_payload_start);
         
+        /* ------------------ OCCUPANCY ------------------ */
+        std::cout << "occupancy v3c nit header start " << current_raw_gof.ovd_start << std::endl;
+        size_t occupancy_payload_start = current_raw_gof.ovd_start + 4;
+        size_t occupancy_payload_size = current_raw_gof.ovd_size - 4;
 
+        auto occ_dec = std::make_shared<Job>("Decompression::decompress_video_sub_bitstream OCCUPANCY ",
+            3, Decompression::decompress_video_sub_bitstream, buf, occupancy_payload_start, occupancy_payload_size,
+            std::ref(current_gof.occupancy_map), occupancy_codec_ctx_);
+        dec_context_.queue->submitJob(occ_dec);
+
+        /* ------------------ GEOMETRY ------------------ */
+        size_t geometry_payload_start = current_raw_gof.gvd_start + 4;
+        size_t geometry_payload_size = current_raw_gof.gvd_size - 4;
+        video_map new_geo_map;
+        current_gof.geometry_maps.push_back(new_geo_map);
+        std::cout << "geometry_payload_start " << geometry_payload_start << std::endl;
+        auto geo_dec = std::make_shared<Job>("Decompression::decompress_video_sub_bitstream GEOMETRY ",
+            3, Decompression::decompress_video_sub_bitstream, buf, geometry_payload_start, geometry_payload_size,
+            std::ref(current_gof.geometry_maps.back()), geometry_codec_ctx_);
+        dec_context_.queue->submitJob(geo_dec);
+
+        /* ------------------ ATTRIBUTE ------------------ */
+        size_t attribute_payload_start = current_raw_gof.avd_start + 4;
+        size_t attribute_payload_size = current_raw_gof.avd_size - 4;
+        video_map new_atr_map;
+        current_gof.attribute_maps.push_back(new_atr_map);
+        auto atr_dec = std::make_shared<Job>("Decompression::decompress_video_sub_bitstream ATTRIBUTE ",
+            3, Decompression::decompress_video_sub_bitstream, buf, attribute_payload_start, attribute_payload_size,
+            std::ref(current_gof.attribute_maps.back()), attribute_codec_ctx_);
+        dec_context_.queue->submitJob(atr_dec);
+
+        /* ------------------ FORMAT CONVERSION ------------------ */
+        auto format_conversion = std::make_shared<Job>("FormatConversion::convertToNominalFormat ",
+            3, FormatConversion::convertToNominalFormat, &current_gof);
+        format_conversion->addDependency(occ_dec);
+        format_conversion->addDependency(geo_dec);
+        format_conversion->addDependency(atr_dec);
+        dec_context_.queue->submitJob(format_conversion);
+
+        dec_context_.queue->waitForJob(format_conversion);
+        
+        
     }
+
     return;
     /*std::vector<decompressed_gof> decompressed_gofs;
     // Unit stream decompression per input bitstream
