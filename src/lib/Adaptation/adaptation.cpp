@@ -91,7 +91,7 @@ inline double PCCClip( const double& n, const double& lower, const double& upper
 
 void Adaptation::convertYUV8ToRGB8(point_cloud_frame* reconstruct)
 {
-    Logger::log(LogLevel::TRACE, "Post-reconstruction", "Convert colors YUV 8bit -> RGB 8bit \n");
+    Logger::log(LogLevel::TRACE, "Adaptation", "Convert colors YUV 8bit -> RGB 8bit \n");
 
     std::vector<uvg_color>& colors = reconstruct->colors;
     for ( size_t k = 0; k < reconstruct->getPointCount(); k++ ) {

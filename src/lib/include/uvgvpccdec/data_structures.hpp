@@ -501,13 +501,15 @@ struct point_cloud_frame {
 
     size_t addPoint( const point3d& position, const point3d &p_to_p) {
         const size_t index = getPointCount();
-        if(index == positions.size()) {
+        positions.push_back(position);
+        point_to_pixel.push_back(p_to_p);
+        /*if(index == positions.size()) {
             positions.resize(num_of_used_points + 1);
             point_to_pixel.resize(num_of_used_points + 1);
             //std::cout << "resized positions to " << num_of_used_points + 1 << std::endl;
         }
         positions[index] = position;
-        point_to_pixel[index] = p_to_p;
+        point_to_pixel[index] = p_to_p;*/
         num_of_used_points++;
         return index;
     }

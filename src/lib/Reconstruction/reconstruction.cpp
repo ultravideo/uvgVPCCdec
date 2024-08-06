@@ -112,6 +112,7 @@ std::vector<point3d> Reconstruction::generate_points(const patch& patch, const s
 /* ------------------------ somewhat ripped from tmc2------------------------ */
 void Reconstruction::generateOccupancyMap( const size_t width, const size_t height, const picture &videoFrame,
     std::vector<uint8_t>* occupancyMap, const size_t occupancyPrecision) {
+    Logger::log(LogLevel::TRACE, "Reconstruction", "Generate occupancy map with precision " + std::to_string(occupancyPrecision) + " \n");
     occupancyMap->resize( width * height, 0 );
     for ( size_t v = 0; v < height; ++v ) {
         for ( size_t u = 0; u < width; ++u ) {
@@ -184,8 +185,7 @@ void Reconstruction::generateBlockToPatchFromOccupancyMapVideo(const atlas_frame
     const size_t blockToPatchHeight = frame.frame_height / patch_packing_block_size;
 
     const size_t blockCount         = blockToPatchWidth * blockToPatchHeight;
-    block_to_patch.resize( blockCount );
-    std::fill( block_to_patch.begin(), block_to_patch.end(), 0 );
+    block_to_patch.resize( blockCount, 0 );
     for ( size_t patchIndex = 0; patchIndex < frame.patches_map.size(); ++patchIndex ) {
         const patch& patch = frame.patches_map.at(patchIndex);
         size_t nonZeroPixel = 0;
@@ -228,8 +228,8 @@ void Reconstruction::construct_point_cloud_frame(const decompressed_gof &gof, po
     size_t frame_height = current_atlas_frame->frame_height;
 
     if(max_points_ != 0) {
-        reconstruct->positions.resize(max_points_);
-        reconstruct->point_to_pixel.resize(max_points_);
+        reconstruct->positions.reserve(max_points_);
+        reconstruct->point_to_pixel.reserve(max_points_);
     }
 
     const v3c_parameter_set &vps = Decompression::get_saved_params(gof.gof_index).vps;
