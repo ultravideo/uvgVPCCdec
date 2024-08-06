@@ -1,6 +1,19 @@
 # uvgVPCC decoder
 
+## Compilation
 
+Install libavcodec
+```
+sudo apt install libavcodec-dev
+```
+Build with
+```
+cmake -B _build/Release -S . -DBUILD_SHARED_LIBS=ON -DBUILD_TYPE=RelWithDebInfo && cmake --build ./_build/Release --parallel
+```
+Run
+```
+./_build/Release/src/app/uvgVPCCdec <input-filename.vpcc>
+```
 
 ## Getting started
 
