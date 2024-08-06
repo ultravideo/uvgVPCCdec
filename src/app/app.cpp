@@ -2,7 +2,6 @@
 #include <iostream>
 #include <fstream>
 
-void readFile(const std::string filename, std::vector<uint8_t> &data);
 void readFile(const std::string filename, uvgvpcc_dec::API::v3c_unit_stream &unit_stream);
 
 size_t read_value(const uint8_t* src, size_t len) {
@@ -21,7 +20,7 @@ int main(int argc, char* argv[]) {
     //std::string input_file = "longdress-f1.vpcc";
     std::string input_file = argv[1];
 
-    uvgvpcc_dec::Logger::setLogLevel(uvgvpcc_dec::LogLevel::DEBUG);
+    uvgvpcc_dec::Logger::setLogLevel(uvgvpcc_dec::LogLevel::TRACE);
     uvgvpcc_dec::Parameters param;
     param.occupancy_width = 640;
     param.occupancy_height = 640;
@@ -33,7 +32,7 @@ int main(int argc, char* argv[]) {
 
     uvgvpcc_dec::API::v3c_unit_stream unit_stream;
     readFile(input_file, unit_stream);
-    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Application", "Number of V3C chunks " + std::to_string(unit_stream.v3c_chunks.size()) + " \n");
+    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Application", "Number of V3C chunks " + std::to_string(unit_stream.v3c_chunks.size()) + " \n");
     for (size_t i = 0; i < unit_stream.v3c_chunks.size(); ++i) {
         /*const*/ auto& chunk = unit_stream.v3c_chunks.front();
         uvgvpcc_dec::API::decodeV3CChunk(chunk);
@@ -43,26 +42,6 @@ int main(int argc, char* argv[]) {
         
     uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::INFO, "Application", "Done \n");
     return 0;
-}
-
-void readFile(const std::string filename, std::vector<uint8_t> &data)
-{
-    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Application", "Opening file " + filename + " \n");
-    std::ifstream input_file (filename);
-    if (input_file.is_open()) {
-        input_file.seekg(0, std::ios::end);
-        std::size_t size = input_file.tellg();
-        input_file.seekg(0, std::ios::beg);
-        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Application", "Size of file " + std::to_string(size) + " \n");
-
-        data.resize(static_cast<std::size_t>(size)); // Allocate required storage
-        input_file.read(reinterpret_cast<char*> (&data[0]), size);
-
-        input_file.close();
-    }
-    else {
-        throw std::runtime_error("Error reading input file");
-    }
 }
 
 void readFile(const std::string filename, uvgvpcc_dec::API::v3c_unit_stream &unit_stream)

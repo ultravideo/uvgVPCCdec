@@ -157,6 +157,29 @@ void Decompression::initializeStaticParameters(const uvgvpcc_dec::Parameters& pa
     
 }
 
+void Decompression::parse_gofs(const uvgvpcc_dec::API::v3c_chunk &chunk, std::vector<size_t> &boundaries)
+{
+    cbuf_ = chunk.data.data();
+    pos_.bits = 0;
+    pos_.bytes = 0;
+
+    for (size_t i = 0; i < chunk.v3c_unit_sizes.size(); i++) {
+        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Parser", "V3C unit size " + std::to_string(chunk.v3c_unit_sizes.at(i)) + " \n");
+        size_t v3c_unit_payload_size = chunk.v3c_unit_sizes.at(i) - 4; // not incl. header
+        size_t pre_header = pos_.bytes;
+        // Next 4 bytes are the V3C unit header
+        uint8_t vuh_unit_type = read(5, "vuh_unit_type");
+        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Parser", "V3C unit type " + std::to_string(vuh_unit_type) + " \n");
+        advance_bitstream(4 * 8 - 5); // skip the rest of v3c header for now
+
+        if(vuh_unit_type == V3C_UNIT_TYPE::V3C_VPS) {
+            boundaries.push_back(pre_header);
+            uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Parser", "** Added GOF, start " + std::to_string(pre_header) + " ** \n");
+        }
+        advance_bitstream(v3c_unit_payload_size * 8);
+    }
+}
+
 void Decompression::decompressV3CUnitStream(const uvgvpcc_dec::API::v3c_chunk &chunk, std::vector<decompressed_gof>* output)
 {
     cbuf_ = chunk.data.data();

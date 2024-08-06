@@ -25,6 +25,9 @@ public:
     static void initializeStaticParameters(const uvgvpcc_dec::Parameters& param, uvgvpcc_dec::context* context);
     static void decompressV3CUnitStream(const uvgvpcc_dec::API::v3c_chunk &chunk, std::vector<decompressed_gof>* output);
 
+    /* Find the boundaries of different groupf of frames */
+    static void parse_gofs(const uvgvpcc_dec::API::v3c_chunk &chunk, std::vector<size_t> &boundaries);
+
     static size_t read_value(const uint8_t* src, size_t len) {
         size_t value = 0;
         for (size_t i = 0; i < len; ++i) {

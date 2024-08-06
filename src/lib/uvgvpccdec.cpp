@@ -23,10 +23,12 @@ void API::initializeDecoder(const Parameters& param)
     Reconstruction::initializeStaticParameters(param, &dec_context_);
 }
 
-void API::decodeV3CChunk(v3c_chunk &chunk)
+void API::decodeV3CChunk(v3c_chunk &chunk) 
 {
+    std::vector<size_t> gof_boundaries = {};
+    Decompression::parse_gofs(chunk, gof_boundaries);
+    return;
     std::vector<decompressed_gof> decompressed_gofs;
-
     // Unit stream decompression per input bitstream
     Decompression::decompressV3CUnitStream(chunk, &decompressed_gofs);
     for (size_t gof_i = 0; gof_i < decompressed_gofs.size(); gof_i++) {
