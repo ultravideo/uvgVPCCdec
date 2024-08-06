@@ -9,6 +9,23 @@
 namespace uvgvpcc_dec
 {
 
+struct gof_info {
+    size_t vps_start = 0;
+    size_t vps_size = 0;
+
+    size_t ad_start = 0;
+    size_t ad_size = 0;
+
+    size_t ovd_start = 0;
+    size_t ovd_size = 0;
+
+    size_t gvd_start = 0;
+    size_t gvd_size = 0;
+
+    size_t avd_start = 0;
+    size_t avd_size = 0;
+};
+
 struct Parameters {
     int hello = 0;
     size_t occupancy_width = 0;

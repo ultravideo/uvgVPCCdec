@@ -25,10 +25,19 @@ void API::initializeDecoder(const Parameters& param)
 
 void API::decodeV3CChunk(v3c_chunk &chunk) 
 {
-    std::vector<size_t> gof_boundaries = {};
-    Decompression::parse_gofs(chunk, gof_boundaries);
+    std::vector<uvgvpcc_dec::gof_info> gofs_infos = {};
+    Decompression::parse_gofs(chunk, gofs_infos);
+    for (size_t gof_index = 0; gof_index < gofs_infos.size(); gof_index++) {
+        uvgvpcc_dec::gof_info current_raw_gof = gofs_infos.at(gof_index);
+        decompressed_gof current_gof;
+
+        Decompression::decompress_vps(current_raw_gof.vps_start, gof_index);
+        Decompression::read_atlas_sub_bitstream(current_raw_gof.ad_size, &current_gof, current_raw_gof.ad_start);
+        
+
+    }
     return;
-    std::vector<decompressed_gof> decompressed_gofs;
+    /*std::vector<decompressed_gof> decompressed_gofs;
     // Unit stream decompression per input bitstream
     Decompression::decompressV3CUnitStream(chunk, &decompressed_gofs);
     for (size_t gof_i = 0; gof_i < decompressed_gofs.size(); gof_i++) {
@@ -44,7 +53,7 @@ void API::decodeV3CChunk(v3c_chunk &chunk)
             std::string out_name = "output-test-gof" + std::to_string(gof_i) + "-f" + std::to_string(frame_index) + ".ply";
             Adaptation::write(out_name, &reconstructed_point_cloud_frame);
         }
-    }
+    }*/
 }
 
 }

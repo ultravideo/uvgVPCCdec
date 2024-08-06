@@ -531,7 +531,7 @@ struct atlas_frame {
 struct decompressed_gof { // of a gof currently
     size_t gof_index = 0;
     size_t frame_count = 0; // this is fetched from the number of atlas frames
-    std::vector<std::unique_ptr<atlas_frame>> atlas_map; // frames or tiles? currently 1 tile per frame
+    std::vector<std::shared_ptr<atlas_frame>> atlas_map; // frames or tiles? currently 1 tile per frame
     video_map occupancy_map = {};
     std::vector<video_map> geometry_maps = {};
     std::vector<video_map> attribute_maps = {};
