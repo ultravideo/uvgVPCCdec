@@ -166,7 +166,7 @@ void Decompression::decompress_vps(const size_t location, const size_t gof_index
     parameter_sets new_params;
     new_params.gof_index = gof_index;
     saved_params_[gof_index] = new_params;
-    read_v3c_parameter_set(&saved_params_.back().vps, ptr);
+    read_v3c_parameter_set(&saved_params_[gof_index].vps, ptr);
 }
 
 void Decompression::read_v3c_parameter_set(v3c_parameter_set* vps, bitstream_position &ptr)
@@ -776,7 +776,6 @@ void Decompression::convert_video_sub_bitstream(const uint8_t* buf, const size_t
     output.resize(v3c_payload_size_bytes);
     size_t write_ptr = 0;
     frame_boundaries.push_back(write_ptr);
-    std::cout << "test, ptr " << ptr << std::endl;
 
     // Copy the current location so we dont mess up the position on the whole V-PCC bitstream
     std::size_t read_ptr = ptr;
@@ -786,9 +785,7 @@ void Decompression::convert_video_sub_bitstream(const uint8_t* buf, const size_t
         if (read_ptr >= end_point) {
             break;
         }
-        std::cout << "read ptr " << read_ptr << std::endl;
         std::size_t nalu_size = read_value(&buf[read_ptr], 4); //read(32, "hevc nal unit size");
-        std::cout << "test2" << std::endl;
         read_ptr += 4;
         std::size_t hevc_nal_type = buf[read_ptr] >> 1;
         uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "HEVC NAL unit (type " + std::to_string(hevc_nal_type) + ") found, size " + std::to_string(nalu_size) + " \n");
@@ -836,7 +833,7 @@ std::vector<AVFrame*> Decompression::decode_video_frames(std::vector<uint8_t> &i
         packet->size = packet_size;
 
         //std::cout << "decoding data at " << frame_boundaries.at(frame_index) << " with size of " << packet_size << std::endl;
-        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "send_packet \n");
+        //uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "send_packet \n");
         int ret = avcodec_send_packet(context, packet);
         //std::cout << "send ret " << int(ret) << std::endl;
         if (ret < 0) {
@@ -849,7 +846,7 @@ std::vector<AVFrame*> Decompression::decode_video_frames(std::vector<uint8_t> &i
             throw std::runtime_error("Could not allocate video frame");
         }
         ret = avcodec_receive_frame(context, frame);
-        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "receive frame \n");
+        //uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "receive frame \n");
         //std::cout << "recv ret " << int(ret) << std::endl;
 
         if (ret == AVERROR(EAGAIN)) {
@@ -910,7 +907,7 @@ void Decompression::decode_video_sub_bitstream(std::vector<uint8_t> &input, std:
         if(frame420.format == PCCCOLORFORMAT::YUV420) {
             frame444.convert_yuv_420_to_444(&frame420);
         }
-        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "Added video frame \n");
+        //uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "Added video frame \n");
         map.pictures.push_back(std::move(frame444));
         map.frame_count++;
         av_frame_free(&fr);

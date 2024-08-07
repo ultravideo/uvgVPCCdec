@@ -66,7 +66,6 @@ void API::decodeV3CChunk(v3c_chunk &chunk)
         Decompression::decompress_atlas_sub_bitstream(atlas_payload_size, &current_gof, atlas_payload_start);
         
         /* ------------------ OCCUPANCY ------------------ */
-        std::cout << "occupancy v3c nit header start " << current_raw_gof.ovd_start << std::endl;
         size_t occupancy_payload_start = current_raw_gof.ovd_start + 4;
         size_t occupancy_payload_size = current_raw_gof.ovd_size - 4;
 
@@ -80,7 +79,6 @@ void API::decodeV3CChunk(v3c_chunk &chunk)
         size_t geometry_payload_size = current_raw_gof.gvd_size - 4;
         video_map new_geo_map;
         current_gof.geometry_maps.push_back(new_geo_map);
-        std::cout << "geometry_payload_start " << geometry_payload_start << std::endl;
         auto geo_dec = std::make_shared<Job>("Decompression::decompress_video_sub_bitstream GEOMETRY ",
             3, Decompression::decompress_video_sub_bitstream, buf, geometry_payload_start, geometry_payload_size,
             std::ref(current_gof.geometry_maps.back()), geometry_codec_ctx_);
