@@ -52,6 +52,9 @@ void API::initializeDecoder(const Parameters& param)
 
 void API::decodeV3CChunk(v3c_chunk &chunk) 
 {
+
+    std::vector<std::shared_ptr<uvgvpcc_dec::Job>> write_jobs;
+
     std::vector<uvgvpcc_dec::gof_info> gofs_infos = {};
     Decompression::parse_gofs(chunk, gofs_infos);
     for (size_t gof_index = 0; gof_index < gofs_infos.size(); gof_index++) {
@@ -72,7 +75,6 @@ void API::decodeV3CChunk(v3c_chunk &chunk)
         auto occ_dec = std::make_shared<Job>("Decompression::decompress_video_sub_bitstream OCCUPANCY ",
             3, Decompression::decompress_video_sub_bitstream, buf, occupancy_payload_start, occupancy_payload_size,
             std::ref(current_gof.occupancy_map), occupancy_codec_ctx_);
-        dec_context_.queue->submitJob(occ_dec);
 
         /* ------------------ GEOMETRY ------------------ */
         size_t geometry_payload_start = current_raw_gof.gvd_start + 4;
@@ -82,7 +84,6 @@ void API::decodeV3CChunk(v3c_chunk &chunk)
         auto geo_dec = std::make_shared<Job>("Decompression::decompress_video_sub_bitstream GEOMETRY ",
             3, Decompression::decompress_video_sub_bitstream, buf, geometry_payload_start, geometry_payload_size,
             std::ref(current_gof.geometry_maps.back()), geometry_codec_ctx_);
-        dec_context_.queue->submitJob(geo_dec);
 
         /* ------------------ ATTRIBUTE ------------------ */
         size_t attribute_payload_start = current_raw_gof.avd_start + 4;
@@ -92,20 +93,57 @@ void API::decodeV3CChunk(v3c_chunk &chunk)
         auto atr_dec = std::make_shared<Job>("Decompression::decompress_video_sub_bitstream ATTRIBUTE ",
             3, Decompression::decompress_video_sub_bitstream, buf, attribute_payload_start, attribute_payload_size,
             std::ref(current_gof.attribute_maps.back()), attribute_codec_ctx_);
-        dec_context_.queue->submitJob(atr_dec);
 
         /* ------------------ FORMAT CONVERSION ------------------ */
         auto format_conversion = std::make_shared<Job>("FormatConversion::convertToNominalFormat ",
             3, FormatConversion::convertToNominalFormat, &current_gof);
+            
         format_conversion->addDependency(occ_dec);
         format_conversion->addDependency(geo_dec);
         format_conversion->addDependency(atr_dec);
-        dec_context_.queue->submitJob(format_conversion);
 
-        dec_context_.queue->waitForJob(format_conversion);
+        dec_context_.queue->submitJob(occ_dec);
+        dec_context_.queue->submitJob(geo_dec);
+        dec_context_.queue->submitJob(atr_dec);
+        dec_context_.queue->submitJob(format_conversion);
+        //dec_context_.queue->waitForJob(format_conversion);
         
+        for (size_t frame_index = 0; frame_index < current_gof.frame_count; frame_index++) {
+            // Point cloud reconstruction -> per frame
+            point_cloud_frame reconstructed_point_cloud_frame;
+
+            auto pc_reconstruct = std::make_shared<Job>("Reconstruction::construct_point_cloud_frame",
+                3, Reconstruction::construct_point_cloud_frame, std::ref(current_gof), &reconstructed_point_cloud_frame, frame_index);
+            
+            auto pc_color = std::make_shared<Job>("PostReconstruction::PostProcess",
+                3, PostReconstruction::PostProcess, std::ref(current_gof), &reconstructed_point_cloud_frame, frame_index);
+    
+            auto pc_convert = std::make_shared<Job>("Adaptation::convertYUV8ToRGB8",
+                3, Adaptation::convertYUV8ToRGB8, &reconstructed_point_cloud_frame);
+            
+            std::string out_name = "output-test-gof" + std::to_string(gof_index) + "-f" + std::to_string(frame_index) + ".ply";
+            auto pc_write = std::make_shared<Job>("Adaptation::write",
+                3, Adaptation::write, std::ref(out_name), &reconstructed_point_cloud_frame, true);
+            write_jobs.push_back(pc_write);
         
+            /*if(frame_index != 0) {
+                pc_write->addDependency(write_jobs.at(frame_index - 1));
+            }*/
+            pc_reconstruct->addDependency(format_conversion);
+            pc_color->addDependency(pc_reconstruct);
+            pc_convert->addDependency(pc_color);
+            pc_write->addDependency(pc_convert);
+
+            dec_context_.queue->submitJob(pc_reconstruct);
+            dec_context_.queue->submitJob(pc_color);
+            dec_context_.queue->submitJob(pc_convert);
+            dec_context_.queue->submitJob(pc_write);
+            dec_context_.queue->waitForJob(pc_write);
+        }
     }
+    //auto last_write = write_jobs.back();
+    //dec_context_.queue->waitForJob(last_write);
+    
 
     return;
     /*std::vector<decompressed_gof> decompressed_gofs;

@@ -226,7 +226,6 @@ void Reconstruction::construct_point_cloud_frame(const decompressed_gof &gof, po
     const picture &current_occupancy_frame = gof.occupancy_map.pictures.at(frame_index);
     size_t frame_width = current_atlas_frame->frame_width;
     size_t frame_height = current_atlas_frame->frame_height;
-
     if(max_points_ != 0) {
         reconstruct->positions.reserve(max_points_);
         reconstruct->point_to_pixel.reserve(max_points_);

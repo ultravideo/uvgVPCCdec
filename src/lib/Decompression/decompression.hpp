@@ -30,7 +30,6 @@ public:
 
     static void decompress_vps(const size_t location, const size_t gof_index);
     static void decompress_atlas_sub_bitstream(const size_t v3c_payload_size_bytes, decompressed_gof* output, const size_t location);
-
     static void decompress_video_sub_bitstream(const uint8_t* buf, const size_t ptr, const size_t v3c_payload_size_bytes, video_map &map, AVCodecContext* codec_ctx);
 
 
