@@ -3,13 +3,13 @@
 
 using namespace uvgvpcc_dec;
 
-void PostReconstruction::PostProcess(const decompressed_gof &gof, point_cloud_frame* reconstruct, const size_t frame_index)
+void PostReconstruction::PostProcess(decompressed_gof* gof, point_cloud_frame* reconstruct, const size_t frame_index)
 {
     Logger::log(LogLevel::TRACE, "Post-reconstruction", "Post-processing point cloud frame " + std::to_string(frame_index) + " \n");
-    const v3c_parameter_set &vps = Decompression::get_saved_params(gof.gof_index).vps;
+    const v3c_parameter_set &vps = Decompression::get_saved_params(gof->gof_index).vps;
     bool multipleStreams = vps.vps_multiple_map_streams_present_flag.at(0);
     uint8_t attributeCount = vps.ai_attribute_count;
-    color_point_cloud(reconstruct, gof, frame_index, multipleStreams, attributeCount);
+    color_point_cloud(reconstruct, *gof, frame_index, multipleStreams, attributeCount);
 }
 
 size_t PostReconstruction::color_point_cloud(point_cloud_frame* reconstruct, const decompressed_gof &gof, const size_t frame_index, const size_t multipleStreams, const uint8_t attributeCount )
