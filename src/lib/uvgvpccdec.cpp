@@ -50,10 +50,10 @@ void API::initializeDecoder(const Parameters& param)
     }
 }
 
-void API::decodeV3CChunk(v3c_chunk &chunk) 
+void API::decodeV3CChunk(v3c_chunk &chunk, uvgvpcc_dec::API::decoded_output* out) 
 {
 
-    std::vector<std::shared_ptr<uvgvpcc_dec::Job>> write_jobs;
+    std::vector<std::shared_ptr<uvgvpcc_dec::Job>> out_jobs;
     std::vector<std::shared_ptr<gof_info>> raw_gofs;
     std::vector<std::shared_ptr<decompressed_gof>> decompressed_gofs;
     std::vector<std::shared_ptr<point_cloud_frame>> point_cloud_frames;
@@ -126,29 +126,27 @@ void API::decodeV3CChunk(v3c_chunk &chunk)
             auto pc_convert = std::make_shared<Job>("Adaptation::convertYUV8ToRGB8",
                 3, Adaptation::convertYUV8ToRGB8, reconstructed_point_cloud_frame.get());
             
-            std::string out_name = "output-test-gof" + std::to_string(gof_index) + "-f" + std::to_string(frame_index) + ".ply";
-            auto pc_write = std::make_shared<Job>("Adaptation::write",
-                3, Adaptation::write, out_name, reconstructed_point_cloud_frame.get(), true);
-            write_jobs.push_back(pc_write);
+            auto pc_out = std::make_shared<Job>("Adaptation::output_decoded_frame",
+                3, Adaptation::output_decoded_frame, reconstructed_point_cloud_frame, out);
+            out_jobs.push_back(pc_out);
         
             if(frame_index != 0) {
-                pc_write->addDependency(write_jobs.at(frame_index - 1));
+                pc_out->addDependency(out_jobs.at(frame_index - 1));
             }
             //pc_reconstruct->addDependency(format_conversion);
             pc_color->addDependency(pc_reconstruct);
             pc_convert->addDependency(pc_color);
-            pc_write->addDependency(pc_convert);
+            pc_out->addDependency(pc_convert);
 
             dec_context_.queue->submitJob(pc_reconstruct);
             dec_context_.queue->submitJob(pc_color);
             dec_context_.queue->submitJob(pc_convert);
-            dec_context_.queue->submitJob(pc_write);
+            dec_context_.queue->submitJob(pc_out);
             //dec_context_.queue->waitForJob(pc_write);
         }
     }
-    std::cout << "wrtitejobs size " << write_jobs.size() << std::endl;
-    std::shared_ptr<uvgvpcc_dec::Job> last_write = write_jobs.back();
-    dec_context_.queue->waitForJob(last_write);
+    std::shared_ptr<uvgvpcc_dec::Job> last_out = out_jobs.back();
+    dec_context_.queue->waitForJob(last_out);
 }
 
 }

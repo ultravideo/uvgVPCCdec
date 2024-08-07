@@ -473,6 +473,9 @@ struct point_cloud_frame {
     size_t num_of_used_points = 0;
     std::mutex add_points_mtx;
 
+    size_t gof_index = 0;
+    size_t frame_index = 0;
+
     point3d& operator[]( size_t i ) {
         return positions[i];
     }

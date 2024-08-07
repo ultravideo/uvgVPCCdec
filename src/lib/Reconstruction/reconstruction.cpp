@@ -221,6 +221,9 @@ void Reconstruction::construct_point_cloud_frame(decompressed_gof* gof, point_cl
     Logger::log(LogLevel::INFO, "Reconstruction", "Reconstructing point cloud frame " + std::to_string(frame_index)
         + " in GOF " + std::to_string(gof->gof_index) + " \n");
 
+    reconstruct->gof_index = gof->gof_index;
+    reconstruct->frame_index = frame_index;
+    
     atlas_frame* current_atlas_frame = gof->atlas_map.at(frame_index).get();
     size_t atlas_index = current_atlas_frame->atlas_index;
     const picture &current_occupancy_frame = gof->occupancy_map.pictures.at(frame_index);
