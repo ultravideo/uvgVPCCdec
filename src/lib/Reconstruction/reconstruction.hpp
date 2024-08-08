@@ -9,6 +9,7 @@ public:
 
     static void setup_point_cloud_frame(decompressed_gof* gof, point_cloud_frame* reconstruct, const size_t frame_index);
     static void construct_point_cloud_frame(decompressed_gof* gof, point_cloud_frame* reconstruct, const size_t frame_index);
+    static void process_patch(const size_t index, decompressed_gof* gof, point_cloud_frame* reconstruct, const size_t frame_index);
 
     static void create_points_from_patch(point_cloud_frame* reconstruct, const patch &p, const decompressed_gof &gof, const size_t patch_index_plus_1,
         const size_t video_frame_index, const std::vector<uint8_t> &occupancy_map,

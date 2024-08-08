@@ -113,7 +113,6 @@ std::vector<point3d> Reconstruction::generate_points(const patch& patch, const s
 void Reconstruction::generateOccupancyMap( const size_t width, const size_t height, const picture &videoFrame,
     std::vector<uint8_t> &occupancyMap, const size_t occupancyPrecision) {
     Logger::log(LogLevel::TRACE, "Reconstruction", "Generate occupancy map with precision " + std::to_string(occupancyPrecision) + " \n");
-    std::cout << "width " << width << " height " << height << " res size " << width * height << std::endl;
     occupancyMap.resize( width * height, 0 );
     for ( size_t v = 0; v < height; ++v ) {
         for ( size_t u = 0; u < width; ++u ) {
@@ -251,6 +250,31 @@ void Reconstruction::setup_point_cloud_frame(decompressed_gof* gof, point_cloud_
     generateBlockToPatchFromOccupancyMapVideo(*current_atlas_frame, current_occupancy_frame,
         current_block_to_patch, patch_packing_block_size, occupancyPrecision);
     Logger::log(LogLevel::TRACE, "Reconstruction", "Block to patch generated \n");
+}
+
+void Reconstruction::process_patch(const size_t index, decompressed_gof* gof, point_cloud_frame* reconstruct, const size_t frame_index)
+{
+    atlas_frame* current_atlas_frame = gof->atlas_map.at(frame_index).get();
+    size_t atlas_index = current_atlas_frame->atlas_index;
+
+    const v3c_parameter_set &vps = Decompression::get_saved_params(gof->gof_index).vps;
+    const atlas_sequence_parameter_set &asps = Decompression::get_saved_params(gof->gof_index).asps;
+    
+    /* ------------------------ reconstruction ------------------------ */
+    const bool patchPrecedenceOrderFlag = asps.asps_patch_precedence_order_flag;
+    const size_t patch_count = current_atlas_frame->patches_map.size();
+
+    const size_t mapCount = vps.vps_map_count_minus1.at(atlas_index) + 1;
+    size_t videoFrameIndex = frame_index * mapCount;
+    size_t geoFrameCount = gof->geometry_maps.at(0).frame_count;
+    if ( geoFrameCount < ( videoFrameIndex + mapCount ) ) { throw std::runtime_error("Invalid geoFrameCount");}
+    
+    size_t patchIndex = patchPrecedenceOrderFlag  ? ( patch_count - index - 1 ) : index;
+    const size_t patchIndexPlusOne = patchIndex + 1;
+    const patch& patch  = current_atlas_frame->patches_map[patchIndex];
+
+    create_points_from_patch(reconstruct, patch, *gof, patchIndexPlusOne, videoFrameIndex, gof->occupancy_boolean_maps.at(frame_index),
+            *current_atlas_frame, gof->block_to_patches.at(frame_index));
 }
 
 void Reconstruction::construct_point_cloud_frame(decompressed_gof* gof, point_cloud_frame* reconstruct, const size_t frame_index)

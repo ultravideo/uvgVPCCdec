@@ -28,6 +28,7 @@ void API::decodeV3CChunk(v3c_chunk &chunk, uvgvpcc_dec::API::decoded_output* out
 {
 
     std::vector<std::shared_ptr<uvgvpcc_dec::Job>> out_jobs;
+    std::vector<std::shared_ptr<uvgvpcc_dec::Job>> patch_jobs;
     std::vector<std::shared_ptr<gof_info>> raw_gofs;
     std::vector<std::shared_ptr<decompressed_gof>> decompressed_gofs;
     std::vector<std::shared_ptr<point_cloud_frame>> point_cloud_frames;
@@ -67,12 +68,17 @@ void API::decodeV3CChunk(v3c_chunk &chunk, uvgvpcc_dec::API::decoded_output* out
             auto pc_setup = std::make_shared<Job>("Reconstruction::setup_point_cloud_frame",
                 1, Reconstruction::setup_point_cloud_frame, current_gof.get(), reconstructed_point_cloud_frame.get(), frame_index);
 
-            auto pc_reconstruct = std::make_shared<Job>("Reconstruction::construct_point_cloud_frame",
-                1, Reconstruction::construct_point_cloud_frame, current_gof.get(), reconstructed_point_cloud_frame.get(), frame_index);
-            
             auto pc_color = std::make_shared<Job>("PostReconstruction::PostProcess",
-                2, PostReconstruction::PostProcess, current_gof.get(), reconstructed_point_cloud_frame.get(), frame_index);
-    
+                3, PostReconstruction::PostProcess, current_gof.get(), reconstructed_point_cloud_frame.get(), frame_index);
+
+            for ( std::size_t index = 0; index < current_gof->atlas_map.at(frame_index)->patches_map.size(); index++ ) {
+                auto pc_patch = std::make_shared<Job>("Reconstruction::process_patch",
+                    2, Reconstruction::process_patch, index, current_gof.get(), reconstructed_point_cloud_frame.get(), frame_index);
+                patch_jobs.push_back(pc_patch);
+                pc_patch->addDependency(pc_setup);
+                pc_color->addDependency(pc_patch);
+            }
+
             auto pc_convert = std::make_shared<Job>("Adaptation::convertYUV8ToRGB8",
                 3, Adaptation::convertYUV8ToRGB8, reconstructed_point_cloud_frame.get());
             
@@ -81,8 +87,7 @@ void API::decodeV3CChunk(v3c_chunk &chunk, uvgvpcc_dec::API::decoded_output* out
             out_jobs.push_back(pc_out);
         
             pc_setup->addDependency(format_conversion);
-            pc_reconstruct->addDependency(pc_setup);
-            pc_color->addDependency(pc_reconstruct);
+            //pc_patch->addDependency(pc_setup);
             pc_convert->addDependency(pc_color);
             pc_out->addDependency(pc_convert);
 
@@ -95,7 +100,9 @@ void API::decodeV3CChunk(v3c_chunk &chunk, uvgvpcc_dec::API::decoded_output* out
                 dec_context_.queue->submitJob(format_conversion);
             }
             dec_context_.queue->submitJob(pc_setup);
-            dec_context_.queue->submitJob(pc_reconstruct);
+            for (size_t i = 0; i < patch_jobs.size(); i++) {
+                dec_context_.queue->submitJob(patch_jobs.at(i));
+            }
             dec_context_.queue->submitJob(pc_color);
             dec_context_.queue->submitJob(pc_convert);
             dec_context_.queue->submitJob(pc_out);
