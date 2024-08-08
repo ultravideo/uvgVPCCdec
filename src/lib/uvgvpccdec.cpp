@@ -11,7 +11,7 @@ namespace uvgvpcc_dec
 {
 
 context dec_context_;
-size_t num_threads_ = 2;
+size_t num_threads_ = 30;
 
 void readFile(const std::string filename, std::vector<uint8_t> &data);
 
@@ -38,7 +38,6 @@ void API::decodeV3CChunk(v3c_chunk &chunk, uvgvpcc_dec::API::decoded_output* out
     std::vector<uvgvpcc_dec::gof_info> gofs_infos = {};
     Decompression::parse_gofs(chunk, gofs_infos);
     for (size_t gof_index = 0; gof_index < gofs_infos.size(); gof_index++) {
-        std::cout << "gof index " << gof_index << std::endl;
         auto current_raw_gof = std::make_shared<uvgvpcc_dec::gof_info>(gofs_infos.at(gof_index));
         raw_gofs.push_back(current_raw_gof);
         std::shared_ptr<decompressed_gof> current_gof = std::make_shared<decompressed_gof>();
@@ -52,30 +51,29 @@ void API::decodeV3CChunk(v3c_chunk &chunk, uvgvpcc_dec::API::decoded_output* out
         Decompression::decompress_atlas_sub_bitstream(atlas_payload_size, current_gof.get(), atlas_payload_start);
 
         auto decompression = std::make_shared<Job>("Decompression::decompress_videos ",
-            5, Decompression::decompress_videos, buffer, current_raw_gof, current_gof);
+            4, Decompression::decompress_videos, buffer, current_raw_gof, current_gof);
 
         /* ------------------ FORMAT CONVERSION ------------------ */
         auto format_conversion = std::make_shared<Job>("FormatConversion::convertToNominalFormat ",
-            5, FormatConversion::convertToNominalFormat, current_gof.get());
+            4, FormatConversion::convertToNominalFormat, current_gof.get());
 
         format_conversion->addDependency(decompression);
 
         for (size_t frame_index = 0; frame_index < current_gof->frame_count; frame_index++) {
-            std::cout << "gof index " << gof_index << " frame index " << frame_index << std::endl;
             // Point cloud reconstruction -> per frame
             std::shared_ptr<point_cloud_frame> reconstructed_point_cloud_frame = std::make_shared<point_cloud_frame>();
             point_cloud_frames.push_back(reconstructed_point_cloud_frame);
             auto pc_reconstruct = std::make_shared<Job>("Reconstruction::construct_point_cloud_frame",
-                3, Reconstruction::construct_point_cloud_frame, current_gof.get(), reconstructed_point_cloud_frame.get(), frame_index);
+                1, Reconstruction::construct_point_cloud_frame, current_gof.get(), reconstructed_point_cloud_frame.get(), frame_index);
             
             auto pc_color = std::make_shared<Job>("PostReconstruction::PostProcess",
-                3, PostReconstruction::PostProcess, current_gof.get(), reconstructed_point_cloud_frame.get(), frame_index);
+                2, PostReconstruction::PostProcess, current_gof.get(), reconstructed_point_cloud_frame.get(), frame_index);
     
             auto pc_convert = std::make_shared<Job>("Adaptation::convertYUV8ToRGB8",
                 3, Adaptation::convertYUV8ToRGB8, reconstructed_point_cloud_frame.get());
             
             auto pc_out = std::make_shared<Job>("Adaptation::output_decoded_frame",
-                3, Adaptation::output_decoded_frame, reconstructed_point_cloud_frame, out);
+                5, Adaptation::output_decoded_frame, reconstructed_point_cloud_frame, out);
             out_jobs.push_back(pc_out);
         
             pc_reconstruct->addDependency(format_conversion);

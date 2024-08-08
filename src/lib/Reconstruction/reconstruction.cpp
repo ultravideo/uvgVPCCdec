@@ -223,7 +223,7 @@ void Reconstruction::construct_point_cloud_frame(decompressed_gof* gof, point_cl
 
     reconstruct->gof_index = gof->gof_index;
     reconstruct->frame_index = frame_index;
-    
+
     atlas_frame* current_atlas_frame = gof->atlas_map.at(frame_index).get();
     size_t atlas_index = current_atlas_frame->atlas_index;
     const picture &current_occupancy_frame = gof->occupancy_map.pictures.at(frame_index);
@@ -259,24 +259,27 @@ void Reconstruction::construct_point_cloud_frame(decompressed_gof* gof, point_cl
     size_t geoFrameCount = gof->geometry_maps.at(0).frame_count;
     if ( geoFrameCount < ( videoFrameIndex + mapCount ) ) { throw std::runtime_error("Invalid geoFrameCount");}
     
-    std::vector<std::shared_ptr<Job>> jobs = {};
+    //std::vector<std::shared_ptr<Job>> jobs = {};
 
     for ( std::size_t index = 0; index < current_atlas_frame->patches_map.size(); index++ ) {
         size_t patchIndex = patchPrecedenceOrderFlag  ? ( patch_count - index - 1 ) : index;
         const size_t patchIndexPlusOne = patchIndex + 1;
         const patch& patch  = current_atlas_frame->patches_map[patchIndex];
 
-        auto create_job = std::make_shared<Job>("Index " + std::to_string(index)  + " Reconstruction::create_points_from_patch",
+        create_points_from_patch(reconstruct, patch, *gof, patchIndexPlusOne, videoFrameIndex, occupancyMap,
+             *current_atlas_frame, block_to_patch);
+
+        /*auto create_job = std::make_shared<Job>("Index " + std::to_string(index)  + " Reconstruction::create_points_from_patch",
             3, Reconstruction::create_points_from_patch, reconstruct,
             std::cref(patch), std::cref(*gof), patchIndexPlusOne, videoFrameIndex, std::cref(occupancyMap),
              std::cref(*current_atlas_frame), std::cref(block_to_patch));
 
         jobs.push_back(create_job);
-        dec_context_->queue->submitJob(create_job);
+        dec_context_->queue->submitJob(create_job);*/
     }   
-    for (auto i : jobs) {
+    /*for (auto i : jobs) {
         dec_context_->queue->waitForJob(i);
-    }
+    }*/
     Logger::log(LogLevel::TRACE, "Reconstruction", "pointToPixel size " + std::to_string(reconstruct->point_to_pixel.size()) 
         + ", frame point count " + std::to_string(reconstruct->getPointCount()) + " \n");
 }
