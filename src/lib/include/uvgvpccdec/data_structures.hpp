@@ -539,5 +539,8 @@ struct decompressed_gof { // of a gof currently
     std::vector<video_map> geometry_maps = {};
     std::vector<video_map> attribute_maps = {};
 
+    std::vector<std::vector<uint8_t>> occupancy_boolean_maps = {};
+    std::vector<std::vector<size_t>> block_to_patches = {};
+
     decompressed_gof() = default;
 };

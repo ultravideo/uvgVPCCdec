@@ -11,7 +11,7 @@ namespace uvgvpcc_dec
 {
 
 context dec_context_;
-size_t num_threads_ = 30;
+size_t num_threads_ = 16;
 
 void readFile(const std::string filename, std::vector<uint8_t> &data);
 
@@ -63,6 +63,10 @@ void API::decodeV3CChunk(v3c_chunk &chunk, uvgvpcc_dec::API::decoded_output* out
             // Point cloud reconstruction -> per frame
             std::shared_ptr<point_cloud_frame> reconstructed_point_cloud_frame = std::make_shared<point_cloud_frame>();
             point_cloud_frames.push_back(reconstructed_point_cloud_frame);
+
+            auto pc_setup = std::make_shared<Job>("Reconstruction::setup_point_cloud_frame",
+                1, Reconstruction::setup_point_cloud_frame, current_gof.get(), reconstructed_point_cloud_frame.get(), frame_index);
+
             auto pc_reconstruct = std::make_shared<Job>("Reconstruction::construct_point_cloud_frame",
                 1, Reconstruction::construct_point_cloud_frame, current_gof.get(), reconstructed_point_cloud_frame.get(), frame_index);
             
@@ -76,7 +80,8 @@ void API::decodeV3CChunk(v3c_chunk &chunk, uvgvpcc_dec::API::decoded_output* out
                 5, Adaptation::output_decoded_frame, reconstructed_point_cloud_frame, out);
             out_jobs.push_back(pc_out);
         
-            pc_reconstruct->addDependency(format_conversion);
+            pc_setup->addDependency(format_conversion);
+            pc_reconstruct->addDependency(pc_setup);
             pc_color->addDependency(pc_reconstruct);
             pc_convert->addDependency(pc_color);
             pc_out->addDependency(pc_convert);
@@ -89,6 +94,7 @@ void API::decodeV3CChunk(v3c_chunk &chunk, uvgvpcc_dec::API::decoded_output* out
                 dec_context_.queue->submitJob(decompression);
                 dec_context_.queue->submitJob(format_conversion);
             }
+            dec_context_.queue->submitJob(pc_setup);
             dec_context_.queue->submitJob(pc_reconstruct);
             dec_context_.queue->submitJob(pc_color);
             dec_context_.queue->submitJob(pc_convert);

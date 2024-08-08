@@ -7,6 +7,7 @@ public:
 
     static void initializeStaticParameters(const uvgvpcc_dec::Parameters& param, uvgvpcc_dec::context* context);
 
+    static void setup_point_cloud_frame(decompressed_gof* gof, point_cloud_frame* reconstruct, const size_t frame_index);
     static void construct_point_cloud_frame(decompressed_gof* gof, point_cloud_frame* reconstruct, const size_t frame_index);
 
     static void create_points_from_patch(point_cloud_frame* reconstruct, const patch &p, const decompressed_gof &gof, const size_t patch_index_plus_1,
@@ -23,7 +24,7 @@ public:
 
     /* ------------------------ ripped from tmc2------------------------ */
     static void generateOccupancyMap( const size_t width, const size_t height, const picture &videoFrame,
-        std::vector<uint8_t>* occupancyMap, const size_t occupancyPrecision);
+        std::vector<uint8_t> &occupancyMap, const size_t occupancyPrecision);
 
     /* ------------------------ ripped from tmc2------------------------ */
     static std::vector<point3d> generate_points(const patch &patch, const std::vector<video_map>& videoGeometryMultiple,

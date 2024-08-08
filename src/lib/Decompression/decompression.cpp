@@ -193,6 +193,9 @@ void Decompression::decompress_videos(std::shared_ptr<uint8_t*> buf, std::shared
     decompress_video_sub_bitstream(*buf.get(), occupancy_payload_start, occupancy_payload_size,
         &out_gof->occupancy_map, occupancy_codec_ctx_);
 
+    out_gof->occupancy_boolean_maps.resize(out_gof->occupancy_map.frame_count);
+    out_gof->block_to_patches.resize(out_gof->frame_count);
+    
     /* ------------------ GEOMETRY ------------------ */
     size_t geometry_payload_start = in_gof->gvd_start + 4;
     size_t geometry_payload_size = in_gof->gvd_size - 4;
