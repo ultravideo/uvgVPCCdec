@@ -11,7 +11,7 @@ inline double PCCClip( const double& n, const double& lower, const double& upper
 
 void Adaptation::output_decoded_frame(std::shared_ptr<point_cloud_frame> reconstruct, uvgvpcc_dec::API::decoded_output* out)
 {
-    Logger::log(LogLevel::TRACE, "Adaptation", "Outputting decoded frame \n");
+    Logger::log(LogLevel::INFO, "Adaptation", "Output decoded frame, GOF " + std::to_string(reconstruct->gof_index) + " frame " + std::to_string(reconstruct->frame_index) + " \n");
     out->io_mutex.lock();
     out->frames.push(reconstruct);
     out->io_mutex.unlock();

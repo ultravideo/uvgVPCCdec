@@ -10,6 +10,7 @@ namespace uvgvpcc_dec
 {
 
 struct gof_info {
+
     size_t vps_start = 0;
     size_t vps_size = 0;
 

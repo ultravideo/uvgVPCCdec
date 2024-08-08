@@ -17,6 +17,11 @@ uvgvpcc_dec::context* dec_context1_;
 size_t current_gof_index_ = 0;
 std::vector<parameter_sets> saved_params_ = {};
 
+AVCodecContext* occupancy_codec_ctx_ = nullptr;
+AVCodecContext* geometry_codec_ctx_ = nullptr;
+AVCodecContext* attribute_codec_ctx_ = nullptr;
+std::mutex video_dec_mtx_;
+
 size_t occupancy_width_ = 0;
 size_t occupancy_height_ = 0;
 // geometry and attribute
@@ -109,7 +114,28 @@ void Decompression::initializeStaticParameters(const uvgvpcc_dec::Parameters& pa
     keep_intermediate_files_ = param.keep_intermediate_files;
 
     uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "Video decoder initialized \n");
-    
+    const AVCodec* codec = avcodec_find_decoder(AV_CODEC_ID_H265);
+    if (!codec){
+        throw std::runtime_error("Codec not found");
+    }
+
+    occupancy_codec_ctx_ = avcodec_alloc_context3(codec);
+    geometry_codec_ctx_ = avcodec_alloc_context3(codec);
+    attribute_codec_ctx_ = avcodec_alloc_context3(codec);
+
+    if (!occupancy_codec_ctx_ || !geometry_codec_ctx_ || !attribute_codec_ctx_){
+        throw std::runtime_error("Could not allocate avcodec context");
+    }
+
+    if (avcodec_open2(occupancy_codec_ctx_, codec, nullptr) < 0){
+        throw std::runtime_error("Could not initialize avcodec context");
+    }
+    if (avcodec_open2(geometry_codec_ctx_, codec, nullptr) < 0){
+        throw std::runtime_error("Could not initialize avcodec context");
+    }
+    if (avcodec_open2(attribute_codec_ctx_, codec, nullptr) < 0){
+        throw std::runtime_error("Could not initialize avcodec context");
+    }
 }
 
 void Decompression::parse_gofs(const uvgvpcc_dec::API::v3c_chunk &chunk, std::vector<uvgvpcc_dec::gof_info> &infos)
@@ -156,6 +182,33 @@ void Decompression::parse_gofs(const uvgvpcc_dec::API::v3c_chunk &chunk, std::ve
         advance_bitstream(v3c_unit_payload_size * 8, ptr);
     }
     saved_params_.resize(infos.size());
+}
+
+void Decompression::decompress_videos(std::shared_ptr<uint8_t*> buf, std::shared_ptr<uvgvpcc_dec::gof_info> in_gof, std::shared_ptr<decompressed_gof> out_gof)
+{    
+    video_dec_mtx_.lock();
+    /* ------------------ OCCUPANCY ------------------ */
+    size_t occupancy_payload_start = in_gof->ovd_start + 4;
+    size_t occupancy_payload_size = in_gof->ovd_size - 4;
+    decompress_video_sub_bitstream(*buf.get(), occupancy_payload_start, occupancy_payload_size,
+        &out_gof->occupancy_map, occupancy_codec_ctx_);
+
+    /* ------------------ GEOMETRY ------------------ */
+    size_t geometry_payload_start = in_gof->gvd_start + 4;
+    size_t geometry_payload_size = in_gof->gvd_size - 4;
+    video_map new_geo_map;
+    out_gof->geometry_maps.push_back(new_geo_map);
+    decompress_video_sub_bitstream(*buf.get(), geometry_payload_start, geometry_payload_size,
+        &out_gof->geometry_maps.back(), geometry_codec_ctx_);
+
+    /* ------------------ ATTRIBUTE ------------------ */
+    size_t attribute_payload_start = in_gof->avd_start + 4;
+    size_t attribute_payload_size = in_gof->avd_size - 4;
+    video_map new_atr_map;
+    out_gof->attribute_maps.push_back(new_atr_map);
+    decompress_video_sub_bitstream(*buf.get(), attribute_payload_start, attribute_payload_size,
+        &out_gof->attribute_maps.back(), attribute_codec_ctx_);
+    video_dec_mtx_.unlock();
 }
 
 void Decompression::decompress_vps(const size_t location, const size_t gof_index)
@@ -762,12 +815,12 @@ void Decompression::decode_atlas_frame(atlas_frame* frame, const atlas_tile_laye
     file.close();
 }*/
 
-void Decompression::decompress_video_sub_bitstream(const uint8_t* buf, const size_t ptr, const size_t v3c_payload_size_bytes, video_map &map, AVCodecContext* codec_ctx)
+void Decompression::decompress_video_sub_bitstream(uint8_t* buf, const size_t ptr, const size_t v3c_payload_size_bytes, video_map* map, AVCodecContext* codec_ctx)
 {
     std::vector<uint8_t> temp = {};
     std::vector<size_t> frame_boundaries = {};
     convert_video_sub_bitstream(buf, ptr, v3c_payload_size_bytes, temp, frame_boundaries);
-    decode_video_sub_bitstream(temp, frame_boundaries, map, codec_ctx);
+    decode_video_sub_bitstream(temp, frame_boundaries, *map, codec_ctx);
 }
 
 void Decompression::convert_video_sub_bitstream(const uint8_t* buf, const size_t ptr, const size_t v3c_payload_size_bytes, std::vector<uint8_t> &output, std::vector<size_t> &frame_boundaries)

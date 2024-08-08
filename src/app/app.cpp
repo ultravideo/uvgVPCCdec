@@ -32,7 +32,7 @@ int main(int argc, char* argv[]) {
     //std::string input_file = "longdress-f1.vpcc";
     std::string input_file = argv[1];
 
-    uvgvpcc_dec::Logger::setLogLevel(uvgvpcc_dec::LogLevel::DEBUG);
+    uvgvpcc_dec::Logger::setLogLevel(uvgvpcc_dec::LogLevel::TRACE);
     uvgvpcc_dec::Parameters param;
     param.occupancy_width = 640;
     param.occupancy_height = 640;
@@ -55,6 +55,7 @@ int main(int argc, char* argv[]) {
         uvgvpcc_dec::API::decodeV3CChunk(chunk, &output);
         unit_stream.v3c_chunks.pop();
     }
+    std::cout << "Pushing empty frame" << std::endl;
     output.io_mutex.lock();
     std::shared_ptr<point_cloud_frame> empty = std::make_shared<point_cloud_frame>();
     output.frames.push(empty); // Push empty point cloud frame to signal end of data
@@ -125,7 +126,7 @@ bool output_func(uvgvpcc_dec::API::decoded_output* output)
 /* ------------------------ ripped from tmc2------------------------ */
 bool write( const std::string fileName, point_cloud_frame* frame, const bool asAscii ) {
 
-    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::INFO, "Adaptation", "Write to file " + fileName + " \n");
+    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Adaptation", "Write to file " + fileName + " \n");
     //std::ofstream fout( fileName, std::ofstream::out );
     //if ( !fout.is_open() ) { return false; }
     const size_t pointCount = frame->getPointCount();
