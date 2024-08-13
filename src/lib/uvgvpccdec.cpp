@@ -110,9 +110,7 @@ void API::decodeV3CChunk(v3c_chunk &chunk, uvgvpcc_dec::API::decoded_output* out
             //dec_context_.queue->waitForJob(pc_write);
         }
     }
-    std::cout << "out jobs size " << out_jobs.size() << std::endl;
     dec_context_.queue->waitForJob(last_out);
-    std::cout << "wait done " << std::endl;
 }
 
 }

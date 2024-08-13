@@ -106,11 +106,6 @@ uint32_t Decompression::read_ue(bitstream_position &pos, const std::string &name
 void Decompression::initializeStaticParameters(const uvgvpcc_dec::Parameters& param, uvgvpcc_dec::context* context)
 {
     dec_context1_ = context;
-    occupancy_width_ = param.occupancy_width;
-    occupancy_height_ = param.occupancy_height;
-    // geometry and attribute
-    video_width_ = param.video_width;
-    video_height_ = param.video_height;
     keep_intermediate_files_ = param.keep_intermediate_files;
 
     uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "Video decoder initialized \n");

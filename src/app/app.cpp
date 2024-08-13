@@ -32,12 +32,9 @@ int main(int argc, char* argv[]) {
     //std::string input_file = "longdress-f1.vpcc";
     std::string input_file = argv[1];
 
-    uvgvpcc_dec::Logger::setLogLevel(uvgvpcc_dec::LogLevel::INFO);
+    uvgvpcc_dec::Logger::setLogLevel(uvgvpcc_dec::LogLevel::TRACE);
     uvgvpcc_dec::Parameters param;
-    param.occupancy_width = 640;
-    param.occupancy_height = 640;
-    param.video_width = 1280;
-    param.video_height = 1280;
+
     param.keep_intermediate_files = false;
     //param.max_points = 738590;
     uvgvpcc_dec::API::initializeDecoder(param);
@@ -55,7 +52,6 @@ int main(int argc, char* argv[]) {
         uvgvpcc_dec::API::decodeV3CChunk(chunk, &output);
         unit_stream.v3c_chunks.pop();
     }
-    std::cout << "Pushing empty frame" << std::endl;
     output.io_mutex.lock();
     std::shared_ptr<point_cloud_frame> empty = std::make_shared<point_cloud_frame>();
     output.frames.push(empty); // Push empty point cloud frame to signal end of data
