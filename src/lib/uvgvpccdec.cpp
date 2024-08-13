@@ -28,6 +28,7 @@ void API::decodeV3CChunk(v3c_chunk &chunk, uvgvpcc_dec::API::decoded_output* out
 {
 
     std::vector<std::shared_ptr<uvgvpcc_dec::Job>> out_jobs;
+    std::shared_ptr<uvgvpcc_dec::Job> last_out;
     std::vector<std::shared_ptr<uvgvpcc_dec::Job>> patch_jobs;
     std::vector<std::shared_ptr<gof_info>> raw_gofs;
     std::vector<std::shared_ptr<decompressed_gof>> decompressed_gofs;
@@ -92,9 +93,9 @@ void API::decodeV3CChunk(v3c_chunk &chunk, uvgvpcc_dec::API::decoded_output* out
             pc_out->addDependency(pc_convert);
 
             if(frame_index != 0) {
-                pc_out->addDependency(out_jobs.at(frame_index - 1));
+                pc_out->addDependency(last_out);
             }
-
+            last_out = pc_out;
             if (frame_index == 0) {
                 dec_context_.queue->submitJob(decompression);
                 dec_context_.queue->submitJob(format_conversion);
@@ -110,7 +111,6 @@ void API::decodeV3CChunk(v3c_chunk &chunk, uvgvpcc_dec::API::decoded_output* out
         }
     }
     std::cout << "out jobs size " << out_jobs.size() << std::endl;
-    std::shared_ptr<uvgvpcc_dec::Job> last_out = out_jobs.back();
     dec_context_.queue->waitForJob(last_out);
     std::cout << "wait done " << std::endl;
 }
