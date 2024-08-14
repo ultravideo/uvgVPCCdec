@@ -133,7 +133,7 @@ void Decompression::initializeStaticParameters(const uvgvpcc_dec::Parameters& pa
     }
 }
 
-void Decompression::parse_gofs(const uvgvpcc_dec::API::v3c_chunk &chunk, std::vector<uvgvpcc_dec::gof_info> &infos)
+void Decompression::parse_gofs(const uvgvpcc_dec::v3c_chunk &chunk, std::vector<uvgvpcc_dec::gof_info> &infos)
 {
     cbuf_ = chunk.data.data();
     bitstream_position ptr;
@@ -179,13 +179,16 @@ void Decompression::parse_gofs(const uvgvpcc_dec::API::v3c_chunk &chunk, std::ve
     saved_params_.resize(infos.size());
 }
 
-void Decompression::decompress_videos(std::shared_ptr<uint8_t*> buf, std::shared_ptr<uvgvpcc_dec::gof_info> in_gof, std::shared_ptr<decompressed_gof> out_gof)
+void Decompression::decompress_videos(uint8_t* buf, std::shared_ptr<uvgvpcc_dec::gof_info> in_gof, std::shared_ptr<decompressed_gof> out_gof)
 {    
     video_dec_mtx_.lock();
+    std::cout << "in gof " << in_gof->ad_size << std::endl;
+    std::cout << "buf " << buf << std::endl;
+    std::cout << "out gof " << out_gof->frame_count << std::endl;
     /* ------------------ OCCUPANCY ------------------ */
     size_t occupancy_payload_start = in_gof->ovd_start + 4;
     size_t occupancy_payload_size = in_gof->ovd_size - 4;
-    decompress_video_sub_bitstream(*buf.get(), occupancy_payload_start, occupancy_payload_size,
+    decompress_video_sub_bitstream(buf, occupancy_payload_start, occupancy_payload_size,
         &out_gof->occupancy_map, occupancy_codec_ctx_);
 
     out_gof->occupancy_boolean_maps.resize(out_gof->occupancy_map.frame_count);
@@ -196,7 +199,7 @@ void Decompression::decompress_videos(std::shared_ptr<uint8_t*> buf, std::shared
     size_t geometry_payload_size = in_gof->gvd_size - 4;
     video_map new_geo_map;
     out_gof->geometry_maps.push_back(new_geo_map);
-    decompress_video_sub_bitstream(*buf.get(), geometry_payload_start, geometry_payload_size,
+    decompress_video_sub_bitstream(buf, geometry_payload_start, geometry_payload_size,
         &out_gof->geometry_maps.back(), geometry_codec_ctx_);
 
     /* ------------------ ATTRIBUTE ------------------ */
@@ -204,7 +207,7 @@ void Decompression::decompress_videos(std::shared_ptr<uint8_t*> buf, std::shared
     size_t attribute_payload_size = in_gof->avd_size - 4;
     video_map new_atr_map;
     out_gof->attribute_maps.push_back(new_atr_map);
-    decompress_video_sub_bitstream(*buf.get(), attribute_payload_start, attribute_payload_size,
+    decompress_video_sub_bitstream(buf, attribute_payload_start, attribute_payload_size,
         &out_gof->attribute_maps.back(), attribute_codec_ctx_);
     video_dec_mtx_.unlock();
 }
@@ -823,6 +826,9 @@ void Decompression::decompress_video_sub_bitstream(uint8_t* buf, const size_t pt
 
 void Decompression::convert_video_sub_bitstream(const uint8_t* buf, const size_t ptr, const size_t v3c_payload_size_bytes, std::vector<uint8_t> &output, std::vector<size_t> &frame_boundaries)
 {
+    std::cout << "pre 1" << std::endl;
+    std::cout << "buf " << buf << std::endl;
+    std::cout << "post 1" << std::endl;
     uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "Converting V3C video data " + std::to_string(v3c_payload_size_bytes) + " \n");
     output.resize(v3c_payload_size_bytes);
     size_t write_ptr = 0;

@@ -52,6 +52,7 @@ int main(int argc, char* argv[]) {
         uvgvpcc_dec::API::decodeV3CChunk(chunk, &output);
         unit_stream.v3c_chunks.pop();
     }
+    uvgvpcc_dec::API::emptyFrameQueue();
     output.io_mutex.lock();
     std::shared_ptr<point_cloud_frame> empty = std::make_shared<point_cloud_frame>();
     output.frames.push(empty); // Push empty point cloud frame to signal end of data
@@ -78,7 +79,7 @@ void readFile(const std::string filename, uvgvpcc_dec::API::v3c_unit_stream &uni
     unit_stream.v3c_unit_size_precision_bytes = v3c_unit_size_precision;
     
     uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Application", "V3C unit size precision " + std::to_string(v3c_unit_size_precision) + " \n");
-    uvgvpcc_dec::API::v3c_chunk latest_chunk;
+    uvgvpcc_dec::v3c_chunk latest_chunk;
     while (input_file.peek() != EOF) {
         
         uint8_t v3c_size_array[v3c_unit_size_precision];
@@ -93,7 +94,7 @@ void readFile(const std::string filename, uvgvpcc_dec::API::v3c_unit_stream &uni
         data_read += input_file.gcount();
         
     }
-    unit_stream.v3c_chunks.push(latest_chunk);
+    unit_stream.v3c_chunks.push(std::make_shared<uvgvpcc_dec::v3c_chunk>(latest_chunk));
     input_file.close();
 }
 

@@ -26,9 +26,9 @@ public:
     static void initializeStaticParameters(const uvgvpcc_dec::Parameters& param, uvgvpcc_dec::context* context);
 
     /* Find the boundaries of different groupf of frames */
-    static void parse_gofs(const uvgvpcc_dec::API::v3c_chunk &chunk, std::vector<uvgvpcc_dec::gof_info> &infos);
+    static void parse_gofs(const uvgvpcc_dec::v3c_chunk &chunk, std::vector<uvgvpcc_dec::gof_info> &infos);
 
-    static void decompress_videos(std::shared_ptr<uint8_t*> buf, std::shared_ptr<uvgvpcc_dec::gof_info> in_gof, std::shared_ptr<decompressed_gof> out_gof);
+    static void decompress_videos(uint8_t* buf, std::shared_ptr<uvgvpcc_dec::gof_info> in_gof, std::shared_ptr<decompressed_gof> out_gof);
 
     static void decompress_vps(const size_t location, const size_t gof_index);
     static void decompress_atlas_sub_bitstream(const size_t v3c_payload_size_bytes, decompressed_gof* output, const size_t location);
