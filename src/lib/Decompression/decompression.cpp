@@ -182,9 +182,6 @@ void Decompression::parse_gofs(const uvgvpcc_dec::v3c_chunk &chunk, std::vector<
 void Decompression::decompress_videos(uint8_t* buf, std::shared_ptr<uvgvpcc_dec::gof_info> in_gof, std::shared_ptr<decompressed_gof> out_gof)
 {    
     video_dec_mtx_.lock();
-    std::cout << "in gof " << in_gof->ad_size << std::endl;
-    std::cout << "buf " << buf << std::endl;
-    std::cout << "out gof " << out_gof->frame_count << std::endl;
     /* ------------------ OCCUPANCY ------------------ */
     size_t occupancy_payload_start = in_gof->ovd_start + 4;
     size_t occupancy_payload_size = in_gof->ovd_size - 4;
@@ -826,9 +823,6 @@ void Decompression::decompress_video_sub_bitstream(uint8_t* buf, const size_t pt
 
 void Decompression::convert_video_sub_bitstream(const uint8_t* buf, const size_t ptr, const size_t v3c_payload_size_bytes, std::vector<uint8_t> &output, std::vector<size_t> &frame_boundaries)
 {
-    std::cout << "pre 1" << std::endl;
-    std::cout << "buf " << buf << std::endl;
-    std::cout << "post 1" << std::endl;
     uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "Converting V3C video data " + std::to_string(v3c_payload_size_bytes) + " \n");
     output.resize(v3c_payload_size_bytes);
     size_t write_ptr = 0;

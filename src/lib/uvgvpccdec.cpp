@@ -35,14 +35,11 @@ void API::emptyFrameQueue()
 
 void API::decodeV3CChunk(std::shared_ptr<v3c_chunk> chunk, uvgvpcc_dec::API::decoded_output* out) 
 {
-    dec_context_.latest_gof = std::make_shared<GOF>();
-    dec_context_.gofs.push_back(dec_context_.latest_gof);
-    dec_context_.latest_gof->raw_chunk = chunk;
-
-//    std::vector<uvgvpcc_dec::gof_info> gofs_infos = {};
     Decompression::parse_gofs(*chunk, dec_context_.raw_gofs);
     for (size_t gof_index = 0; gof_index < dec_context_.raw_gofs.size(); gof_index++) {
-
+        dec_context_.latest_gof = std::make_shared<GOF>();
+        dec_context_.gofs.push_back(dec_context_.latest_gof);
+        dec_context_.latest_gof->raw_chunk = chunk;
         dec_context_.latest_gof->raw_gof = std::make_shared<uvgvpcc_dec::gof_info>(dec_context_.raw_gofs.at(gof_index));
         dec_context_.latest_gof->decoded_gof = std::make_shared<decompressed_gof>();
         dec_context_.latest_gof->decoded_gof->gof_index = gof_index;
