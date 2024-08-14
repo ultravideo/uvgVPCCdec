@@ -13,15 +13,12 @@ void FormatConversion::convertToNominalFormat(decompressed_gof* data)
         Chroma format - 4:4:4 - correct from FFMPEG
         Composition time - yeah ok
     */
-
     int ConvAtlasID = 0;
     const v3c_parameter_set &vps = Decompression::get_saved_params(data->gof_index).vps;
     const atlas_sequence_parameter_set &asps = Decompression::get_saved_params(data->gof_index).asps;
     int attrCount = vps.ai_attribute_count;
-
     uint32_t OccBitDepthNF = vps.occupancy_info.at(ConvAtlasID).oi_occupancy_2d_bit_depth_minus1 + 1;
     uint32_t GeoBitDepthNF = vps.geometry_info.at(ConvAtlasID).gi_geometry_2d_bit_depth_minus1 + 1;
-
     std::vector<uint32_t> AttrBitDepthNF;
     AttrBitDepthNF.resize(attrCount);
     for (auto attrIdx = 0; attrIdx < attrCount; ++attrIdx) {

@@ -1,9 +1,19 @@
 #include "uvgvpccdec/uvgvpccdec.hpp"
 #include <iostream>
+#include <thread>
 #include <fstream>
+#include <iomanip>
 
-void readFile(const std::string filename, std::vector<uint8_t> &data);
 void readFile(const std::string filename, uvgvpcc_dec::API::v3c_unit_stream &unit_stream);
+bool write_to_file_ = false;
+
+/* ------------------------ ripped from tmc2------------------------ */
+bool write( const std::string fileName, point_cloud_frame* frame, const bool asAscii = true );
+enum PCCEndianness { PCC_BIG_ENDIAN = 0, PCC_LITTLE_ENDIAN = 1 };
+static inline PCCEndianness PCCSystemEndianness() {
+  uint32_t num = 1;
+  return ( *( reinterpret_cast<char*>( &num ) ) == 1 ) ? PCC_LITTLE_ENDIAN : PCC_BIG_ENDIAN;
+}
 
 size_t read_value(const uint8_t* src, size_t len) {
     size_t value = 0;
@@ -13,56 +23,48 @@ size_t read_value(const uint8_t* src, size_t len) {
     return value;
 }
 
+bool output_func(uvgvpcc_dec::API::decoded_output* output);
+
 int main(int argc, char* argv[]) {
 
-    if (argc != 2) {
-        std::cout << "invalid number of arguments, enter .vpcc filename " << std::endl;
+    if (argc != 3) {
+        std::cout << "invalid number of arguments, enter .vpcc filename and 1/0 whether you want file written or not " << std::endl;
     }
     //std::string input_file = "longdress-f1.vpcc";
     std::string input_file = argv[1];
+    if (*argv[2] == '1') {
+        write_to_file_  = true;
+    }
 
-    uvgvpcc_dec::Logger::setLogLevel(uvgvpcc_dec::LogLevel::DEBUG);
+    uvgvpcc_dec::Logger::setLogLevel(uvgvpcc_dec::LogLevel::INFO);
     uvgvpcc_dec::Parameters param;
-    param.occupancy_width = 640;
-    param.occupancy_height = 640;
-    param.video_width = 1280;
-    param.video_height = 1280;
+
     param.keep_intermediate_files = false;
     //param.max_points = 738590;
     uvgvpcc_dec::API::initializeDecoder(param);
 
     uvgvpcc_dec::API::v3c_unit_stream unit_stream;
     readFile(input_file, unit_stream);
-    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Application", "Number of V3C chunks " + std::to_string(unit_stream.v3c_chunks.size()) + " \n");
+    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Application", "Number of V3C chunks " + std::to_string(unit_stream.v3c_chunks.size()) + " \n");
+    
+    uvgvpcc_dec::API::decoded_output output; // Each point cloud frame gets appended to the output as they are decoded
+    std::thread file_writer_thread;
+    file_writer_thread = std::thread(output_func, &output);
+    
     for (size_t i = 0; i < unit_stream.v3c_chunks.size(); ++i) {
         /*const*/ auto& chunk = unit_stream.v3c_chunks.front();
-        uvgvpcc_dec::API::decodeV3CChunk(chunk);
+        uvgvpcc_dec::API::decodeV3CChunk(chunk, &output);
         unit_stream.v3c_chunks.pop();
     }
-    
-        
+    uvgvpcc_dec::API::emptyFrameQueue();
+    output.io_mutex.lock();
+    std::shared_ptr<point_cloud_frame> empty = std::make_shared<point_cloud_frame>();
+    output.frames.push(empty); // Push empty point cloud frame to signal end of data
+    output.io_mutex.unlock();
+    output.available_frames.release();
+    file_writer_thread.join();
     uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::INFO, "Application", "Done \n");
-    return 0;
-}
-
-void readFile(const std::string filename, std::vector<uint8_t> &data)
-{
-    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Application", "Opening file " + filename + " \n");
-    std::ifstream input_file (filename);
-    if (input_file.is_open()) {
-        input_file.seekg(0, std::ios::end);
-        std::size_t size = input_file.tellg();
-        input_file.seekg(0, std::ios::beg);
-        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Application", "Size of file " + std::to_string(size) + " \n");
-
-        data.resize(static_cast<std::size_t>(size)); // Allocate required storage
-        input_file.read(reinterpret_cast<char*> (&data[0]), size);
-
-        input_file.close();
-    }
-    else {
-        throw std::runtime_error("Error reading input file");
-    }
+    return EXIT_SUCCESS;
 }
 
 void readFile(const std::string filename, uvgvpcc_dec::API::v3c_unit_stream &unit_stream)
@@ -81,7 +83,7 @@ void readFile(const std::string filename, uvgvpcc_dec::API::v3c_unit_stream &uni
     unit_stream.v3c_unit_size_precision_bytes = v3c_unit_size_precision;
     
     uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Application", "V3C unit size precision " + std::to_string(v3c_unit_size_precision) + " \n");
-    uvgvpcc_dec::API::v3c_chunk latest_chunk;
+    uvgvpcc_dec::v3c_chunk latest_chunk;
     while (input_file.peek() != EOF) {
         
         uint8_t v3c_size_array[v3c_unit_size_precision];
@@ -96,6 +98,104 @@ void readFile(const std::string filename, uvgvpcc_dec::API::v3c_unit_stream &uni
         data_read += input_file.gcount();
         
     }
-    unit_stream.v3c_chunks.push(latest_chunk);
+    unit_stream.v3c_chunks.push(std::make_shared<uvgvpcc_dec::v3c_chunk>(latest_chunk));
     input_file.close();
+}
+
+bool output_func(uvgvpcc_dec::API::decoded_output* output)
+{
+    while (true) {
+        output->available_frames.acquire();
+        output->io_mutex.lock();
+        std::shared_ptr<point_cloud_frame> frame = output->frames.front();
+
+        if(frame->getPointCount() == 0) {
+            uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::INFO, "APPLICATION", "Empty frame: All frames written.\n");
+            break;
+        }
+        if(write_to_file_ && frame->getPointCount() != 0) {
+            std::string out_name = "output-test-gof" + std::to_string(frame->gof_index) + "-f" + std::to_string(frame->frame_index) + ".ply";
+            write(out_name, frame.get());
+        }
+
+        output->frames.pop();   
+        output->io_mutex.unlock();
+    }
+    return true;
+}
+
+/* ------------------------ ripped from tmc2------------------------ */
+bool write( const std::string fileName, point_cloud_frame* frame, const bool asAscii ) {
+
+    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Adaptation", "Write to file " + fileName + " \n");
+    std::ofstream fout( fileName, std::ofstream::out );
+    if ( !fout.is_open() ) { return false; }
+    const size_t pointCount = frame->getPointCount();
+    bool x = asAscii;
+    fout << "ply" << std::endl;
+
+    if ( asAscii ) {
+        fout << "format ascii 1.0" << std::endl;
+    } else {
+        PCCEndianness endianess = PCCSystemEndianness();
+        if ( endianess == PCC_BIG_ENDIAN ) {
+        fout << "format binary_big_endian 1.0" << std::endl;
+        } else {
+        fout << "format binary_little_endian 1.0" << std::endl;
+        }
+    }
+    fout << "element vertex " << pointCount << std::endl;
+    if ( asAscii ) {
+        fout << "property float x" << std::endl;
+        fout << "property float y" << std::endl;
+        fout << "property float z" << std::endl;
+    } else {
+        fout << "property float x" << std::endl;
+        fout << "property float y" << std::endl;
+        fout << "property float z" << std::endl;
+    }
+    if ( !frame->colors.empty() ) {
+        fout << "property uchar red" << std::endl;
+        fout << "property uchar green" << std::endl;
+        fout << "property uchar blue" << std::endl;
+    }
+    fout << "element face 0" << std::endl;
+    fout << "property list uint8 int32 vertex_index" << std::endl;
+    fout << "end_header" << std::endl;
+    if ( asAscii ) {
+        fout << std::setprecision( std::numeric_limits<double>::max_digits10 );
+        for ( size_t i = 0; i < pointCount; ++i ) {
+            point3d& position = frame->positions.at(i);
+            //const PCCPoint3D& position = ( *this )[i];
+            fout << position.x() << " " << position.y() << " " << position.z();
+
+            if ( !frame->colors.empty() ) {
+                const uvg_color& color = frame->colors.at(i);
+                fout << " " << static_cast<int>( color.data_[0] ) << " " << static_cast<int>( color.data_[1] ) << " "
+                    << static_cast<int>( color.data_[2] );
+            }
+
+            fout << std::endl;
+        }
+    } else {
+        fout.clear();
+        fout.close();
+        fout.open( fileName, std::ofstream::binary | std::ofstream::out | std::ofstream::app );
+        for ( size_t i = 0; i < pointCount; ++i ) {
+            point3d& position = frame->positions.at(i);
+            //const PCCPoint3D& position = ( *this )[i];
+            // fout.write( reinterpret_cast<const char* const>( &position ), sizeof( PCCType ) * 3 );
+            float value[3];
+            value[0] = position.data_[0];
+            value[1] = position.data_[1];
+            value[2] = position.data_[2];
+            fout.write( reinterpret_cast<const char*>( &value ), sizeof( float ) * 3 );
+            if ( !frame->colors.empty() ) {
+                const uvg_color& color = frame->colors.at(i);
+                fout.write( reinterpret_cast<const char*>( &color.data_ ), sizeof( uint8_t ) * 3 );
+            }
+        }
+    }
+    fout.close();
+    return true;
 }
