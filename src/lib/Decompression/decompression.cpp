@@ -20,7 +20,9 @@ std::vector<parameter_sets> saved_params_ = {};
 AVCodecContext* occupancy_codec_ctx_ = nullptr;
 AVCodecContext* geometry_codec_ctx_ = nullptr;
 AVCodecContext* attribute_codec_ctx_ = nullptr;
-std::mutex video_dec_mtx_;
+std::mutex occupancy_codec_mtx_;
+std::mutex geometry_codec_mtx_;
+std::mutex attribute_codec_mtx_;
 
 size_t occupancy_width_ = 0;
 size_t occupancy_height_ = 0;
@@ -179,34 +181,45 @@ void Decompression::parse_gofs(const uvgvpcc_dec::v3c_chunk &chunk, std::vector<
     saved_params_.resize(infos.size());
 }
 
-void Decompression::decompress_videos(uint8_t* buf, std::shared_ptr<uvgvpcc_dec::gof_info> in_gof, std::shared_ptr<decompressed_gof> out_gof)
+void Decompression::decompress_v3c_video_unit(V3C_UNIT_TYPE vuh_t, uint8_t* buf, std::shared_ptr<uvgvpcc_dec::gof_info> in_gof, std::shared_ptr<decompressed_gof> out_gof)
 {    
-    video_dec_mtx_.lock();
-    /* ------------------ OCCUPANCY ------------------ */
-    size_t occupancy_payload_start = in_gof->ovd_start + 4;
-    size_t occupancy_payload_size = in_gof->ovd_size - 4;
-    decompress_video_sub_bitstream(buf, occupancy_payload_start, occupancy_payload_size,
-        &out_gof->occupancy_map, occupancy_codec_ctx_);
+    if(vuh_t == V3C_OVD) {
+        occupancy_codec_mtx_.lock();
+            /* ------------------ OCCUPANCY ------------------ */
+        size_t occupancy_payload_start = in_gof->ovd_start + 4;
+        size_t occupancy_payload_size = in_gof->ovd_size - 4;
+        decompress_video_sub_bitstream(buf, occupancy_payload_start, occupancy_payload_size,
+            &out_gof->occupancy_map, occupancy_codec_ctx_);
 
-    out_gof->occupancy_boolean_maps.resize(out_gof->occupancy_map.frame_count);
-    out_gof->block_to_patches.resize(out_gof->frame_count);
-    
-    /* ------------------ GEOMETRY ------------------ */
-    size_t geometry_payload_start = in_gof->gvd_start + 4;
-    size_t geometry_payload_size = in_gof->gvd_size - 4;
-    video_map new_geo_map;
-    out_gof->geometry_maps.push_back(new_geo_map);
-    decompress_video_sub_bitstream(buf, geometry_payload_start, geometry_payload_size,
+        out_gof->occupancy_boolean_maps.resize(out_gof->occupancy_map.frame_count);
+        out_gof->block_to_patches.resize(out_gof->frame_count);
+        
+        occupancy_codec_mtx_.unlock();
+    }
+    else if (vuh_t == V3C_GVD) {
+        geometry_codec_mtx_.lock();
+        /* ------------------ GEOMETRY ------------------ */
+        size_t geometry_payload_start = in_gof->gvd_start + 4;
+        size_t geometry_payload_size = in_gof->gvd_size - 4;
+        video_map new_geo_map;
+        out_gof->geometry_maps.push_back(new_geo_map);
+        decompress_video_sub_bitstream(buf, geometry_payload_start, geometry_payload_size,
         &out_gof->geometry_maps.back(), geometry_codec_ctx_);
 
-    /* ------------------ ATTRIBUTE ------------------ */
-    size_t attribute_payload_start = in_gof->avd_start + 4;
-    size_t attribute_payload_size = in_gof->avd_size - 4;
-    video_map new_atr_map;
-    out_gof->attribute_maps.push_back(new_atr_map);
-    decompress_video_sub_bitstream(buf, attribute_payload_start, attribute_payload_size,
+        geometry_codec_mtx_.unlock();
+    }
+    else if (vuh_t == V3C_AVD) {
+        attribute_codec_mtx_.lock();
+        /* ------------------ ATTRIBUTE ------------------ */
+        size_t attribute_payload_start = in_gof->avd_start + 4;
+        size_t attribute_payload_size = in_gof->avd_size - 4;
+        video_map new_atr_map;
+        out_gof->attribute_maps.push_back(new_atr_map);
+        decompress_video_sub_bitstream(buf, attribute_payload_start, attribute_payload_size,
         &out_gof->attribute_maps.back(), attribute_codec_ctx_);
-    video_dec_mtx_.unlock();
+
+        attribute_codec_mtx_.unlock();
+    }
 }
 
 void Decompression::decompress_vps(const size_t location, const size_t gof_index)

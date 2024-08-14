@@ -50,14 +50,20 @@ void API::decodeV3CChunk(std::shared_ptr<v3c_chunk> chunk, uvgvpcc_dec::API::dec
         size_t atlas_payload_size = dec_context_.latest_gof->raw_gof->ad_size - 4;
         Decompression::decompress_atlas_sub_bitstream(atlas_payload_size, dec_context_.latest_gof->decoded_gof.get(), atlas_payload_start);
 
-        auto decompression = std::make_shared<Job>("Decompression::decompress_videos ",
-            4, Decompression::decompress_videos, dec_context_.latest_gof->raw_chunk->data.data(), dec_context_.latest_gof->raw_gof, dec_context_.latest_gof->decoded_gof);
-
+        auto occ_dec = std::make_shared<Job>("Decompression::decompress_v3c_video_unit ",
+            4, Decompression::decompress_v3c_video_unit, V3C_OVD, dec_context_.latest_gof->raw_chunk->data.data(), dec_context_.latest_gof->raw_gof, dec_context_.latest_gof->decoded_gof);
+        auto geo_dec = std::make_shared<Job>("Decompression::decompress_v3c_video_unit ",
+            4, Decompression::decompress_v3c_video_unit, V3C_GVD, dec_context_.latest_gof->raw_chunk->data.data(), dec_context_.latest_gof->raw_gof, dec_context_.latest_gof->decoded_gof);
+        auto atr_dec = std::make_shared<Job>("Decompression::decompress_v3c_video_unit ",
+            4, Decompression::decompress_v3c_video_unit, V3C_AVD, dec_context_.latest_gof->raw_chunk->data.data(), dec_context_.latest_gof->raw_gof, dec_context_.latest_gof->decoded_gof);
+       
         /* ------------------ FORMAT CONVERSION ------------------ */
         auto format_conversion = std::make_shared<Job>("FormatConversion::convertToNominalFormat ",
             4, FormatConversion::convertToNominalFormat, dec_context_.latest_gof->decoded_gof.get());
 
-        format_conversion->addDependency(decompression);
+        format_conversion->addDependency(occ_dec);
+        format_conversion->addDependency(geo_dec);
+        format_conversion->addDependency(atr_dec);
 
         for (size_t frame_index = 0; frame_index < dec_context_.latest_gof->decoded_gof->frame_count; frame_index++) {
             // Point cloud reconstruction -> per frame
@@ -89,12 +95,14 @@ void API::decodeV3CChunk(std::shared_ptr<v3c_chunk> chunk, uvgvpcc_dec::API::dec
             pc_convert->addDependency(pc_color);
             pc_out->addDependency(pc_convert);
 
-            if(frame_index != 0) {
+            if(!(frame_index == 0 && gof_index == 0)) {
                 pc_out->addDependency(last_out_);
             }
             last_out_ = pc_out;
             if (frame_index == 0) {
-                dec_context_.queue->submitJob(decompression);
+                dec_context_.queue->submitJob(occ_dec);
+                dec_context_.queue->submitJob(geo_dec);
+                dec_context_.queue->submitJob(atr_dec);
                 dec_context_.queue->submitJob(format_conversion);
             }
             dec_context_.queue->submitJob(pc_setup);
