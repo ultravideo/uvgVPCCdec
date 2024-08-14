@@ -240,7 +240,8 @@ void Reconstruction::setup_point_cloud_frame(decompressed_gof* gof, point_cloud_
     const atlas_sequence_parameter_set &asps = Decompression::get_saved_params(gof->gof_index).asps;
 
     /* --- Strictly speaking, occupancy map generation and block to patch generation belong to decoding,
-       --- but in terms of software structure, they may be better done here. */
+       --- but in terms of software structure (frame setup per frame, occupandy decoding per gof),
+       --- they may be better done here. */
     size_t occupancyPrecision = vps.vps_frame_width.at(atlas_index) / gof->occupancy_map.width;
 
     generateOccupancyMap( frame_width, frame_height, current_occupancy_frame, current_occupancy_boolean_map, occupancyPrecision);

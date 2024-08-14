@@ -11,7 +11,7 @@ namespace uvgvpcc_dec
 {
 
 context dec_context_;
-size_t num_threads_ = 16;
+size_t num_threads_ = 30;
 std::shared_ptr<uvgvpcc_dec::Job> last_out_ = nullptr;
 
 void readFile(const std::string filename, std::vector<uint8_t> &data);

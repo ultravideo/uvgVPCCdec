@@ -12,8 +12,9 @@ cmake -B _build/Release -S . -DBUILD_SHARED_LIBS=ON -DBUILD_TYPE=RelWithDebInfo 
 ```
 Run
 ```
-./_build/Release/src/app/uvgVPCCdec <input-filename.vpcc>
+./_build/Release/src/app/uvgVPCCdec <input-filename.vpcc> 0
 ```
+Second parameter states whether or not you want the outputted frames written to the disk (1) or not (0).
 
 ## Getting started
 

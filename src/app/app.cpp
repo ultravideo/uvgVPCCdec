@@ -5,6 +5,7 @@
 #include <iomanip>
 
 void readFile(const std::string filename, uvgvpcc_dec::API::v3c_unit_stream &unit_stream);
+bool write_to_file_ = false;
 
 /* ------------------------ ripped from tmc2------------------------ */
 bool write( const std::string fileName, point_cloud_frame* frame, const bool asAscii = true );
@@ -26,11 +27,14 @@ bool output_func(uvgvpcc_dec::API::decoded_output* output);
 
 int main(int argc, char* argv[]) {
 
-    if (argc != 2) {
-        std::cout << "invalid number of arguments, enter .vpcc filename " << std::endl;
+    if (argc != 3) {
+        std::cout << "invalid number of arguments, enter .vpcc filename and 1/0 whether you want file written or not " << std::endl;
     }
     //std::string input_file = "longdress-f1.vpcc";
     std::string input_file = argv[1];
+    if (*argv[2] == '1') {
+        write_to_file_  = true;
+    }
 
     uvgvpcc_dec::Logger::setLogLevel(uvgvpcc_dec::LogLevel::INFO);
     uvgvpcc_dec::Parameters param;
@@ -109,7 +113,7 @@ bool output_func(uvgvpcc_dec::API::decoded_output* output)
             uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::INFO, "APPLICATION", "Empty frame: All frames written.\n");
             break;
         }
-        if(frame->getPointCount() != 0) {
+        if(write_to_file_ && frame->getPointCount() != 0) {
             std::string out_name = "output-test-gof" + std::to_string(frame->gof_index) + "-f" + std::to_string(frame->frame_index) + ".ply";
             write(out_name, frame.get());
         }
@@ -124,11 +128,11 @@ bool output_func(uvgvpcc_dec::API::decoded_output* output)
 bool write( const std::string fileName, point_cloud_frame* frame, const bool asAscii ) {
 
     uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Adaptation", "Write to file " + fileName + " \n");
-    //std::ofstream fout( fileName, std::ofstream::out );
-    //if ( !fout.is_open() ) { return false; }
+    std::ofstream fout( fileName, std::ofstream::out );
+    if ( !fout.is_open() ) { return false; }
     const size_t pointCount = frame->getPointCount();
     bool x = asAscii;
-    /*fout << "ply" << std::endl;
+    fout << "ply" << std::endl;
 
     if ( asAscii ) {
         fout << "format ascii 1.0" << std::endl;
@@ -192,6 +196,6 @@ bool write( const std::string fileName, point_cloud_frame* frame, const bool asA
             }
         }
     }
-    fout.close();*/
+    fout.close();
     return true;
 }
