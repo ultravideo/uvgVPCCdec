@@ -9,6 +9,8 @@ bool write_to_file_ = false;
 
 /* ------------------------ ripped from tmc2------------------------ */
 bool write( const std::string fileName, point_cloud_frame* frame, const bool asAscii = true );
+void exportPointCloud(const std::string fileName, point_cloud_frame* frame);
+
 enum PCCEndianness { PCC_BIG_ENDIAN = 0, PCC_LITTLE_ENDIAN = 1 };
 static inline PCCEndianness PCCSystemEndianness() {
   uint32_t num = 1;
@@ -36,7 +38,7 @@ int main(int argc, char* argv[]) {
         write_to_file_  = true;
     }
 
-    uvgvpcc_dec::Logger::setLogLevel(uvgvpcc_dec::LogLevel::INFO);
+    uvgvpcc_dec::Logger::setLogLevel(uvgvpcc_dec::LogLevel::TRACE);
     uvgvpcc_dec::Parameters param;
 
     param.keep_intermediate_files = false;
@@ -122,6 +124,38 @@ bool output_func(uvgvpcc_dec::API::decoded_output* output)
         output->io_mutex.unlock();
     }
     return true;
+}
+
+void exportPointCloud(const std::string fileName, point_cloud_frame* frame) {
+
+    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Adaptation", "Write to file " + fileName + " \n");
+
+    std::ofstream fout(fileName, std::ofstream::out | std::ofstream::trunc);
+    if (!fout.is_open()) {
+        throw std::runtime_error("Error : can't create a stream from : " + fileName);
+    }
+    fout << "ply";
+    fout << "\nformat ascii 1.0";
+    fout << "\nelement vertex " << frame->getPointCount();
+    fout << "\nproperty int x";
+    fout << "\nproperty int y";
+    fout << "\nproperty int z";
+
+    fout << "\nproperty uchar red";
+    fout << "\nproperty uchar green";
+    fout << "\nproperty uchar blue";
+    fout << "\nend_header\n";
+
+    fout << std::setprecision(std::numeric_limits<double>::max_digits10);
+    for (size_t i = 0; i < frame->getPointCount(); ++i) {
+        point3d& position = frame->positions.at(i);
+        fout << position.x() << " " << position.y() << " " << position.z();
+        const uvg_color& color = frame->colors.at(i);
+        fout << " " << static_cast<int>(color.data_[0]) << " " << static_cast<int>(color.data_[1]) << " "
+             << static_cast<int>(color.data_[2]);
+        fout << std::endl;
+    }
+    fout.close();
 }
 
 /* ------------------------ ripped from tmc2------------------------ */

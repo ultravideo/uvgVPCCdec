@@ -6,6 +6,7 @@
  */
 #include <limits>
 #include <string>
+#include "uvgvpccdec/uvgvpccdec.hpp"
 
 namespace cli {
 
