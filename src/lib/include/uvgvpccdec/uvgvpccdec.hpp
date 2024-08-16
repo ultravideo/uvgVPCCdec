@@ -9,11 +9,13 @@
 namespace uvgvpcc_dec
 {
 
-struct gof_info {
+/* 3.140 V3C composition unit
+set of all sub-bitstream composition units (3.117) that share the same composition time (3.50), where one
+of the sub-bitstream composition units (3.117) is a coded atlas access unit (3.35)
 
-    size_t vps_start = 0;
-    size_t vps_size = 0;
-
+   3.50 composition time
+time or time period at which a frame needs to be composed, used for reconstruction, or presented */
+struct composition_unit {
     size_t ad_start = 0;
     size_t ad_size = 0;
 
@@ -25,6 +27,14 @@ struct gof_info {
 
     size_t avd_start = 0;
     size_t avd_size = 0;
+};
+
+struct gof_info {
+
+    size_t vps_start = 0;
+    size_t vps_size = 0;
+    size_t cu_count = 0;
+    std::vector<composition_unit> composition_units;
 };
 
 struct Parameters {

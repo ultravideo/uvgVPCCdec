@@ -11,7 +11,8 @@ inline double PCCClip( const double& n, const double& lower, const double& upper
 
 void Adaptation::output_decoded_frame(std::shared_ptr<point_cloud_frame> reconstruct, uvgvpcc_dec::API::decoded_output* out)
 {
-    Logger::log(LogLevel::INFO, "Adaptation", "Output decoded frame, GOF " + std::to_string(reconstruct->gof_index) + " frame " + std::to_string(reconstruct->frame_index) + " \n");
+    Logger::log(LogLevel::INFO, "Adaptation", "Output decoded frame, GOF " + std::to_string(reconstruct->gof_index)
+    + " frame " + std::to_string(reconstruct->frame_index_in_gof) + " \n");
     out->io_mutex.lock();
     out->frames.push(reconstruct);
     out->io_mutex.unlock();
@@ -51,7 +52,7 @@ void Adaptation::convertYUV8ToRGB8(point_cloud_frame* reconstruct)
         r = PCCClip( round( r * 255 ), 0.0, 255.0 );
         g = PCCClip( round( g * 255 ), 0.0, 255.0 );
         b = PCCClip( round( b * 255 ), 0.0, 255.0 );
-        
+
         colors[k].data_[0] = static_cast<uint8_t>( r );
         colors[k].data_[1] = static_cast<uint8_t>( g );
         colors[k].data_[2] = static_cast<uint8_t>( b );

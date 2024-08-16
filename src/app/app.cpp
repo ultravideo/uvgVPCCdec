@@ -38,7 +38,7 @@ int main(int argc, char* argv[]) {
         write_to_file_  = true;
     }
 
-    uvgvpcc_dec::Logger::setLogLevel(uvgvpcc_dec::LogLevel::TRACE);
+    uvgvpcc_dec::Logger::setLogLevel(uvgvpcc_dec::LogLevel::INFO);
     uvgvpcc_dec::Parameters param;
 
     param.keep_intermediate_files = false;
@@ -116,7 +116,7 @@ bool output_func(uvgvpcc_dec::API::decoded_output* output)
             break;
         }
         if(write_to_file_ && frame->getPointCount() != 0) {
-            std::string out_name = "output-test-gof" + std::to_string(frame->gof_index) + "-f" + std::to_string(frame->frame_index) + ".ply";
+            std::string out_name = "output-test-gof" + std::to_string(frame->gof_index) + "-f" + std::to_string(frame->frame_index_in_gof) + ".ply";
             write(out_name, frame.get(), true);
         }
 
