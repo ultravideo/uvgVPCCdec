@@ -34,8 +34,12 @@ void API::emptyFrameQueue()
 
 void API::decodeV3CChunk(std::shared_ptr<v3c_chunk> chunk, uvgvpcc_dec::API::decoded_output* out) 
 {
+    /* ----------------- Parse GOF boundaries ----------------- */
     Decompression::parse_gofs(*chunk, dec_context_.raw_gofs);
+
     for (size_t gof_index = 0; gof_index < dec_context_.raw_gofs.size(); gof_index++) {
+
+        /* ----------------- Create GOF structures and parse VPS ----------------- */
         dec_context_.latest_gof = std::make_shared<GOF>();
         dec_context_.gofs.push_back(dec_context_.latest_gof);
         dec_context_.latest_gof->raw_chunk = chunk;
@@ -50,10 +54,13 @@ void API::decodeV3CChunk(std::shared_ptr<v3c_chunk> chunk, uvgvpcc_dec::API::dec
 
         // composition_unit_index
         for (size_t cu_index = 0; cu_index < dec_context_.latest_gof->raw_gof->composition_units.size(); ++cu_index) {
-            
-            auto raw_cu = std::make_shared<uvgvpcc_dec::composition_unit>(dec_context_.latest_gof->raw_gof->composition_units.at(cu_index));
-            dec_context_.latest_gof->decoded_gof->composition_units.push_back(std::make_shared<decompressed_cu>());
 
+            /* ----------------- Decompress composition unit ----------------- */
+            // Raw composition unit (cu) contains the boundaries of different V3C units inside the composition unit
+            auto raw_cu = std::make_shared<uvgvpcc_dec::composition_unit>(dec_context_.latest_gof->raw_gof->composition_units.at(cu_index));
+            
+            // Decoded composition unit is where the decompressed data of the V3C units is stored
+            dec_context_.latest_gof->decoded_gof->composition_units.push_back(std::make_shared<decompressed_cu>());
             std::shared_ptr<decompressed_cu> dec_cu = dec_context_.latest_gof->decoded_gof->composition_units.at(cu_index);
             dec_cu->cu_index = cu_index;
 
@@ -68,6 +75,7 @@ void API::decodeV3CChunk(std::shared_ptr<v3c_chunk> chunk, uvgvpcc_dec::API::dec
             auto atr_dec = std::make_shared<Job>("Decompression::decompress_v3c_video_unit ",
                 1, Decompression::decompress_v3c_video_unit, V3C_AVD, dec_context_.latest_gof->raw_chunk->data.data(), raw_cu, dec_cu);
 
+            /* ----------------- Reconstruct frames contained in composition unit ----------------- */
             // Index runnning inside composition unit. Different from frame index running in GOF
             for (size_t frame_index_in_cu = 0; frame_index_in_cu < dec_cu->cu_frame_count; frame_index_in_cu++) {
                 // Point cloud reconstruction -> per frame

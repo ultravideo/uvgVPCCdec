@@ -38,7 +38,7 @@ int main(int argc, char* argv[]) {
         write_to_file_  = true;
     }
 
-    uvgvpcc_dec::Logger::setLogLevel(uvgvpcc_dec::LogLevel::TRACE);
+    uvgvpcc_dec::Logger::setLogLevel(uvgvpcc_dec::LogLevel::INFO);
     uvgvpcc_dec::Parameters param;
 
     param.keep_intermediate_files = false;
