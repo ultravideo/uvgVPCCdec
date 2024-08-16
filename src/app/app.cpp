@@ -117,7 +117,7 @@ bool output_func(uvgvpcc_dec::API::decoded_output* output)
         }
         if(write_to_file_ && frame->getPointCount() != 0) {
             std::string out_name = "output-test-gof" + std::to_string(frame->gof_index) + "-f" + std::to_string(frame->frame_index) + ".ply";
-            write(out_name, frame.get());
+            write(out_name, frame.get(), true);
         }
 
         output->frames.pop();   

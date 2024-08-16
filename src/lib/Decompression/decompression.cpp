@@ -89,7 +89,7 @@ uint32_t Decompression::read_bits_ue(bitstream_position &pos)
 uint32_t Decompression::read(uint8_t bits, bitstream_position &pos, const std::string &name) {
     uint32_t value = read_bits(bits, pos);
 #if BITSTREAM_DEBUG
-    printf("%-50s u(%u) : %d\n", name.c_str(),bits,value);
+    printf("%-50s u(%u) : %d : %zu\n", name.c_str(),bits,value, (size_t)pos.bytes);
 #endif
     (void)name; // Suppress unused parameter warning
     return value;
@@ -141,13 +141,13 @@ void Decompression::parse_gofs(const uvgvpcc_dec::v3c_chunk &chunk, std::vector<
     bitstream_position ptr;
 
     for (size_t i = 0; i < chunk.v3c_unit_sizes.size(); i++) {
-        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Parser", "V3C unit size " + std::to_string(chunk.v3c_unit_sizes.at(i)) + " \n");
         size_t v3c_unit_size = chunk.v3c_unit_sizes.at(i);
         size_t v3c_unit_payload_size = chunk.v3c_unit_sizes.at(i) - 4; // not incl. header
         size_t pre_header = ptr.bytes;
         // Next 4 bytes are the V3C unit header
         uint8_t vuh_unit_type = read(5, ptr, "vuh_unit_type");
-        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Parser", "V3C unit type " + std::to_string(vuh_unit_type) + " \n");
+        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Parser", "V3C unit size " + std::to_string(chunk.v3c_unit_sizes.at(i))
+            + ", type " + std::to_string(vuh_unit_type) + " \n");
         advance_bitstream(4 * 8 - 5, ptr); // skip the rest of v3c header for now
 
         if(vuh_unit_type == V3C_UNIT_TYPE::V3C_VPS) {
@@ -697,7 +697,8 @@ void Decompression::read_atlas_nal_unit(NAL_UNIT_TYPE nal_unit_type, std::size_t
 
 void Decompression::decompress_atlas_sub_bitstream(const size_t v3c_payload_size_bytes, decompressed_gof* output, const size_t location)
 {
-    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "Reading V3C atlas data, size " + std::to_string(v3c_payload_size_bytes) + " \n");
+    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "Reading V3C atlas data, size "
+        + std::to_string(v3c_payload_size_bytes) + ", location " + std::to_string(location) + " \n");
 
     bitstream_position ptr;
     ptr.bytes = location;
@@ -705,7 +706,7 @@ void Decompression::decompress_atlas_sub_bitstream(const size_t v3c_payload_size
     std::size_t end_ptr = ptr.bytes + v3c_payload_size_bytes;
     //advance_bitstream(v3c_payload_size_bytes * 8);
     // 3 bits for nAL unit size precision - 1 and 5 reserved
-    uint8_t nal_size_precision_bytes = read(3, ptr, "nal_size_precision_in_bytes") + 1;
+    uint8_t nal_size_precision_bytes = read(3, ptr, "nal_size_precision_minus_1") + 1;
     uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "NAL size precision " + std::to_string(nal_size_precision_bytes) + " \n");
     std::size_t nal_unit_precision_bits = nal_size_precision_bytes * 8;
 
@@ -718,13 +719,14 @@ void Decompression::decompress_atlas_sub_bitstream(const size_t v3c_payload_size
         }
         std::size_t nal_unit_size = read(nal_unit_precision_bits, ptr, "nal unit size");
 
-        // Inside nal unit now
-        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "Current NAL unit location " + std::to_string(ptr.bytes) + ", size " + std::to_string(nal_unit_size) + " \n");
-        
+        // Inside nal unit now        
         read(1, ptr, "nal_forbidden_zero_bit");
         NAL_UNIT_TYPE nal_unit_type = static_cast<NAL_UNIT_TYPE>(read(6, ptr, "nal_unit_type"));
         uint8_t nal_layer_id = read(6, ptr, "nal_layer_id");
         uint8_t nal_temporal_id_plus1 = read(3, ptr, "nal_temporal_id_plus1");
+        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "Current NAL unit location " + std::to_string(ptr.bytes) + ", size "
+            + std::to_string(nal_unit_size) + ", type " + std::to_string(nal_unit_type) +  " \n");
+
         read_atlas_nal_unit(nal_unit_type, nal_unit_size, output, ptr);
     }
 }
