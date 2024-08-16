@@ -44,17 +44,19 @@ void API::decodeV3CChunk(std::shared_ptr<v3c_chunk> chunk, uvgvpcc_dec::API::dec
         dec_context_.latest_gof->decoded_gof = std::make_shared<decompressed_gof>();
         dec_context_.latest_gof->decoded_gof->gof_index = gof_index;
 
+        size_t frame_index_in_gof = 0;
+
         size_t vps_payload_start = dec_context_.latest_gof->raw_gof->vps_start + 4;
         Decompression::decompress_vps(vps_payload_start, gof_index);
 
-        //dec_context_.latest_gof->decoded_gof->composition_units.resize(dec_context_.latest_gof->raw_gof->composition_units.size());
         // composition_unit_index
         for (size_t cu_index = 0; cu_index < dec_context_.latest_gof->raw_gof->composition_units.size(); ++cu_index) {
-
+            
             auto raw_cu = std::make_shared<uvgvpcc_dec::composition_unit>(dec_context_.latest_gof->raw_gof->composition_units.at(cu_index));
             dec_context_.latest_gof->decoded_gof->composition_units.push_back(std::make_shared<decompressed_cu>());
 
             std::shared_ptr<decompressed_cu> dec_cu = dec_context_.latest_gof->decoded_gof->composition_units.at(cu_index);
+            dec_cu->cu_index = cu_index;
 
             size_t atlas_payload_start = raw_cu->ad_start + 4;
             size_t atlas_payload_size = raw_cu->ad_size - 4;
@@ -75,23 +77,25 @@ void API::decodeV3CChunk(std::shared_ptr<v3c_chunk> chunk, uvgvpcc_dec::API::dec
             format_conversion->addDependency(geo_dec);
             format_conversion->addDependency(atr_dec);
 
-            for (size_t frame_index = 0; frame_index < dec_cu->cu_frame_count; frame_index++) {
+            // Index runnning inside composition unit. Different from frame index running in GOF
+            for (size_t frame_index_in_cu = 0; frame_index_in_cu < dec_cu->cu_frame_count; frame_index_in_cu++) {
                 // Point cloud reconstruction -> per frame
                 dec_context_.latest_gof->reconstructed_point_cloud = std::make_shared<point_cloud_frame>();
+                dec_context_.latest_gof->reconstructed_point_cloud->frame_index_in_gof = frame_index_in_gof;
 
                 auto pc_setup = std::make_shared<Job>("Reconstruction::setup_point_cloud_frame",
                     1, Reconstruction::setup_point_cloud_frame, dec_cu.get(), dec_context_.latest_gof->reconstructed_point_cloud.get(),
-                    frame_index, gof_index);
+                    frame_index_in_cu, gof_index);
 
                 // Notice post-process depedency on all patches
                 auto pc_color = std::make_shared<Job>("PostReconstruction::PostProcess",
                     3, PostReconstruction::PostProcess, dec_cu.get(), dec_context_.latest_gof->reconstructed_point_cloud.get(),
-                    frame_index, gof_index);
+                    frame_index_in_cu, gof_index);
 
-                for ( std::size_t index = 0; index < dec_cu->atlas_map.at(frame_index)->patches_map.size(); index++ ) {
+                for ( std::size_t index = 0; index < dec_cu->atlas_map.at(frame_index_in_cu)->patches_map.size(); index++ ) {
                     auto pc_patch = std::make_shared<Job>("Reconstruction::process_patch",
                         2, Reconstruction::process_patch, index, dec_cu.get(), dec_context_.latest_gof->reconstructed_point_cloud.get(),
-                        frame_index, gof_index);
+                        frame_index_in_cu, gof_index);
                     dec_context_.latest_gof->patch_jobs.push_back(pc_patch);
                     pc_patch->addDependency(pc_setup);
                     pc_color->addDependency(pc_patch);
@@ -108,11 +112,12 @@ void API::decodeV3CChunk(std::shared_ptr<v3c_chunk> chunk, uvgvpcc_dec::API::dec
                 pc_convert->addDependency(pc_color);
                 pc_out->addDependency(pc_convert);
 
-                if(!(frame_index == 0 && gof_index == 0)) {
+                if(!(frame_index_in_gof == 0 && gof_index == 0)) {
                     pc_out->addDependency(last_out_);
                 }
                 last_out_ = pc_out;
-                if (frame_index == 0) {
+                frame_index_in_gof++;
+                if (frame_index_in_cu == 0) {
                     dec_context_.queue->submitJob(occ_dec);
                     dec_context_.queue->submitJob(geo_dec);
                     dec_context_.queue->submitJob(atr_dec);

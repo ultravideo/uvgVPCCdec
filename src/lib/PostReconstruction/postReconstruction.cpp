@@ -3,20 +3,20 @@
 
 using namespace uvgvpcc_dec;
 
-void PostReconstruction::PostProcess(decompressed_cu* cu, point_cloud_frame* reconstruct, const size_t frame_index, const size_t gof_index)
+void PostReconstruction::PostProcess(decompressed_cu* cu, point_cloud_frame* reconstruct, const size_t cu_frame_index, const size_t gof_index)
 {
-    Logger::log(LogLevel::TRACE, "Post-reconstruction", "Post-processing point cloud frame " + std::to_string(frame_index)
-        + " in composition unit " + std::to_string(cu->cu_index)
-        + " in GOF " + std::to_string(gof_index) + " \n");
+    Logger::log(LogLevel::TRACE, "Post-reconstruction", "Post-processing point cloud frame " + std::to_string(reconstruct->frame_index_in_gof)
+        + " (in composition unit " + std::to_string(cu->cu_index)
+        + ") in GOF " + std::to_string(gof_index) + " \n");
 
     const v3c_parameter_set &vps = Decompression::get_saved_params(gof_index).vps;
-    color_point_cloud(reconstruct, *cu, frame_index, gof_index);
+    color_point_cloud(reconstruct, *cu, cu_frame_index, gof_index);
 }
 
-size_t PostReconstruction::color_point_cloud(point_cloud_frame* reconstruct, const decompressed_cu &cu, const size_t frame_index,
+size_t PostReconstruction::color_point_cloud(point_cloud_frame* reconstruct, const decompressed_cu &cu, const size_t cu_frame_index,
     const size_t gof_index )
 {
-    const size_t atlas_index = cu.atlas_map.at(frame_index).get()->atlas_index;
+    const size_t atlas_index = cu.atlas_map.at(cu_frame_index).get()->atlas_index;
 
     const video_map &videoAttributeMap0 = cu.attribute_maps.at(0);
 
@@ -42,7 +42,7 @@ size_t PostReconstruction::color_point_cloud(point_cloud_frame* reconstruct, con
     printf( "attributeCount               = %zu \n", (size_t)attributeCount );
     printf( "mapCount            = %zu \n", (size_t)mapCount );*/
 
-    const size_t shift = multipleStreams ? frame_index : frame_index * mapCount;
+    const size_t shift = multipleStreams ? cu_frame_index : cu_frame_index * mapCount;
     for ( size_t i = 0; i < pointCount; ++i ) {
         const point3d &location = pointToPixel[i];
         const size_t x = location.data_[0];

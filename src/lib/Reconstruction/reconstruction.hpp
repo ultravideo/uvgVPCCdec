@@ -7,8 +7,8 @@ public:
 
     static void initializeStaticParameters(const uvgvpcc_dec::Parameters& param, uvgvpcc_dec::context* context);
 
-    static void setup_point_cloud_frame(decompressed_cu* cu, point_cloud_frame* reconstruct, const size_t frame_index, const size_t gof_index);
-    static void process_patch(const size_t index, decompressed_cu* cu, point_cloud_frame* reconstruct, const size_t frame_index, const size_t gof_index);
+    static void setup_point_cloud_frame(decompressed_cu* cu, point_cloud_frame* reconstruct, const size_t cu_frame_index, const size_t gof_index);
+    static void process_patch(const size_t index, decompressed_cu* cu, point_cloud_frame* reconstruct, const size_t cu_frame_index, const size_t gof_index);
 
     static void create_points_from_patch(point_cloud_frame* reconstruct, const patch &p, const decompressed_cu &cu, const size_t patch_index_plus_1,
         const size_t video_frame_index, const std::vector<uint8_t> &occupancy_map,

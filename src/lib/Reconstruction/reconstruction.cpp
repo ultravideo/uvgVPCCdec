@@ -216,21 +216,19 @@ void add_points(point_cloud_frame* reconstruct, const std::vector<point3d> &crea
     reconstruct->add_points_thread_safe(created_points, created_point_to_pixel);
 }
 
-void Reconstruction::setup_point_cloud_frame(decompressed_cu* cu, point_cloud_frame* reconstruct, const size_t frame_index, const size_t gof_index)
+void Reconstruction::setup_point_cloud_frame(decompressed_cu* cu, point_cloud_frame* reconstruct, const size_t cu_frame_index, const size_t gof_index)
 {
-    Logger::log(LogLevel::TRACE, "Reconstruction", "Setup point cloud frame " + std::to_string(frame_index)
-        + " in composition unit " + std::to_string(cu->cu_index)
-        + " in GOF " + std::to_string(gof_index) + " \n");
+    Logger::log(LogLevel::TRACE, "Reconstruction", "Setup point cloud frame " + std::to_string(cu_frame_index)
+        + " (in composition unit " + std::to_string(cu->cu_index)
+        + ") in GOF " + std::to_string(gof_index) + " \n");
 
     reconstruct->gof_index = gof_index;
-    reconstruct->cu_index = cu->cu_index;
-    reconstruct->frame_index = frame_index;
 
-    atlas_frame* current_atlas_frame = cu->atlas_map.at(frame_index).get();
+    atlas_frame* current_atlas_frame = cu->atlas_map.at(cu_frame_index).get();
     size_t atlas_index = current_atlas_frame->atlas_index;
-    const picture &current_occupancy_frame = cu->occupancy_map.pictures.at(frame_index);
-    std::vector<uint8_t> &current_occupancy_boolean_map = cu->occupancy_boolean_maps.at(frame_index);
-    std::vector<size_t> &current_block_to_patch = cu->block_to_patches.at(frame_index);
+    const picture &current_occupancy_frame = cu->occupancy_map.pictures.at(cu_frame_index);
+    std::vector<uint8_t> &current_occupancy_boolean_map = cu->occupancy_boolean_maps.at(cu_frame_index);
+    std::vector<size_t> &current_block_to_patch = cu->block_to_patches.at(cu_frame_index);
     size_t frame_width = current_atlas_frame->frame_width;
     size_t frame_height = current_atlas_frame->frame_height;
     if(max_points_ != 0) {
@@ -255,9 +253,9 @@ void Reconstruction::setup_point_cloud_frame(decompressed_cu* cu, point_cloud_fr
     Logger::log(LogLevel::TRACE, "Reconstruction", "Block to patch generated \n");
 }
 
-void Reconstruction::process_patch(const size_t index, decompressed_cu* cu, point_cloud_frame* reconstruct, const size_t frame_index, const size_t gof_index)
+void Reconstruction::process_patch(const size_t index, decompressed_cu* cu, point_cloud_frame* reconstruct, const size_t cu_frame_index, const size_t gof_index)
 {
-    atlas_frame* current_atlas_frame = cu->atlas_map.at(frame_index).get();
+    atlas_frame* current_atlas_frame = cu->atlas_map.at(cu_frame_index).get();
     size_t atlas_index = current_atlas_frame->atlas_index;
 
     const v3c_parameter_set &vps = Decompression::get_saved_params(gof_index).vps;
@@ -268,7 +266,7 @@ void Reconstruction::process_patch(const size_t index, decompressed_cu* cu, poin
     const size_t patch_count = current_atlas_frame->patches_map.size();
 
     const size_t mapCount = vps.vps_map_count_minus1.at(atlas_index) + 1;
-    size_t videoFrameIndex = frame_index * mapCount;
+    size_t videoFrameIndex = cu_frame_index * mapCount;
     size_t geoFrameCount = cu->geometry_maps.at(0).frame_count;
     if ( geoFrameCount < ( videoFrameIndex + mapCount ) ) { throw std::runtime_error("Invalid geoFrameCount");}
     
@@ -276,8 +274,8 @@ void Reconstruction::process_patch(const size_t index, decompressed_cu* cu, poin
     const size_t patchIndexPlusOne = patchIndex + 1;
     const patch& patch  = current_atlas_frame->patches_map[patchIndex];
 
-    create_points_from_patch(reconstruct, patch, *cu, patchIndexPlusOne, videoFrameIndex, cu->occupancy_boolean_maps.at(frame_index),
-            *current_atlas_frame, cu->block_to_patches.at(frame_index), gof_index);
+    create_points_from_patch(reconstruct, patch, *cu, patchIndexPlusOne, videoFrameIndex, cu->occupancy_boolean_maps.at(cu_frame_index),
+            *current_atlas_frame, cu->block_to_patches.at(cu_frame_index), gof_index);
 }
 
 void Reconstruction::create_points_from_patch(point_cloud_frame* reconstruct, const patch &p, const decompressed_cu &cu, const size_t patch_index_plus_1,

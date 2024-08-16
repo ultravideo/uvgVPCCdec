@@ -736,6 +736,8 @@ void Decompression::decompress_atlas_sub_bitstream(const size_t v3c_payload_size
 
         read_atlas_nal_unit(nal_unit_type, nal_unit_size, output, ptr);
     }
+    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "Number of expected point cloud frames in composition unit: "
+        + std::to_string(output->cu_frame_count) + " \n");
 }
 
 void Decompression::decode_atlas_frame(atlas_frame* frame, const atlas_tile_layer_rbsp &rbsp)

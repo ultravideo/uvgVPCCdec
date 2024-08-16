@@ -474,8 +474,8 @@ struct point_cloud_frame {
     std::mutex add_points_mtx;
 
     size_t gof_index = 0;
-    size_t cu_index = 0;
-    size_t frame_index = 0;
+    // Total frame index in a GOF. Not the same as frame index in a composition unit
+    size_t frame_index_in_gof = 0;
 
     point3d& operator[]( size_t i ) {
         return positions[i];
@@ -532,6 +532,7 @@ struct atlas_frame {
     size_t frame_height = 0;
 };
 
+// composition unit
 struct decompressed_cu {
     size_t cu_index = 0;
     size_t cu_frame_count = 0;
