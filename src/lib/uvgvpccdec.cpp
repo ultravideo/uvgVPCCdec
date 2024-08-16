@@ -62,11 +62,11 @@ void API::decodeV3CChunk(std::shared_ptr<v3c_chunk> chunk, uvgvpcc_dec::API::dec
             Decompression::decompress_atlas_sub_bitstream(atlas_payload_size, dec_cu.get(), atlas_payload_start);
 
             auto occ_dec = std::make_shared<Job>("Decompression::decompress_v3c_video_unit ",
-                4, Decompression::decompress_v3c_video_unit, V3C_OVD, dec_context_.latest_gof->raw_chunk->data.data(), raw_cu, dec_cu);
+                1, Decompression::decompress_v3c_video_unit, V3C_OVD, dec_context_.latest_gof->raw_chunk->data.data(), raw_cu, dec_cu);
             auto geo_dec = std::make_shared<Job>("Decompression::decompress_v3c_video_unit ",
-                4, Decompression::decompress_v3c_video_unit, V3C_GVD, dec_context_.latest_gof->raw_chunk->data.data(), raw_cu, dec_cu);
+                1, Decompression::decompress_v3c_video_unit, V3C_GVD, dec_context_.latest_gof->raw_chunk->data.data(), raw_cu, dec_cu);
             auto atr_dec = std::make_shared<Job>("Decompression::decompress_v3c_video_unit ",
-                4, Decompression::decompress_v3c_video_unit, V3C_AVD, dec_context_.latest_gof->raw_chunk->data.data(), raw_cu, dec_cu);
+                1, Decompression::decompress_v3c_video_unit, V3C_AVD, dec_context_.latest_gof->raw_chunk->data.data(), raw_cu, dec_cu);
 
             // Index runnning inside composition unit. Different from frame index running in GOF
             for (size_t frame_index_in_cu = 0; frame_index_in_cu < dec_cu->cu_frame_count; frame_index_in_cu++) {
@@ -75,7 +75,7 @@ void API::decodeV3CChunk(std::shared_ptr<v3c_chunk> chunk, uvgvpcc_dec::API::dec
                 dec_context_.latest_gof->reconstructed_point_cloud->frame_index_in_gof = frame_index_in_gof;
 
                 auto pc_setup = std::make_shared<Job>("Reconstruction::setup_point_cloud_frame",
-                    1, Reconstruction::setup_point_cloud_frame, dec_cu.get(), dec_context_.latest_gof->reconstructed_point_cloud.get(),
+                    2, Reconstruction::setup_point_cloud_frame, dec_cu.get(), dec_context_.latest_gof->reconstructed_point_cloud.get(),
                     frame_index_in_cu, gof_index);
 
                 // Notice post-process depedency on all patches
@@ -93,7 +93,7 @@ void API::decodeV3CChunk(std::shared_ptr<v3c_chunk> chunk, uvgvpcc_dec::API::dec
                 }
 
                 auto pc_convert = std::make_shared<Job>("Adaptation::convertYUV8ToRGB8",
-                    3, Adaptation::convertYUV8ToRGB8, dec_context_.latest_gof->reconstructed_point_cloud.get());
+                    4, Adaptation::convertYUV8ToRGB8, dec_context_.latest_gof->reconstructed_point_cloud.get());
                 
                 auto pc_out = std::make_shared<Job>("Adaptation::output_decoded_frame",
                     5, Adaptation::output_decoded_frame, dec_context_.latest_gof->reconstructed_point_cloud, out);

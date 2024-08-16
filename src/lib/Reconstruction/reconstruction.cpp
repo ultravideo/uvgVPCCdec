@@ -218,7 +218,7 @@ void add_points(point_cloud_frame* reconstruct, const std::vector<point3d> &crea
 
 void Reconstruction::setup_point_cloud_frame(decompressed_cu* cu, point_cloud_frame* reconstruct, const size_t cu_frame_index, const size_t gof_index)
 {
-    Logger::log(LogLevel::TRACE, "Reconstruction", "Setup point cloud frame " + std::to_string(cu_frame_index)
+    Logger::log(LogLevel::TRACE, "Reconstruction", "Setup point cloud frame " + std::to_string(reconstruct->frame_index_in_gof)
         + " (in composition unit " + std::to_string(cu->cu_index)
         + ") in GOF " + std::to_string(gof_index) + " \n");
 
