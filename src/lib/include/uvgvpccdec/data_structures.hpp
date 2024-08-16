@@ -474,6 +474,7 @@ struct point_cloud_frame {
     std::mutex add_points_mtx;
 
     size_t gof_index = 0;
+    size_t cu_index = 0;
     size_t frame_index = 0;
 
     point3d& operator[]( size_t i ) {
@@ -531,9 +532,9 @@ struct atlas_frame {
     size_t frame_height = 0;
 };
 
-struct decompressed_gof { // of a gof currently
-    size_t gof_index = 0;
-    size_t frame_count = 0; // this is fetched from the number of atlas frames
+struct decompressed_cu {
+    size_t cu_index = 0;
+    size_t cu_frame_count = 0;
     std::vector<std::shared_ptr<atlas_frame>> atlas_map; // frames or tiles? currently 1 tile per frame
     video_map occupancy_map = {};
     std::vector<video_map> geometry_maps = {};
@@ -541,6 +542,15 @@ struct decompressed_gof { // of a gof currently
 
     std::vector<std::vector<uint8_t>> occupancy_boolean_maps = {};
     std::vector<std::vector<size_t>> block_to_patches = {};
+
+    decompressed_cu() = default;
+};
+
+struct decompressed_gof { // of a gof currently
+    size_t gof_index = 0;
+    size_t gof_frame_count = 0; // this is fetched from the number of atlas frames
+
+    std::vector<std::shared_ptr<decompressed_cu>> composition_units;
 
     decompressed_gof() = default;
 };

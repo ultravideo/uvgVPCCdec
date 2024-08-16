@@ -28,10 +28,10 @@ public:
     /* Find the boundaries of different groupf of frames */
     static void parse_gofs(const uvgvpcc_dec::v3c_chunk &chunk, std::vector<uvgvpcc_dec::gof_info> &infos);
 
-    static void decompress_v3c_video_unit(V3C_UNIT_TYPE vuh_t, uint8_t* buf, std::shared_ptr<uvgvpcc_dec::gof_info> in_gof, std::shared_ptr<decompressed_gof> out_gof);
+    static void decompress_v3c_video_unit(V3C_UNIT_TYPE vuh_t, uint8_t* buf, std::shared_ptr<uvgvpcc_dec::composition_unit> in_cu, std::shared_ptr<decompressed_cu> out_cu);
 
     static void decompress_vps(const size_t location, const size_t gof_index);
-    static void decompress_atlas_sub_bitstream(const size_t v3c_payload_size_bytes, decompressed_gof* output, const size_t location);
+    static void decompress_atlas_sub_bitstream(const size_t v3c_payload_size_bytes, decompressed_cu* output, const size_t location);
     static void decompress_video_sub_bitstream(uint8_t* buf, const size_t ptr, const size_t v3c_payload_size_bytes, video_map* map, AVCodecContext* codec_ctx);
 
 
@@ -71,7 +71,7 @@ private:
     /* "low-level" parsing functions */
     static void read_v3c_parameter_set(v3c_parameter_set* vps, bitstream_position &ptr);
     static void read_profile_tier_level(profile_tier_level* ptl, bitstream_position &ptr);
-    static void read_atlas_nal_unit(NAL_UNIT_TYPE nal_unit_type, std::size_t nal_unit_size, decompressed_gof* output, bitstream_position &ptr);
+    static void read_atlas_nal_unit(NAL_UNIT_TYPE nal_unit_type, std::size_t nal_unit_size, decompressed_cu* output, bitstream_position &ptr);
     static void read_asps(atlas_sequence_parameter_set &asps, bitstream_position &ptr);
     static void read_afps(atlas_frame_parameter_set &afps, bitstream_position &ptr);
     static void read_atlas_rbsp(atlas_tile_layer_rbsp* rbsp, NAL_UNIT_TYPE nalu_t, bitstream_position &ptr);

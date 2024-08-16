@@ -3,7 +3,7 @@
 
 using namespace uvgvpcc_dec;
 
-void FormatConversion::convertToNominalFormat(decompressed_gof* data)
+void FormatConversion::convertToNominalFormat(decompressed_cu* data, const size_t gof_index)
 {
     Logger::log(LogLevel::TRACE, "FormatConversion", "Converting data to nominal format \n");
     /*
@@ -14,8 +14,8 @@ void FormatConversion::convertToNominalFormat(decompressed_gof* data)
         Composition time - yeah ok
     */
     int ConvAtlasID = 0;
-    const v3c_parameter_set &vps = Decompression::get_saved_params(data->gof_index).vps;
-    const atlas_sequence_parameter_set &asps = Decompression::get_saved_params(data->gof_index).asps;
+    const v3c_parameter_set &vps = Decompression::get_saved_params(gof_index).vps;
+    const atlas_sequence_parameter_set &asps = Decompression::get_saved_params(gof_index).asps;
     int attrCount = vps.ai_attribute_count;
     uint32_t OccBitDepthNF = vps.occupancy_info.at(ConvAtlasID).oi_occupancy_2d_bit_depth_minus1 + 1;
     uint32_t GeoBitDepthNF = vps.geometry_info.at(ConvAtlasID).gi_geometry_2d_bit_depth_minus1 + 1;
@@ -39,7 +39,7 @@ void FormatConversion::convertToNominalFormat(decompressed_gof* data)
         + ", chromaFormat = 4:4:4 \n");
 
     uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Format conversion", "V-PCC frame count = "
-        + std::to_string(data->frame_count) + ", Occupancy map frame count = " + std::to_string(data->occupancy_map.frame_count) 
+        + std::to_string(data->cu_frame_count) + ", Occupancy map frame count = " + std::to_string(data->occupancy_map.frame_count) 
         + " (" + std::to_string(data->occupancy_map.width) + "x" + std::to_string(data->occupancy_map.height) + ") \n"
         + "Channels (frame 0) Y=" + std::to_string(data->occupancy_map.pictures.front().Y.size())
         + " U=" + std::to_string(data->occupancy_map.pictures.front().U.size())

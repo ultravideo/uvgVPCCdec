@@ -3,27 +3,33 @@
 
 using namespace uvgvpcc_dec;
 
-void PostReconstruction::PostProcess(decompressed_gof* gof, point_cloud_frame* reconstruct, const size_t frame_index)
+void PostReconstruction::PostProcess(decompressed_cu* cu, point_cloud_frame* reconstruct, const size_t frame_index, const size_t gof_index)
 {
-    Logger::log(LogLevel::TRACE, "Post-reconstruction", "Post-processing point cloud frame " + std::to_string(frame_index) + " \n");
-    const v3c_parameter_set &vps = Decompression::get_saved_params(gof->gof_index).vps;
-    bool multipleStreams = vps.vps_multiple_map_streams_present_flag.at(0);
-    uint8_t attributeCount = vps.ai_attribute_count;
-    color_point_cloud(reconstruct, *gof, frame_index, multipleStreams, attributeCount);
+    Logger::log(LogLevel::TRACE, "Post-reconstruction", "Post-processing point cloud frame " + std::to_string(frame_index)
+        + " in composition unit " + std::to_string(cu->cu_index)
+        + " in GOF " + std::to_string(gof_index) + " \n");
+
+    const v3c_parameter_set &vps = Decompression::get_saved_params(gof_index).vps;
+    color_point_cloud(reconstruct, *cu, frame_index, gof_index);
 }
 
-size_t PostReconstruction::color_point_cloud(point_cloud_frame* reconstruct, const decompressed_gof &gof, const size_t frame_index, const size_t multipleStreams, const uint8_t attributeCount )
+size_t PostReconstruction::color_point_cloud(point_cloud_frame* reconstruct, const decompressed_cu &cu, const size_t frame_index,
+    const size_t gof_index )
 {
-    const size_t atlas_index = gof.atlas_map.at(frame_index).get()->atlas_index;
+    const size_t atlas_index = cu.atlas_map.at(frame_index).get()->atlas_index;
 
-    const video_map &videoAttributeMap0 = gof.attribute_maps.at(0);
+    const video_map &videoAttributeMap0 = cu.attribute_maps.at(0);
 
-    const v3c_parameter_set &vps = Decompression::get_saved_params(gof.gof_index).vps;
-    const size_t mapCount = vps.vps_map_count_minus1.at(atlas_index) + 1;
+    const v3c_parameter_set &vps = Decompression::get_saved_params(gof_index).vps;
+    bool multipleStreams = vps.vps_multiple_map_streams_present_flag.at(0);
+    uint8_t attributeCount = vps.ai_attribute_count;
+
     if ( attributeCount == 0 ) {
         Logger::log(LogLevel::INFO, "Post-reconstruction", "No attribute data \n");
         return 0;
     }
+    const size_t mapCount = vps.vps_map_count_minus1.at(atlas_index) + 1;
+
 
     std::vector<point3d> &pointToPixel = reconstruct->point_to_pixel;
     auto&  color8bit = reconstruct->colors;

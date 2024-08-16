@@ -46,72 +46,86 @@ void API::decodeV3CChunk(std::shared_ptr<v3c_chunk> chunk, uvgvpcc_dec::API::dec
 
         size_t vps_payload_start = dec_context_.latest_gof->raw_gof->vps_start + 4;
         Decompression::decompress_vps(vps_payload_start, gof_index);
-        size_t atlas_payload_start = dec_context_.latest_gof->raw_gof->ad_start + 4;
-        size_t atlas_payload_size = dec_context_.latest_gof->raw_gof->ad_size - 4;
-        Decompression::decompress_atlas_sub_bitstream(atlas_payload_size, dec_context_.latest_gof->decoded_gof.get(), atlas_payload_start);
 
-        auto occ_dec = std::make_shared<Job>("Decompression::decompress_v3c_video_unit ",
-            4, Decompression::decompress_v3c_video_unit, V3C_OVD, dec_context_.latest_gof->raw_chunk->data.data(), dec_context_.latest_gof->raw_gof, dec_context_.latest_gof->decoded_gof);
-        auto geo_dec = std::make_shared<Job>("Decompression::decompress_v3c_video_unit ",
-            4, Decompression::decompress_v3c_video_unit, V3C_GVD, dec_context_.latest_gof->raw_chunk->data.data(), dec_context_.latest_gof->raw_gof, dec_context_.latest_gof->decoded_gof);
-        auto atr_dec = std::make_shared<Job>("Decompression::decompress_v3c_video_unit ",
-            4, Decompression::decompress_v3c_video_unit, V3C_AVD, dec_context_.latest_gof->raw_chunk->data.data(), dec_context_.latest_gof->raw_gof, dec_context_.latest_gof->decoded_gof);
-       
-        /* ------------------ FORMAT CONVERSION ------------------ */
-        auto format_conversion = std::make_shared<Job>("FormatConversion::convertToNominalFormat ",
-            4, FormatConversion::convertToNominalFormat, dec_context_.latest_gof->decoded_gof.get());
+        //dec_context_.latest_gof->decoded_gof->composition_units.resize(dec_context_.latest_gof->raw_gof->composition_units.size());
+        // composition_unit_index
+        for (size_t cu_index = 0; cu_index < dec_context_.latest_gof->raw_gof->composition_units.size(); ++cu_index) {
 
-        format_conversion->addDependency(occ_dec);
-        format_conversion->addDependency(geo_dec);
-        format_conversion->addDependency(atr_dec);
+            auto raw_cu = std::make_shared<uvgvpcc_dec::composition_unit>(dec_context_.latest_gof->raw_gof->composition_units.at(cu_index));
+            dec_context_.latest_gof->decoded_gof->composition_units.push_back(std::make_shared<decompressed_cu>());
 
-        for (size_t frame_index = 0; frame_index < dec_context_.latest_gof->decoded_gof->frame_count; frame_index++) {
-            // Point cloud reconstruction -> per frame
-            dec_context_.latest_gof->reconstructed_point_cloud = std::make_shared<point_cloud_frame>();
+            std::shared_ptr<decompressed_cu> dec_cu = dec_context_.latest_gof->decoded_gof->composition_units.at(cu_index);
 
-            auto pc_setup = std::make_shared<Job>("Reconstruction::setup_point_cloud_frame",
-                1, Reconstruction::setup_point_cloud_frame, dec_context_.latest_gof->decoded_gof.get(), dec_context_.latest_gof->reconstructed_point_cloud.get(), frame_index);
+            size_t atlas_payload_start = raw_cu->ad_start + 4;
+            size_t atlas_payload_size = raw_cu->ad_size - 4;
+            Decompression::decompress_atlas_sub_bitstream(atlas_payload_size, dec_cu.get(), atlas_payload_start);
 
-            auto pc_color = std::make_shared<Job>("PostReconstruction::PostProcess",
-                3, PostReconstruction::PostProcess, dec_context_.latest_gof->decoded_gof.get(), dec_context_.latest_gof->reconstructed_point_cloud.get(), frame_index);
-
-            for ( std::size_t index = 0; index < dec_context_.latest_gof->decoded_gof->atlas_map.at(frame_index)->patches_map.size(); index++ ) {
-                auto pc_patch = std::make_shared<Job>("Reconstruction::process_patch",
-                    2, Reconstruction::process_patch, index, dec_context_.latest_gof->decoded_gof.get(), dec_context_.latest_gof->reconstructed_point_cloud.get(), frame_index);
-                dec_context_.latest_gof->patch_jobs.push_back(pc_patch);
-                pc_patch->addDependency(pc_setup);
-                pc_color->addDependency(pc_patch);
-            }
-
-            auto pc_convert = std::make_shared<Job>("Adaptation::convertYUV8ToRGB8",
-                3, Adaptation::convertYUV8ToRGB8, dec_context_.latest_gof->reconstructed_point_cloud.get());
-            
-            auto pc_out = std::make_shared<Job>("Adaptation::output_decoded_frame",
-                5, Adaptation::output_decoded_frame, dec_context_.latest_gof->reconstructed_point_cloud, out);
-            dec_context_.latest_gof->out_jobs.push_back(pc_out);
+            auto occ_dec = std::make_shared<Job>("Decompression::decompress_v3c_video_unit ",
+                4, Decompression::decompress_v3c_video_unit, V3C_OVD, dec_context_.latest_gof->raw_chunk->data.data(), raw_cu, dec_cu);
+            auto geo_dec = std::make_shared<Job>("Decompression::decompress_v3c_video_unit ",
+                4, Decompression::decompress_v3c_video_unit, V3C_GVD, dec_context_.latest_gof->raw_chunk->data.data(), raw_cu, dec_cu);
+            auto atr_dec = std::make_shared<Job>("Decompression::decompress_v3c_video_unit ",
+                4, Decompression::decompress_v3c_video_unit, V3C_AVD, dec_context_.latest_gof->raw_chunk->data.data(), raw_cu, dec_cu);
         
-            pc_setup->addDependency(format_conversion);
-            //pc_patch->addDependency(pc_setup);
-            pc_convert->addDependency(pc_color);
-            pc_out->addDependency(pc_convert);
+            /* ------------------ FORMAT CONVERSION ------------------ */
+            auto format_conversion = std::make_shared<Job>("FormatConversion::convertToNominalFormat ",
+                4, FormatConversion::convertToNominalFormat, dec_cu.get(), gof_index);
 
-            if(!(frame_index == 0 && gof_index == 0)) {
-                pc_out->addDependency(last_out_);
+            format_conversion->addDependency(occ_dec);
+            format_conversion->addDependency(geo_dec);
+            format_conversion->addDependency(atr_dec);
+
+            for (size_t frame_index = 0; frame_index < dec_cu->cu_frame_count; frame_index++) {
+                // Point cloud reconstruction -> per frame
+                dec_context_.latest_gof->reconstructed_point_cloud = std::make_shared<point_cloud_frame>();
+
+                auto pc_setup = std::make_shared<Job>("Reconstruction::setup_point_cloud_frame",
+                    1, Reconstruction::setup_point_cloud_frame, dec_cu.get(), dec_context_.latest_gof->reconstructed_point_cloud.get(),
+                    frame_index, gof_index);
+
+                // Notice post-process depedency on all patches
+                auto pc_color = std::make_shared<Job>("PostReconstruction::PostProcess",
+                    3, PostReconstruction::PostProcess, dec_cu.get(), dec_context_.latest_gof->reconstructed_point_cloud.get(),
+                    frame_index, gof_index);
+
+                for ( std::size_t index = 0; index < dec_cu->atlas_map.at(frame_index)->patches_map.size(); index++ ) {
+                    auto pc_patch = std::make_shared<Job>("Reconstruction::process_patch",
+                        2, Reconstruction::process_patch, index, dec_cu.get(), dec_context_.latest_gof->reconstructed_point_cloud.get(),
+                        frame_index, gof_index);
+                    dec_context_.latest_gof->patch_jobs.push_back(pc_patch);
+                    pc_patch->addDependency(pc_setup);
+                    pc_color->addDependency(pc_patch);
+                }
+
+                auto pc_convert = std::make_shared<Job>("Adaptation::convertYUV8ToRGB8",
+                    3, Adaptation::convertYUV8ToRGB8, dec_context_.latest_gof->reconstructed_point_cloud.get());
+                
+                auto pc_out = std::make_shared<Job>("Adaptation::output_decoded_frame",
+                    5, Adaptation::output_decoded_frame, dec_context_.latest_gof->reconstructed_point_cloud, out);
+                dec_context_.latest_gof->out_jobs.push_back(pc_out);
+            
+                pc_setup->addDependency(format_conversion);
+                pc_convert->addDependency(pc_color);
+                pc_out->addDependency(pc_convert);
+
+                if(!(frame_index == 0 && gof_index == 0)) {
+                    pc_out->addDependency(last_out_);
+                }
+                last_out_ = pc_out;
+                if (frame_index == 0) {
+                    dec_context_.queue->submitJob(occ_dec);
+                    dec_context_.queue->submitJob(geo_dec);
+                    dec_context_.queue->submitJob(atr_dec);
+                    dec_context_.queue->submitJob(format_conversion);
+                }
+                dec_context_.queue->submitJob(pc_setup);
+                for (size_t i = 0; i < dec_context_.latest_gof->patch_jobs.size(); i++) {
+                    dec_context_.queue->submitJob(dec_context_.latest_gof->patch_jobs.at(i));
+                }
+                dec_context_.queue->submitJob(pc_color);
+                dec_context_.queue->submitJob(pc_convert);
+                dec_context_.queue->submitJob(pc_out);
             }
-            last_out_ = pc_out;
-            if (frame_index == 0) {
-                dec_context_.queue->submitJob(occ_dec);
-                dec_context_.queue->submitJob(geo_dec);
-                dec_context_.queue->submitJob(atr_dec);
-                dec_context_.queue->submitJob(format_conversion);
-            }
-            dec_context_.queue->submitJob(pc_setup);
-            for (size_t i = 0; i < dec_context_.latest_gof->patch_jobs.size(); i++) {
-                dec_context_.queue->submitJob(dec_context_.latest_gof->patch_jobs.at(i));
-            }
-            dec_context_.queue->submitJob(pc_color);
-            dec_context_.queue->submitJob(pc_convert);
-            dec_context_.queue->submitJob(pc_out);
         }
     }
 }
