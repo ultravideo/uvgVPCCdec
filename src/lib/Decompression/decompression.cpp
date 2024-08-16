@@ -202,6 +202,13 @@ void Decompression::decompress_v3c_video_unit(V3C_UNIT_TYPE vuh_t, uint8_t* buf,
         out_cu->block_to_patches.resize(out_cu->cu_frame_count);
         
         occupancy_codec_mtx_.unlock();
+
+        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Format conversion", "Occupancy map frame count = "
+        + std::to_string(out_cu->occupancy_map.frame_count) + " (" + std::to_string(out_cu->occupancy_map.width)
+        + "x" + std::to_string(out_cu->occupancy_map.height) + ") \n" + "Channels (frame 0) Y="
+        + std::to_string(out_cu->occupancy_map.pictures.front().Y.size()) + " U=" +
+        std::to_string(out_cu->occupancy_map.pictures.front().U.size())
+        + " V=" + std::to_string(out_cu->occupancy_map.pictures.front().V.size()) + "\n");
     }
     else if (vuh_t == V3C_GVD) {
         geometry_codec_mtx_.lock();
@@ -214,6 +221,15 @@ void Decompression::decompress_v3c_video_unit(V3C_UNIT_TYPE vuh_t, uint8_t* buf,
         &out_cu->geometry_maps.back(), geometry_codec_ctx_);
 
         geometry_codec_mtx_.unlock();
+
+        for (size_t i = 0; i < out_cu->geometry_maps.size(); i++) {
+            uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Format conversion", "Geometry map [" + std::to_string(i)
+                + "] frame count = " + std::to_string(out_cu->geometry_maps.at(i).frame_count) 
+                + " (" + std::to_string(out_cu->geometry_maps.at(i).width) + "x" + std::to_string(out_cu->geometry_maps.at(i).height) + ") \n"
+                + "Channels (frame 0) Y=" + std::to_string(out_cu->geometry_maps.at(i).pictures.front().Y.size())
+                + " U=" + std::to_string(out_cu->geometry_maps.at(i).pictures.front().U.size())
+                + " V=" + std::to_string(out_cu->geometry_maps.at(i).pictures.front().V.size()) + "\n");
+        }
     }
     else if (vuh_t == V3C_AVD) {
         attribute_codec_mtx_.lock();
@@ -226,6 +242,15 @@ void Decompression::decompress_v3c_video_unit(V3C_UNIT_TYPE vuh_t, uint8_t* buf,
         &out_cu->attribute_maps.back(), attribute_codec_ctx_);
 
         attribute_codec_mtx_.unlock();
+
+        for (size_t i = 0; i < out_cu->attribute_maps.size(); i++) {
+            uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Format conversion", "Attribute map [" + std::to_string(i)
+                + "] frame count = " + std::to_string(out_cu->attribute_maps.at(i).frame_count) 
+                + " (" + std::to_string(out_cu->attribute_maps.at(i).width) + "x" + std::to_string(out_cu->attribute_maps.at(i).height) + ") \n"
+                + "Channels (frame 0) Y=" + std::to_string(out_cu->attribute_maps.at(i).pictures.front().Y.size())
+                + " U=" + std::to_string(out_cu->attribute_maps.at(i).pictures.front().U.size())
+                + " V=" + std::to_string(out_cu->attribute_maps.at(i).pictures.front().V.size()) + "\n");
+        }
     }
 }
 

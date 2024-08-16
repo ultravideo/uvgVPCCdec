@@ -2,7 +2,6 @@
 
 #include "uvgvpccdec/uvgvpccdec.hpp"
 #include "Decompression/decompression.hpp"
-#include "FormatConversion/formatConversion.hpp"
 #include "Reconstruction/reconstruction.hpp"
 #include "PostReconstruction/postReconstruction.hpp"
 #include "Adaptation/adaptation.hpp"
@@ -68,14 +67,6 @@ void API::decodeV3CChunk(std::shared_ptr<v3c_chunk> chunk, uvgvpcc_dec::API::dec
                 4, Decompression::decompress_v3c_video_unit, V3C_GVD, dec_context_.latest_gof->raw_chunk->data.data(), raw_cu, dec_cu);
             auto atr_dec = std::make_shared<Job>("Decompression::decompress_v3c_video_unit ",
                 4, Decompression::decompress_v3c_video_unit, V3C_AVD, dec_context_.latest_gof->raw_chunk->data.data(), raw_cu, dec_cu);
-        
-            /* ------------------ FORMAT CONVERSION ------------------ */
-            auto format_conversion = std::make_shared<Job>("FormatConversion::convertToNominalFormat ",
-                4, FormatConversion::convertToNominalFormat, dec_cu.get(), gof_index);
-
-            format_conversion->addDependency(occ_dec);
-            format_conversion->addDependency(geo_dec);
-            format_conversion->addDependency(atr_dec);
 
             // Index runnning inside composition unit. Different from frame index running in GOF
             for (size_t frame_index_in_cu = 0; frame_index_in_cu < dec_cu->cu_frame_count; frame_index_in_cu++) {
@@ -108,7 +99,9 @@ void API::decodeV3CChunk(std::shared_ptr<v3c_chunk> chunk, uvgvpcc_dec::API::dec
                     5, Adaptation::output_decoded_frame, dec_context_.latest_gof->reconstructed_point_cloud, out);
                 dec_context_.latest_gof->out_jobs.push_back(pc_out);
             
-                pc_setup->addDependency(format_conversion);
+                pc_setup->addDependency(occ_dec);
+                pc_setup->addDependency(geo_dec);
+                pc_color->addDependency(atr_dec);
                 pc_convert->addDependency(pc_color);
                 pc_out->addDependency(pc_convert);
 
@@ -121,7 +114,6 @@ void API::decodeV3CChunk(std::shared_ptr<v3c_chunk> chunk, uvgvpcc_dec::API::dec
                     dec_context_.queue->submitJob(occ_dec);
                     dec_context_.queue->submitJob(geo_dec);
                     dec_context_.queue->submitJob(atr_dec);
-                    dec_context_.queue->submitJob(format_conversion);
                 }
                 dec_context_.queue->submitJob(pc_setup);
                 for (size_t i = 0; i < dec_context_.latest_gof->patch_jobs.size(); i++) {

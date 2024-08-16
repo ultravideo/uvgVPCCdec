@@ -6,7 +6,6 @@ configure_file(version.cpp.in version.cpp)
 
 add_subdirectory(utils)
 add_subdirectory(Decompression)
-add_subdirectory(FormatConversion)
 add_subdirectory(PreReconstruction)
 add_subdirectory(Reconstruction)
 add_subdirectory(PostReconstruction)
@@ -32,7 +31,6 @@ link_directories(${AVCODEC_LIBRARY_DIRS})
 
 target_link_libraries(uvgvpccdec
     decompressionLibrary
-    formatConversionLibrary
     reconstructionLibrary
     postReconstructionLibrary
     adaptationLibrary
