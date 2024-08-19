@@ -22,7 +22,6 @@ void Adaptation::output_decoded_frame(std::shared_ptr<point_cloud_frame> reconst
 
 void Adaptation::convert_colors_fast(point_cloud_frame* reconstruct) {
     Logger::log(LogLevel::TRACE, "Adaptation", "Convert colors YUV 8bit -> RGB 8bit (FAST) \n");
-    std::chrono::time_point<std::chrono::steady_clock> start = std::chrono::steady_clock::now();
 
     std::vector<uvg_color>& colors = reconstruct->colors;
      const double offset = 128.0;
@@ -49,14 +48,12 @@ void Adaptation::convert_colors_fast(point_cloud_frame* reconstruct) {
         colors[k].data_[1] = static_cast<uint8_t>((g < 0.0) ? 0 : (g > 1.0) ? 255 : g * 255);
         colors[k].data_[2] = static_cast<uint8_t>((b < 0.0) ? 0 : (b > 1.0) ? 255 : b * 255);
     }
-    std::cout << "conv time " << std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start).count() / 1000000.0 << std::endl;
 
 }
 
 void Adaptation::convert_colors_slow(point_cloud_frame* reconstruct)
 {
     Logger::log(LogLevel::TRACE, "Adaptation", "Convert colors YUV 8bit -> RGB 8bit (SLOW/REFERENCE) \n");
-    std::chrono::time_point<std::chrono::steady_clock> start = std::chrono::steady_clock::now();
     std::vector<uvg_color>& colors = reconstruct->colors;
     for ( size_t k = 0; k < reconstruct->getPointCount(); k++ ) {
         double y1     = colors[k].data_[0];
@@ -90,5 +87,4 @@ void Adaptation::convert_colors_slow(point_cloud_frame* reconstruct)
         colors[k].data_[1] = static_cast<uint8_t>( g );
         colors[k].data_[2] = static_cast<uint8_t>( b );
     }
-    std::cout << "conv time " << std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start).count() / 1000000.0 << std::endl;
 }
