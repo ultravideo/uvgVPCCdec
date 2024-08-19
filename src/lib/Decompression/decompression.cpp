@@ -942,10 +942,7 @@ std::vector<AVFrame*> Decompression::decode_video_frames(std::vector<uint8_t> &i
         size_t packet_size = frame_boundaries.at(frame_index + 1) - frame_boundaries.at(frame_index);
         packet->size = packet_size;
 
-        //std::cout << "decoding data at " << frame_boundaries.at(frame_index) << " with size of " << packet_size << std::endl;
-        //uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "send_packet \n");
         int ret = avcodec_send_packet(context, packet);
-        //std::cout << "send ret " << int(ret) << std::endl;
         if (ret < 0) {
             av_packet_free(&packet);
             throw std::runtime_error("Error sending packet to decoder");
@@ -956,8 +953,6 @@ std::vector<AVFrame*> Decompression::decode_video_frames(std::vector<uint8_t> &i
             throw std::runtime_error("Could not allocate video frame");
         }
         ret = avcodec_receive_frame(context, frame);
-        //uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "receive frame \n");
-        //std::cout << "recv ret " << int(ret) << std::endl;
 
         if (ret == AVERROR(EAGAIN)) {
             av_frame_free(&frame);
@@ -985,7 +980,7 @@ void Decompression::decode_video_sub_bitstream(std::vector<uint8_t> &input, std:
     if(frames.empty()) {
         throw std::runtime_error("No frames decoded");
     }
-    map.width = frames.front()->width; // not perfect solution
+    map.width = frames.front()->width; // not perfect solution to only take from the first frames stats
     map.height = frames.front()->height; // not perfect solution
 
     for (size_t i = 0; i < frames.size(); ++i) {
@@ -1012,86 +1007,13 @@ void Decompression::decode_video_sub_bitstream(std::vector<uint8_t> &input, std:
 
         // Copy V plane
         std::memcpy(frame420.V.data(), fr->data[2], width * height / 4);
+
         /*picture frame444;
         if(frame420.format == PCCCOLORFORMAT::YUV420) {
             frame444.convert_yuv_420_to_444(&frame420);
         }*/
-        //uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "Added video frame \n");
-        map.pictures.push_back(std::move(frame420));
+        map.pictures.push_back(std::move(frame420)); // frame444 if we convert
         map.frame_count++;
         av_frame_free(&fr);
     }
 }
-
-/*void Decompression::decode_video_sub_bitstream(const std::string input_path, const std::string output_path, video_map* map)
-{
-    std::stringstream cmd;
-    cmd << ffmpeg_path;
-    if (uvgvpcc_dec::Logger::getLogLevel() < uvgvpcc_dec::LogLevel::PROFILING) {
-        cmd << " -hide_banner -loglevel error ";
-    }
-    cmd << " -f hevc -i " << input_path << " " << output_path;
-    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", cmd.str() + " \n");
-    if (std::system(cmd.str().c_str()) != 0) {
-        throw std::runtime_error("During the decoding of the sequence, an error occured while executing the following command: " +
-            cmd.str());
-        return;
-    }
-
-    // Read decompressed video into a map
-    std::ifstream decompressed_video(output_path, std::ios::binary);
-    if(!decompressed_video.is_open()) {
-        throw std::runtime_error("Bitstream reading : Could not open output file " + output_path);
-    }
-
-    size_t width = video_width_;
-    size_t height = video_height_;
-    if(map->type == V3C_OVD) {
-        width = occupancy_width_;
-        height = occupancy_height_;
-    }
-    map->width = width;
-    map->height = height;
-    size_t frameSize = (width * height * 3) / 2;
-
-    while (decompressed_video.peek() != EOF) {
-        picture frame420;
-        frame420.width = width;
-        frame420.height = height;
-        frame420.format = PCCCOLORFORMAT::YUV420;
-        frame420.Y.resize(width * height);
-        frame420.U.resize(width * height / 4);
-        frame420.V.resize(width * height / 4);
-
-        std::size_t data_read = 0;
-        // Read Y plane
-        decompressed_video.read(reinterpret_cast<char*>(frame420.Y.data()), width * height);
-        data_read += decompressed_video.gcount();
-
-        // Read U plane
-        decompressed_video.read(reinterpret_cast<char*>(frame420.U.data()), frame420.U.size());
-        data_read += decompressed_video.gcount();
-
-        // Read V plane
-        decompressed_video.read(reinterpret_cast<char*>(frame420.V.data()), frame420.V.size());
-        data_read += decompressed_video.gcount();
-
-        picture frame444;
-        if(frame420.format == PCCCOLORFORMAT::YUV420) {
-            frame444.convert_yuv_420_to_444(&frame420);
-        }
-
-        if (data_read == frameSize) {
-            uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "Added video frame \n");
-            map->pictures.push_back(std::move(frame444));
-            map->frame_count++;
-        }
-        else {
-            throw std::runtime_error("Bitstream reading : framesize " + std::to_string(frameSize) + ", data read " + std::to_string(data_read));
-            break;
-        }
-    }
-    if (keep_intermediate_files_) {return;}
-    std::remove(input_path.c_str());
-    std::remove(output_path.c_str());
-}*/
