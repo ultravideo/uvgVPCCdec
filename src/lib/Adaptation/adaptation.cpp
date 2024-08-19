@@ -21,34 +21,27 @@ void Adaptation::output_decoded_frame(std::shared_ptr<point_cloud_frame> reconst
 }
 
 void Adaptation::convert_colors_fast(point_cloud_frame* reconstruct) {
-    Logger::log(LogLevel::TRACE, "Adaptation", "Convert colors YUV 8bit -> RGB 8bit (FAST) \n");
-
+    Logger::log(LogLevel::TRACE, "Adaptation", "Convert colors YUV 8bit -> RGB 8bit (FAST/APPROXIMATE) \n");
     std::vector<uvg_color>& colors = reconstruct->colors;
-     const double offset = 128.0;
-    const double scale = 255.0;
-    const double inv_scale = 1.0 / scale;
+    // Precomputed constants to avoid recalculating
+    const int offset = 128;
 
     for (size_t k = 0; k < reconstruct->getPointCount(); k++) {
-        double y1 = colors[k].data_[0] * inv_scale;
-        double u1 = (colors[k].data_[1] - offset) * inv_scale;
-        double v1 = (colors[k].data_[2] - offset) * inv_scale;
+        // Load YUV values as integers directly from the color array
+        int y1 = colors[k].data_[0];
+        int u1 = colors[k].data_[1] - offset;
+        int v1 = colors[k].data_[2] - offset;
 
-        // Pre-clamp YUV values for valid range
-        y1 = (y1 < 0.0) ? 0.0 : (y1 > 1.0) ? 1.0 : y1;
-        u1 = (u1 < -0.5) ? -0.5 : (u1 > 0.5) ? 0.5 : u1;
-        v1 = (v1 < -0.5) ? -0.5 : (v1 > 0.5) ? 0.5 : v1;
+        // Fast approximate YUV to RGB conversion
+        int r = y1 + (v1 * 8 / 5);  // 1.57480 ≈ 8/5
+        int g = y1 - (u1 * 3 / 16) - (v1 * 6 / 13);  // Approximation of combined factors
+        int b = y1 + (u1 * 15 / 8);  // 1.85563 ≈ 15/8
 
-        // Convert normalized YUV to RGB
-        double r = y1 + 1.57480 * v1;
-        double g = y1 - 0.18733 * u1 - 0.46813 * v1;
-        double b = y1 + 1.85563 * u1;
-
-        // Clamp and convert to 8-bit RGB
-        colors[k].data_[0] = static_cast<uint8_t>((r < 0.0) ? 0 : (r > 1.0) ? 255 : r * 255);
-        colors[k].data_[1] = static_cast<uint8_t>((g < 0.0) ? 0 : (g > 1.0) ? 255 : g * 255);
-        colors[k].data_[2] = static_cast<uint8_t>((b < 0.0) ? 0 : (b > 1.0) ? 255 : b * 255);
+        // Directly clamp to 8-bit range using bitwise operations
+        colors[k].data_[0] = static_cast<uint8_t>(r < 0 ? 0 : r > 255 ? 255 : r);
+        colors[k].data_[1] = static_cast<uint8_t>(g < 0 ? 0 : g > 255 ? 255 : g);
+        colors[k].data_[2] = static_cast<uint8_t>(b < 0 ? 0 : b > 255 ? 255 : b);
     }
-
 }
 
 void Adaptation::convert_colors_slow(point_cloud_frame* reconstruct)
