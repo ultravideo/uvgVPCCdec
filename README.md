@@ -14,8 +14,8 @@ Run
 ```
 ./_build/Release/src/app/uvgVPCCdec <input-filename.vpcc> 0 0
 ```
-First parameter filename
-Second parameter 1/0 for writing to file yes/nog
-Third parameter 1/0 for fast YUV->RGB color conversion yes/no
+1. First parameter filename
+2. Second parameter 1/0 for writing to file yes/nog
+3. Third parameter 1/0 for fast YUV->RGB color conversion yes/no
 
 Number of threads is set in code in `uvgvpccdec.cpp`.
