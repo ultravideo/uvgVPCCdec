@@ -29,23 +29,15 @@ public:
     static void parse_gofs(const uvgvpcc_dec::v3c_chunk &chunk, std::vector<uvgvpcc_dec::gof_info> &infos);
 
     static void decompress_v3c_video_unit(V3C_UNIT_TYPE vuh_t, uint8_t* buf, std::shared_ptr<uvgvpcc_dec::composition_unit> in_cu, std::shared_ptr<decompressed_cu> out_cu);
-
     static void decompress_vps(const size_t location, const size_t gof_index);
     static void decompress_atlas_sub_bitstream(const size_t v3c_payload_size_bytes, decompressed_cu* output, const size_t location);
-    static void decompress_video_sub_bitstream(uint8_t* buf, const size_t ptr, const size_t v3c_payload_size_bytes, video_map* map, AVCodecContext* codec_ctx);
-
-
-    static size_t read_value(const uint8_t* src, size_t len) {
-        size_t value = 0;
-        for (size_t i = 0; i < len; ++i) {
-            value |= static_cast<size_t>(src[i]) << (8 * (len - 1 - i));
-        }
-        return value;
-    }
 
     const static parameter_sets &get_saved_params(const size_t gof_index);
 
 private:
+
+    /* ---------------- Bitstream parsing functions ---------------- */
+
     /* Read functions that can print the values if debug mode is enabled */
     static uint32_t read(uint8_t bits, bitstream_position &pos, const std::string &name = "");
     static uint32_t read_ue(bitstream_position &pos, const std::string &name = ""); // Exp-Golomb
@@ -60,15 +52,24 @@ private:
     /* Advance to the next full byte. If already at the start of a byte, do nothing */
     static void align_bitstream(bitstream_position &pos);
 
-    /* high-level" decompression functions */
+    /* ---------------- "high-level" decompression functions ---------------- */
+
+    /* First convert and then decode a video sub-bitstream */
+    static void decompress_video_sub_bitstream(uint8_t* buf, const size_t ptr, const size_t v3c_payload_size_bytes, video_map* map, AVCodecContext* codec_ctx);
+
+    /* V3C video sub-bitstreams have 4-byte fields denoting NAL unit sizes. Convert these to start codes for FFMPEG to work */
+    static void convert_video_sub_bitstream(const uint8_t* buf, const size_t ptr, const size_t v3c_payload_size_bytes, std::vector<uint8_t> &output, std::vector<size_t> &frame_boundaries);
+    
+    /* Decode a video sub-bitstream with start codes as NAL unit delimiters. Save the frames into a video map */
+    static void decode_video_sub_bitstream(std::vector<uint8_t> &input, std::vector<size_t> &frame_boundaries, video_map &map, AVCodecContext* codec_ctx);
+    
+    /* Decode video frames using FFMPEG. decode_video_sub_bitstream() calls this */
+    static std::vector<AVFrame*> decode_video_frames(std::vector<uint8_t> &input, std::vector<size_t> &frame_boundaries, AVCodecContext* codec_ctx);
+    
+    /* Decode atlas frame. NOTE: Heavily from TMC2 */
     static void decode_atlas_frame(atlas_frame* frame, const atlas_tile_layer_rbsp &rbsp);
 
-    /* FFMPEG LIB functions */
-    static void convert_video_sub_bitstream(const uint8_t* buf, const size_t ptr, const size_t v3c_payload_size_bytes, std::vector<uint8_t> &output, std::vector<size_t> &frame_boundaries);
-    static void decode_video_sub_bitstream(std::vector<uint8_t> &input, std::vector<size_t> &frame_boundaries, video_map &map, AVCodecContext* codec_ctx);
-    static std::vector<AVFrame*> decode_video_frames(std::vector<uint8_t> &input, std::vector<size_t> &frame_boundaries, AVCodecContext* codec_ctx);
-
-    /* "low-level" parsing functions */
+    /* ---------------- "low-level" parsing functions ----------------" */
     static void read_v3c_parameter_set(v3c_parameter_set* vps, bitstream_position &ptr);
     static void read_profile_tier_level(profile_tier_level* ptl, bitstream_position &ptr);
     static void read_atlas_nal_unit(NAL_UNIT_TYPE nal_unit_type, std::size_t nal_unit_size, decompressed_cu* output, bitstream_position &ptr);

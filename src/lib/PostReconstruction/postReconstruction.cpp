@@ -13,7 +13,7 @@ void PostReconstruction::PostProcess(decompressed_cu* cu, point_cloud_frame* rec
     color_point_cloud(reconstruct, *cu, cu_frame_index, gof_index);
 }
 
-size_t PostReconstruction::color_point_cloud(point_cloud_frame* reconstruct, const decompressed_cu &cu, const size_t cu_frame_index,
+void PostReconstruction::color_point_cloud(point_cloud_frame* reconstruct, const decompressed_cu &cu, const size_t cu_frame_index,
     const size_t gof_index )
 {
     const size_t atlas_index = cu.atlas_map.at(cu_frame_index).get()->atlas_index;
@@ -26,10 +26,9 @@ size_t PostReconstruction::color_point_cloud(point_cloud_frame* reconstruct, con
 
     if ( attributeCount == 0 ) {
         Logger::log(LogLevel::INFO, "Post-reconstruction", "No attribute data \n");
-        return 0;
+        return;
     }
     const size_t mapCount = vps.vps_map_count_minus1.at(atlas_index) + 1;
-
 
     std::vector<point3d> &pointToPixel = reconstruct->point_to_pixel;
     auto&  color8bit = reconstruct->colors;
@@ -57,6 +56,4 @@ size_t PostReconstruction::color_point_cloud(point_cloud_frame* reconstruct, con
 
         }
     }
-
-    return reconstruct->getPointCount(); //tile.getTotalNumberOfRegularPoints()
 }

@@ -24,11 +24,13 @@ std::mutex occupancy_codec_mtx_;
 std::mutex geometry_codec_mtx_;
 std::mutex attribute_codec_mtx_;
 
-size_t occupancy_width_ = 0;
-size_t occupancy_height_ = 0;
-// geometry and attribute
-size_t video_width_ = 0;
-size_t video_height_ = 0;
+static size_t read_value(const uint8_t* src, size_t len) {
+    size_t value = 0;
+    for (size_t i = 0; i < len; ++i) {
+        value |= static_cast<size_t>(src[i]) << (8 * (len - 1 - i));
+    }
+    return value;
+}
 
 bool keep_intermediate_files_ = false;
 
@@ -843,35 +845,6 @@ void Decompression::decode_atlas_frame(atlas_frame* frame, const atlas_tile_laye
     }
 }
 
-/*void Decompression::convert_video_sub_bitstream(const std::size_t v3c_payload_size_bytes, const std::string output_path, std::vector<uvgvpcc_dec::video_parameter_set_nalu>* v_params)
-{
-    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "Reading V3C video data " + std::to_string(v3c_payload_size_bytes) + " \n");
-    std::ofstream file(output_path, std::ios::binary);
-    if(!file.is_open()) {
-        throw std::runtime_error("Bitstream writing : Could not open output file " + output_path);
-    }
-    std::size_t end_point = pos_.bytes + v3c_payload_size_bytes;
-    const char hevc_start_code[4] = {0x00, 0x00, 0x00, 0x01};
-    while (true) {
-        if (pos_.bytes >= end_point) {
-            break;
-        }
-        std::size_t nalu_size = read(32, "hevc nal unit size");
-        std::size_t hevc_nal_type = cbuf_[pos_.bytes] >> 1;
-        if (hevc_nal_type == 32 || hevc_nal_type == 33 || hevc_nal_type == 34) {
-            uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "Parameter set (type " + std::to_string(hevc_nal_type) + ") found, size " + std::to_string(nalu_size) + " \n");
-            std::unique_ptr<uint8_t[]> data(new uint8_t[nalu_size]);
-            memcpy(data.get(), &cbuf_[pos_.bytes], nalu_size);
-            v_params->push_back({hevc_nal_type, nalu_size, std::move(data)});
-        }
-        
-        file.write(hevc_start_code, 4);
-        file.write(reinterpret_cast<const char*>(&cbuf_[pos_.bytes]), nalu_size);
-        advance_bitstream(nalu_size * 8);
-    }
-    file.close();
-}*/
-
 void Decompression::decompress_video_sub_bitstream(uint8_t* buf, const size_t ptr, const size_t v3c_payload_size_bytes, video_map* map, AVCodecContext* codec_ctx)
 {
     std::vector<uint8_t> temp = {};
@@ -907,15 +880,9 @@ void Decompression::convert_video_sub_bitstream(const uint8_t* buf, const size_t
         write_ptr += nalu_size;
         read_ptr += nalu_size;
         if(hevc_nal_type == 19 || hevc_nal_type == 1) {
-            //std::cout << "new cutoff at " << write_ptr << std::endl;
             frame_boundaries.push_back(write_ptr); 
-        }
-        
-        // Dont do this here to not mess up the bitstream
-        //advance_bitstream(nalu_size * 8);
-        //std::cout << "write_ptr " << write_ptr << std::endl;
+        } 
     }
-    //std::cout << "end of s " << std::endl;
 }
 
 std::vector<AVFrame*> Decompression::decode_video_frames(std::vector<uint8_t> &input, std::vector<size_t> &frame_boundaries, AVCodecContext* codec_ctx)
