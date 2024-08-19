@@ -4,8 +4,12 @@
 
 class Adaptation {
 public:
-    /* ------------------------ Reference,  ripped from tmc2------------------------ */
-    static void convertYUV8ToRGB8(point_cloud_frame* reconstruct);
+
+    /* Convert 8bit YUV colors to 8bit RGB colors. Reference/slow implementation FROM TMC2 */
+    static void convert_colors_slow(point_cloud_frame* reconstruct);
+
+    /* Convert 8bit YUV colors to 8bit RGB colors. Fast implementation */
+    static void convert_colors_fast(point_cloud_frame* reconstruct);
 
     static void output_decoded_frame(std::shared_ptr<point_cloud_frame> reconstruct, uvgvpcc_dec::API::decoded_output* out);
 };

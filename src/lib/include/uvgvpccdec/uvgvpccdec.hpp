@@ -42,6 +42,7 @@ struct Parameters {
 
     size_t max_points = 0;
     bool keep_intermediate_files = false;
+    bool fast_color_conversion = false;
 
 };
 

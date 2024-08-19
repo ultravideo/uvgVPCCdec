@@ -11,6 +11,7 @@ namespace uvgvpcc_dec
 
 context dec_context_;
 size_t num_threads_ = 30;
+bool fast_color_conversion_ = false;
 std::shared_ptr<uvgvpcc_dec::Job> last_out_ = nullptr;
 
 void readFile(const std::string filename, std::vector<uint8_t> &data);
@@ -21,6 +22,7 @@ void API::initializeDecoder(const Parameters& param)
     dec_context_.queue = std::make_shared<ThreadQueue>(num_threads_);
     Decompression::initializeStaticParameters(param, &dec_context_);
     Reconstruction::initializeStaticParameters(param, &dec_context_);
+    fast_color_conversion_ = param.fast_color_conversion;
 
 }
 
@@ -99,9 +101,15 @@ void API::decodeV3CChunk(std::shared_ptr<v3c_chunk> chunk, uvgvpcc_dec::API::dec
                     pc_patch->addDependency(pc_setup);
                     pc_color->addDependency(pc_patch);
                 }
-
-                auto pc_convert = std::make_shared<Job>("Adaptation::convertYUV8ToRGB8",
-                    4, Adaptation::convertYUV8ToRGB8, dec_context_.latest_gof->reconstructed_point_cloud.get());
+                std::shared_ptr<Job> pc_convert;
+                if (fast_color_conversion_) {
+                    pc_convert = std::make_shared<Job>("Adaptation::convertYUV8ToRGB8",
+                        4, Adaptation::convert_colors_fast, dec_context_.latest_gof->reconstructed_point_cloud.get());
+                }
+                else {
+                    pc_convert = std::make_shared<Job>("Adaptation::convertYUV8ToRGB8",
+                        4, Adaptation::convert_colors_slow, dec_context_.latest_gof->reconstructed_point_cloud.get());
+                }
                 
                 auto pc_out = std::make_shared<Job>("Adaptation::output_decoded_frame",
                     5, Adaptation::output_decoded_frame, dec_context_.latest_gof->reconstructed_point_cloud, out);

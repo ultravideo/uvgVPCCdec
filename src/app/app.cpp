@@ -6,6 +6,7 @@
 
 void readFile(const std::string filename, uvgvpcc_dec::API::v3c_unit_stream &unit_stream);
 bool write_to_file_ = false;
+bool fast_yuv_to_rgb_ = false;
 
 /* ------------------------ ripped from tmc2------------------------ */
 bool write( const std::string fileName, point_cloud_frame* frame, const bool asAscii = true );
@@ -29,8 +30,8 @@ bool output_func(uvgvpcc_dec::API::decoded_output* output);
 
 int main(int argc, char* argv[]) {
 
-    if (argc != 3) {
-        std::cout << "invalid number of arguments, enter .vpcc filename and 1/0 whether you want file written or not " << std::endl;
+    if (argc != 4) {
+        std::cout << "invalid number of arguments, enter .vpcc filename, 1/0 (file writing), 1/0 (fast color conversion) " << std::endl;
     }
     //std::string input_file = "longdress-f1.vpcc";
     std::string input_file = argv[1];
@@ -41,7 +42,11 @@ int main(int argc, char* argv[]) {
     uvgvpcc_dec::Logger::setLogLevel(uvgvpcc_dec::LogLevel::INFO);
     uvgvpcc_dec::Parameters param;
 
+    if (*argv[3] == '1') {
+        param.fast_color_conversion  = true;
+    }
     param.keep_intermediate_files = false;
+
     //param.max_points = 738590;
     uvgvpcc_dec::API::initializeDecoder(param);
 

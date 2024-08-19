@@ -12,8 +12,10 @@ cmake -B _build/Release -S . -DBUILD_SHARED_LIBS=ON -DBUILD_TYPE=RelWithDebInfo 
 ```
 Run
 ```
-./_build/Release/src/app/uvgVPCCdec <input-filename.vpcc> 0
+./_build/Release/src/app/uvgVPCCdec <input-filename.vpcc> 0 0
 ```
-Second parameter states whether or not you want the outputted frames written to the disk (1) or not (0).
+First parameter filename
+Second parameter 1/0 for writing to file yes/nog
+Third parameter 1/0 for fast YUV->RGB color conversion yes/no
 
 Number of threads is set in code in `uvgvpccdec.cpp`.
