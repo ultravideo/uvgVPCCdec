@@ -272,16 +272,23 @@ struct picture {
     uint8_t get_Y_value(const size_t u, const size_t v ) const {
         return Y.at(v * width + u);
     }
-    // Works for 444. IF you want 420, this needs to change a bit
-    // Check integer lengths
+
     uint8_t get_value(const size_t channel, const size_t u, const size_t v) const {
         assert( channel < 3 );
+        size_t corrected_u = u;
+        size_t corrected_v = v;
+        size_t corrected_width = width;
+        if(format == PCCCOLORFORMAT::YUV420) {
+            corrected_u = u / 2;
+            corrected_v = v / 2;
+            corrected_width = width / 2;
+        }
         if(channel == 0) {
             return Y.at(v * width + u);
         } else if (channel == 1) {
-            return U.at(v * width + u);
+            return U.at(corrected_v * corrected_width + corrected_u);
         } else if (channel == 2) {
-            return V.at(v * width + u);
+            return V.at(corrected_v * corrected_width + corrected_u);
         }
         return 0;
     }

@@ -203,12 +203,16 @@ void Decompression::decompress_v3c_video_unit(V3C_UNIT_TYPE vuh_t, uint8_t* buf,
         
         occupancy_codec_mtx_.unlock();
 
-        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Format conversion", "Occupancy map frame count = "
+        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Nominal format", "Occupancy map frame count = "
         + std::to_string(out_cu->occupancy_map.frame_count) + " (" + std::to_string(out_cu->occupancy_map.width)
         + "x" + std::to_string(out_cu->occupancy_map.height) + ") \n" + "Channels (frame 0) Y="
         + std::to_string(out_cu->occupancy_map.pictures.front().Y.size()) + " U=" +
         std::to_string(out_cu->occupancy_map.pictures.front().U.size())
         + " V=" + std::to_string(out_cu->occupancy_map.pictures.front().V.size()) + "\n");
+
+        if (out_cu->occupancy_map.pictures.front().format == PCCCOLORFORMAT::YUV420) {
+            uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Note", "Occupancy map in YUV420 (nominal format would be 444) \n");
+        }
     }
     else if (vuh_t == V3C_GVD) {
         geometry_codec_mtx_.lock();
@@ -223,12 +227,15 @@ void Decompression::decompress_v3c_video_unit(V3C_UNIT_TYPE vuh_t, uint8_t* buf,
         geometry_codec_mtx_.unlock();
 
         for (size_t i = 0; i < out_cu->geometry_maps.size(); i++) {
-            uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Format conversion", "Geometry map [" + std::to_string(i)
+            uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Nominal format", "Geometry map [" + std::to_string(i)
                 + "] frame count = " + std::to_string(out_cu->geometry_maps.at(i).frame_count) 
                 + " (" + std::to_string(out_cu->geometry_maps.at(i).width) + "x" + std::to_string(out_cu->geometry_maps.at(i).height) + ") \n"
                 + "Channels (frame 0) Y=" + std::to_string(out_cu->geometry_maps.at(i).pictures.front().Y.size())
                 + " U=" + std::to_string(out_cu->geometry_maps.at(i).pictures.front().U.size())
                 + " V=" + std::to_string(out_cu->geometry_maps.at(i).pictures.front().V.size()) + "\n");
+            if (out_cu->geometry_maps.at(i).pictures.front().format == PCCCOLORFORMAT::YUV420) {
+                uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Note", "Geometry map in YUV420 (nominal format would be 444) \n");
+            }
         }
     }
     else if (vuh_t == V3C_AVD) {
@@ -244,12 +251,15 @@ void Decompression::decompress_v3c_video_unit(V3C_UNIT_TYPE vuh_t, uint8_t* buf,
         attribute_codec_mtx_.unlock();
 
         for (size_t i = 0; i < out_cu->attribute_maps.size(); i++) {
-            uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Format conversion", "Attribute map [" + std::to_string(i)
+            uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Nominal format", "Attribute map [" + std::to_string(i)
                 + "] frame count = " + std::to_string(out_cu->attribute_maps.at(i).frame_count) 
                 + " (" + std::to_string(out_cu->attribute_maps.at(i).width) + "x" + std::to_string(out_cu->attribute_maps.at(i).height) + ") \n"
                 + "Channels (frame 0) Y=" + std::to_string(out_cu->attribute_maps.at(i).pictures.front().Y.size())
                 + " U=" + std::to_string(out_cu->attribute_maps.at(i).pictures.front().U.size())
                 + " V=" + std::to_string(out_cu->attribute_maps.at(i).pictures.front().V.size()) + "\n");
+            if (out_cu->attribute_maps.at(i).pictures.front().format == PCCCOLORFORMAT::YUV420) {
+                uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Note", "Attribute map in YUV420 (nominal format would be 444) \n");
+            }
         }
     }
 }
@@ -1002,13 +1012,12 @@ void Decompression::decode_video_sub_bitstream(std::vector<uint8_t> &input, std:
 
         // Copy V plane
         std::memcpy(frame420.V.data(), fr->data[2], width * height / 4);
-
-        picture frame444;
+        /*picture frame444;
         if(frame420.format == PCCCOLORFORMAT::YUV420) {
             frame444.convert_yuv_420_to_444(&frame420);
-        }
+        }*/
         //uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Decompression", "Added video frame \n");
-        map.pictures.push_back(std::move(frame444));
+        map.pictures.push_back(std::move(frame420));
         map.frame_count++;
         av_frame_free(&fr);
     }
