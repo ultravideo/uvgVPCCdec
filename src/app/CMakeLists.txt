@@ -8,7 +8,13 @@ add_executable(uvgVPCCdec
 
 set(CMAKE_CXX_CLANG_TIDY "")
 
-target_link_libraries(uvgVPCCdec uvgvpccdec)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(UVGRTP REQUIRED uvgrtp)
+
+include_directories(${UVGRTP_INCLUDE_DIRS})
+link_directories(${UVGRTP_LIBRARY_DIRS})
+
+target_link_libraries(uvgVPCCdec uvgvpccdec ${UVGRTP_LIBRARIES})
 
 # Define installation destinations
 install(TARGETS uvgVPCCdec DESTINATION bin)
