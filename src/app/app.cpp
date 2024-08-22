@@ -1,6 +1,4 @@
 #include "uvgvpccdec/uvgvpccdec.hpp"
-#include <uvgrtp/lib.hh>
-
 #include <iostream>
 #include <thread>
 #include <fstream>
@@ -9,75 +7,6 @@
 void readFile(const std::string filename, uvgvpcc_dec::API::v3c_unit_stream &unit_stream);
 bool write_to_file_ = false;
 bool fast_yuv_to_rgb_ = false;
-
-constexpr char LOCAL_IP[] = "127.0.0.1";
-
-// This example runs for 10 seconds
-constexpr auto RECEIVE_TIME_S = std::chrono::seconds(10);
-
-// Hooks for the media streams
-void vps_receive_hook(void* arg, uvgrtp::frame::rtp_frame* frame); // VPS only included for simplicity of demonstration
-void ad_receive_hook(void* arg, uvgrtp::frame::rtp_frame* frame);
-void ovd_receive_hook(void* arg, uvgrtp::frame::rtp_frame* frame);
-void gvd_receive_hook(void* arg, uvgrtp::frame::rtp_frame* frame);
-void avd_receive_hook(void* arg, uvgrtp::frame::rtp_frame* frame);
-
-/* These values specify the amount of NAL units inside each type of V3C unit. These need to be known to be able to reconstruct the 
- * GOFs after receiving. These default values correspond to the provided test sequence, and may be different for other sequences.
- * The sending example has prints that show how many NAL units each V3C unit contain. For other sequences, these values can be
- * modified accordingly. */
-constexpr int VPS_NALS = 1; // VPS only included for simplicity of demonstration
-constexpr int AD_NALS = 35;
-constexpr int OVD_NALS = 35;
-constexpr int GVD_NALS = 131;
-constexpr int AVD_NALS = 131;
-
-struct nal_info {
-    size_t location   = 0; // Start position of the NAL unit
-    size_t size       = 0; // Size of the NAL unit
-    char* buf = nullptr;     // Used on receiving end for temporary storage of the received NAL unit
-
-};
-
-struct v3c_streams {
-    uvgrtp::media_stream* vps = nullptr;
-    uvgrtp::media_stream* ad = nullptr;
-    uvgrtp::media_stream* ovd = nullptr;
-    uvgrtp::media_stream* gvd = nullptr;
-    uvgrtp::media_stream* avd = nullptr;
-};
-struct v3c_unit_header {
-    uint8_t vuh_unit_type = 0;
-};
-
-/* A v3c_unit_info contains all the required information of a V3C unit
- - nal_info struct holds the format(Atlas, H264, H265, H266), start position and size of the NAL unit
- - With this info you can send the data via different uvgRTP media streams. */
-struct v3c_unit_info {
-    v3c_unit_header header;
-    std::vector<nal_info> nal_infos = {};
-    //char* buf; // (used on the receiving end)
-    uint64_t ptr = 0; // (used on the receiving end) total size of the received NAL units in a V3C unit
-    bool ready = false; // (used on the receiving end)
-};
-
-struct v3c_file_map {
-    std::vector<v3c_unit_info> vps_units = {};
-    std::vector<v3c_unit_info> ad_units = {};
-    std::vector<v3c_unit_info> ovd_units = {};
-    std::vector<v3c_unit_info> gvd_units = {};
-    std::vector<v3c_unit_info> avd_units = {};
-    std::vector<v3c_unit_info> pvd_units = {};
-    std::vector<v3c_unit_info> cad_units = {};
-};
-
-v3c_streams init_v3c_streams(uvgrtp::session* sess, uint16_t src_port, uint16_t dst_port, int flags, bool rec);
-v3c_file_map init_mmap();
-void copy_rtp_payload(std::vector<v3c_unit_info>* units, uint64_t max_size, uvgrtp::frame::rtp_frame* frame);
-
-
-/* NOTE: In case where the last GOF has fewer NAL units than specified above, the receiver does not know how many to expect
-   and cannot reconstruct that specific GOF. s*/
 
 /* ------------------------ ripped from tmc2------------------------ */
 bool write( const std::string fileName, point_cloud_frame* frame, const bool asAscii = true );
@@ -110,25 +39,6 @@ int main(int argc, char* argv[]) {
         write_to_file_  = true;
     }
 
-    /* Initialize uvgRTP context and session*/
-    uvgrtp::context ctx;
-    std::pair<std::string, std::string> addresses_receiver(LOCAL_IP, LOCAL_IP);
-    uvgrtp::session* sess = ctx.create_session(addresses_receiver);
-    int flags = 0;
-
-    // Create the uvgRTP media streams with the correct RTP format
-    v3c_streams streams = init_v3c_streams(sess, 8890, 8892, flags, true);
-
-    // Initialize memory map
-    v3c_file_map mmap = init_mmap();
-
-    streams.vps->install_receive_hook(&mmap.vps_units, vps_receive_hook);
-    streams.ad->install_receive_hook(&mmap.ad_units, ad_receive_hook);
-    streams.ovd->install_receive_hook(&mmap.ovd_units, ovd_receive_hook);
-    streams.gvd->install_receive_hook(&mmap.gvd_units, gvd_receive_hook);
-    streams.avd->install_receive_hook(&mmap.avd_units, avd_receive_hook);
-    streams.avd->configure_ctx(RCC_RING_BUFFER_SIZE, 40 * 1000 * 1000);
-
     uvgvpcc_dec::Logger::setLogLevel(uvgvpcc_dec::LogLevel::INFO);
     uvgvpcc_dec::Parameters param;
 
@@ -140,11 +50,8 @@ int main(int argc, char* argv[]) {
     //param.max_points = 738590;
     uvgvpcc_dec::API::initializeDecoder(param);
 
-    std::cout << "Waiting incoming packets for " << RECEIVE_TIME_S.count() << " s" << std::endl;
-    std::this_thread::sleep_for(std::chrono::seconds(10));
-
     uvgvpcc_dec::API::v3c_unit_stream unit_stream;
-    //readFile(input_file, unit_stream);
+    readFile(input_file, unit_stream);
     uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Application", "Number of V3C chunks " + std::to_string(unit_stream.v3c_chunks.size()) + " \n");
     
     uvgvpcc_dec::API::decoded_output output; // Each point cloud frame gets appended to the output as they are decoded
@@ -330,136 +237,4 @@ bool write( const std::string fileName, point_cloud_frame* frame, const bool asA
     }
     fout.close();
     return true;
-}
-
-v3c_streams init_v3c_streams(uvgrtp::session* sess, uint16_t src_port, uint16_t dst_port, int flags, bool rec)
-{
-    flags |= RCE_NO_H26X_PREPEND_SC;
-    v3c_streams streams = {};
-
-    streams.vps = sess->create_stream(src_port, dst_port, RTP_FORMAT_GENERIC, flags);
-    streams.ad = sess->create_stream(src_port, dst_port, RTP_FORMAT_ATLAS, flags);
-    streams.ovd = sess->create_stream(src_port, dst_port, RTP_FORMAT_H265, flags);
-    streams.gvd = sess->create_stream(src_port, dst_port, RTP_FORMAT_H265, flags);
-    streams.avd = sess->create_stream(src_port, dst_port, RTP_FORMAT_H265, flags);
-    
-    if (rec) {
-        streams.vps->configure_ctx(RCC_REMOTE_SSRC, 1);
-        streams.ad->configure_ctx(RCC_REMOTE_SSRC, 2);
-        streams.ovd->configure_ctx(RCC_REMOTE_SSRC, 3);
-        streams.gvd->configure_ctx(RCC_REMOTE_SSRC, 4);
-        streams.avd->configure_ctx(RCC_REMOTE_SSRC, 5);
-    }
-    else {
-        streams.vps->configure_ctx(RCC_SSRC, 1);
-        streams.ad->configure_ctx(RCC_SSRC, 2);
-        streams.ovd->configure_ctx(RCC_SSRC, 3);
-        streams.gvd->configure_ctx(RCC_SSRC, 4);
-        streams.avd->configure_ctx(RCC_SSRC, 5);
-    }
-    //streams.gvd->configure_ctx(RCC_FPS_NUMERATOR, 10);
-    return streams;
-}
-
-v3c_file_map init_mmap()
-{
-    v3c_file_map mmap = {};
-
-    v3c_unit_header hdr = { V3C_AD };
-    v3c_unit_info unit = { hdr, {}, 0, false };
-    mmap.ad_units.push_back(unit);
-
-    hdr = { V3C_OVD };
-    unit = { hdr, {}, 0, false };
-    mmap.ovd_units.push_back(unit);
-
-    hdr = { V3C_GVD };
-    unit = { hdr, {}, 0, false };
-    mmap.gvd_units.push_back(unit);
-
-    hdr = { V3C_AVD };
-    unit = { hdr, {}, 0, false };
-    mmap.avd_units.push_back(unit);
-    return mmap;
-}
-
-void vps_receive_hook(void* arg, uvgrtp::frame::rtp_frame* frame)
-{
-    std::vector<v3c_unit_info>* vec = (std::vector<v3c_unit_info>*)arg;
-
-    char* cbuf = new char[frame->payload_len];
-    memcpy(cbuf, frame->payload, frame->payload_len);
-    v3c_unit_info vps;
-    nal_info aa = {0, frame->payload_len, cbuf};
-    vps.nal_infos.push_back({0, frame->payload_len, cbuf});
-    vec->push_back(vps);
-    std::cout << "rec vps" << std::endl;
-    (void)uvgrtp::frame::dealloc_frame(frame);
-}
-void ad_receive_hook(void* arg, uvgrtp::frame::rtp_frame* frame)
-{
-    std::vector<v3c_unit_info>* vec = (std::vector<v3c_unit_info>*)arg;
-    std::cout << "rec atlas nal, size " << frame->payload_len << std::endl;
-    copy_rtp_payload(vec, AD_NALS, frame);
-    (void)uvgrtp::frame::dealloc_frame(frame);
-}
-void ovd_receive_hook(void* arg, uvgrtp::frame::rtp_frame* frame)
-{
-    std::vector<v3c_unit_info>* vec = (std::vector<v3c_unit_info>*)arg;
-    std::cout << "rec OVD nal, size " << frame->payload_len << std::endl;
-    copy_rtp_payload(vec, OVD_NALS, frame);
-    (void)uvgrtp::frame::dealloc_frame(frame);
-}
-void gvd_receive_hook(void* arg, uvgrtp::frame::rtp_frame* frame)
-{
-    std::vector<v3c_unit_info>* vec = (std::vector<v3c_unit_info>*)arg;
-    std::cout << "rec GVD nal, size " << frame->payload_len << std::endl;
-    copy_rtp_payload(vec, GVD_NALS, frame);
-    (void)uvgrtp::frame::dealloc_frame(frame);
-}
-void avd_receive_hook(void* arg, uvgrtp::frame::rtp_frame* frame)
-{
-    std::vector<v3c_unit_info>* vec = (std::vector<v3c_unit_info>*)arg;
-    std::cout << "rec AVD nal, size " << frame->payload_len << std::endl;
-    copy_rtp_payload(vec, AVD_NALS, frame);
-    (void)uvgrtp::frame::dealloc_frame(frame);
-}
-
-void copy_rtp_payload(std::vector<v3c_unit_info>* units, uint64_t max_size, uvgrtp::frame::rtp_frame* frame)
-{
-    uint32_t seq = frame->header.seq;
-    if (units->back().nal_infos.size() == max_size) {
-        v3c_unit_header hdr = { units->back().header.vuh_unit_type};
-        v3c_unit_info info = { hdr, {}, 0, false };
-        /*switch (units->back().header.vuh_unit_type) {
-            case V3C_AD: {
-                info.header.ad = { (uint8_t)units->size(), 0};
-                break;
-            }
-            case V3C_OVD: {
-                info.header.ovd = { (uint8_t)units->size(), 0 };
-                break;
-            }
-            case V3C_GVD: {
-                info.header.gvd = { (uint8_t)units->size(), 0, 0, 0 };
-                break;
-            }
-            case V3C_AVD: {
-                info.header.avd = { (uint8_t)units->size(), 0 };
-                break;
-            }
-        }*/
-        units->push_back(info);
-    }
-
-    if (units->back().nal_infos.size() <= max_size) {
-        char* cbuf = new char[frame->payload_len];
-        memcpy(cbuf, frame->payload, frame->payload_len);
-        nal_info nalu = { units->back().ptr, frame->payload_len, cbuf};
-        units->back().nal_infos.push_back(nalu);
-        units->back().ptr += frame->payload_len;
-    }
-    if (units->back().nal_infos.size() == max_size) {
-        units->back().ready = true;
-    }
 }
