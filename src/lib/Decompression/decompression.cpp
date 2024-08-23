@@ -732,6 +732,9 @@ void Decompression::read_atlas_nal_unit(NAL_UNIT_TYPE nal_unit_type, std::size_t
                 output->atlas_map.push_back(std::move(frame));
                 output->cu_frame_count++;
                 break; }
+            case NAL_UNIT_TYPE::NAL_EOB: {
+                // No payload in EOB NAL unit
+                break; }
             default: 
                 uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::ERROR, "Decompression", "Unsupported Atlas NAL type " + std::to_string(nal_unit_type) + " \n");
                 advance_bitstream(nal_unit_size * 8 - 16, ptr); // skip the rest of NAL unit for now 
