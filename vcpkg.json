@@ -1,0 +1,10 @@
+{
+  "dependencies": [
+    {
+      "name": "ffmpeg",
+      "features": [
+        "avcodec"
+      ]
+    }
+  ]
+}

@@ -23,11 +23,14 @@ else()
 endif()
 
 # Find and link libavcodec using pkg-config
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(AVCODEC REQUIRED libavcodec)
+# find_package(PkgConfig REQUIRED)
+# pkg_check_modules(AVCODEC REQUIRED libavcodec)
+# find_package(avcodec CONFIG REQUIRED)
+set(CMAKE_SHARED_LINKER_FLAGS "-Wl,-Bsymbolic")
+find_package(FFMPEG REQUIRED)
 
-include_directories(${AVCODEC_INCLUDE_DIRS})
-link_directories(${AVCODEC_LIBRARY_DIRS})
+include_directories(${FFMPEG_INCLUDE_DIRS})
+link_directories(${FFMPEG_LIBRARY_DIRS})
 
 target_link_libraries(uvgvpccdec
     decompressionLibrary
@@ -36,7 +39,7 @@ target_link_libraries(uvgvpccdec
     adaptationLibrary
     utilsLibrary
     logLibrary
-    ${AVCODEC_LIBRARIES}
+    ${FFMPEG_LIBRARIES}
 )
 
 # Include directories for headers
