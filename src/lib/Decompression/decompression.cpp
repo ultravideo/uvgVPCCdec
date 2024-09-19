@@ -1,4 +1,5 @@
 #include "decompression.hpp"
+#include "uvgvpccdec/data_structures.hpp"
 #include <cstring>
 #include <sstream>
 #include <fstream>
@@ -190,6 +191,66 @@ void Decompression::parse_gofs(const uvgvpcc_dec::v3c_chunk &chunk, std::vector<
     saved_params_.resize(infos.size());
 }
 
+
+void convertYUV420ToYUV444uvgVPCCSimple( picture& picSrc, picture& picDst ) {
+
+    size_t width = picSrc.width;
+    size_t height = picSrc.height;
+
+    picDst.width = width;
+    picDst.height = height;
+    
+    picDst.Y = picSrc.Y;
+
+    picDst.format = PCCCOLORFORMAT::YUV444;
+
+    picDst.U.resize(width * height);
+    picDst.V.resize(width * height);
+
+
+    size_t widthChroma  = width / 2;
+    size_t heightChroma = height / 2;
+    for(size_t j = 0; j < heightChroma; ++j) {
+        for(size_t i = 0; i < widthChroma; ++i) {
+            size_t index = j*width*2 + i*2;
+
+            const uint16_t tempU = picSrc.U[i+j*widthChroma];
+            picDst.U[index] = tempU;
+            picDst.U[index+1] = tempU;
+            picDst.U[index+width] = tempU;
+            picDst.U[index+width+1] = tempU;
+
+            const uint16_t tempV = picSrc.V[i+j*widthChroma];
+            picDst.V[index] = tempV;
+            picDst.V[index+1] = tempV;
+            picDst.V[index+width] = tempV;
+            picDst.V[index+width+1] = tempV;
+        }
+    }
+}
+
+void convertYUV420ToYUV444uvgVPCCSimple(std::vector<video_map>& attribute_maps ) {
+  
+
+    video_map videoSrc = attribute_maps[0];
+    video_map videoDst;
+    videoDst.pictures.resize( videoSrc.frame_count );
+    videoDst.height = videoSrc.height;
+    videoDst.width = videoSrc.width;
+
+    for ( size_t i = 0; i < videoSrc.frame_count; i++ ) {
+        convertYUV420ToYUV444uvgVPCCSimple( videoSrc.pictures[i], videoDst.pictures[i]);
+    }
+
+    attribute_maps[0] = videoDst;
+
+    std::cerr << "LF LOG " << std::endl;
+    std::cerr << "LF LOG " << videoSrc.frame_count << std::endl;
+    std::cerr << "LF LOG " << std::endl;
+}
+
+
+
 void Decompression::decompress_v3c_video_unit(V3C_UNIT_TYPE vuh_t, uint8_t* buf, std::shared_ptr<uvgvpcc_dec::composition_unit> in_cu, std::shared_ptr<decompressed_cu> out_cu)
 {    
     if(vuh_t == V3C_OVD) {
@@ -252,6 +313,18 @@ void Decompression::decompress_v3c_video_unit(V3C_UNIT_TYPE vuh_t, uint8_t* buf,
 
         attribute_codec_mtx_.unlock();
 
+
+        // lf : convert from YUV420 to YUV444 //
+        convertYUV420ToYUV444uvgVPCCSimple(out_cu->attribute_maps);
+
+
+
+
+        /////////////////////////////////////////
+
+
+
+
         for (size_t i = 0; i < out_cu->attribute_maps.size(); i++) {
             uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Nominal format", "Attribute map [" + std::to_string(i)
                 + "] frame count = " + std::to_string(out_cu->attribute_maps.at(i).frame_count) 
@@ -261,6 +334,9 @@ void Decompression::decompress_v3c_video_unit(V3C_UNIT_TYPE vuh_t, uint8_t* buf,
                 + " V=" + std::to_string(out_cu->attribute_maps.at(i).pictures.front().V.size()) + "\n");
             if (out_cu->attribute_maps.at(i).pictures.front().format == PCCCOLORFORMAT::YUV420) {
                 uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Note", "Attribute map in YUV420 (nominal format would be 444) \n");
+                std::cerr << "LF LOG : YUV420" << std::endl;
+            } else {
+                std::cerr << "LF LOG : YUV444" << std::endl;
             }
         }
     }

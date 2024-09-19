@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <fstream>
 
 #include "uvgvpccdec/uvgvpccdec.hpp"
@@ -39,8 +40,9 @@ void API::decodeV3CChunk(std::shared_ptr<v3c_chunk> chunk, uvgvpcc_dec::API::dec
     /* ----------------- Parse GOF boundaries ----------------- */
     Decompression::parse_gofs(*chunk, dec_context_.raw_gofs);
 
-    for (size_t gof_index = 0; gof_index < dec_context_.raw_gofs.size(); gof_index++) {
+    std::size_t frameId = 0;
 
+    for (size_t gof_index = 0; gof_index < dec_context_.raw_gofs.size(); gof_index++) {
         /* ----------------- Create GOF structures and parse VPS ----------------- */
         dec_context_.latest_gof = std::make_shared<GOF>();
         dec_context_.gofs.push_back(dec_context_.latest_gof);
@@ -56,6 +58,7 @@ void API::decodeV3CChunk(std::shared_ptr<v3c_chunk> chunk, uvgvpcc_dec::API::dec
 
         // composition_unit_index
         for (size_t cu_index = 0; cu_index < dec_context_.latest_gof->raw_gof->composition_units.size(); ++cu_index) {
+            // lf : Seems that there is only one CU in each GOF
 
             /* ----------------- Decompress composition unit ----------------- */
             // Raw composition unit (cu) contains the boundaries of different V3C units inside the composition unit
@@ -80,9 +83,12 @@ void API::decodeV3CChunk(std::shared_ptr<v3c_chunk> chunk, uvgvpcc_dec::API::dec
             /* ----------------- Reconstruct frames contained in composition unit ----------------- */
             // Index runnning inside composition unit. Different from frame index running in GOF
             for (size_t frame_index_in_cu = 0; frame_index_in_cu < dec_cu->cu_frame_count; frame_index_in_cu++) {
+                
+                
                 // Point cloud reconstruction -> per frame
                 dec_context_.latest_gof->reconstructed_point_cloud = std::make_shared<point_cloud_frame>();
                 dec_context_.latest_gof->reconstructed_point_cloud->frame_index_in_gof = frame_index_in_gof;
+                dec_context_.latest_gof->reconstructed_point_cloud->frameId = frameId++;
 
                 auto pc_setup = std::make_shared<Job>("Reconstruction::setup_point_cloud_frame",
                     2, Reconstruction::setup_point_cloud_frame, dec_cu.get(), dec_context_.latest_gof->reconstructed_point_cloud.get(),

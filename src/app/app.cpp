@@ -1,8 +1,16 @@
+#include "uvgvpccdec/log.hpp"
 #include "uvgvpccdec/uvgvpccdec.hpp"
+#include <cstddef>
+#include <cstdlib>
+#include <cstring>
 #include <iostream>
 #include <thread>
 #include <fstream>
 #include <iomanip>
+#include <filesystem>
+#include <iostream>
+#include <cstdio> 
+
 
 void readFile(const std::string filename, uvgvpcc_dec::API::v3c_unit_stream &unit_stream);
 bool write_to_file_ = false;
@@ -26,20 +34,77 @@ size_t read_value(const uint8_t* src, size_t len) {
     return value;
 }
 
-bool output_func(uvgvpcc_dec::API::decoded_output* output);
+bool output_func(uvgvpcc_dec::API::decoded_output* output, const std::string& outputFilePath);
+
+void displayHelp() {
+    std::cout << "###################\n";
+    std::cout << "Help for uvgVPCCdec\n";
+    std::cout << "###################\n";
+    std::cout << std::endl;
+}
 
 int main(int argc, char* argv[]) {
+
+    // LF : missing support -> RA
+    // LF : missing support -> occupancyResolution=4
+    // LF : missing support -> voxel 9 (and 11?)
+    // LF : missing support -> having more than one GOF
+    // LF : missing support -> TMC2 bitstream
+
+    // LF : this works :  source my_env.sh && ./dev_utils.sh -i ready_for_winter_10 -f 38 -t 20 -b -v -d --uvgvpcc rate=16-22-2,geometry2DEncodingParam=Kvazaar-lossy-AI-YUV420-20-fast,attribute2DEncodingParam=Kvazaar-lossy-AI-YUV420-20-fast,preset=slow,occupancy2DEncodingParam=Kvazaar-lossless-AI-YUV420-20-fast
+
+    uvgvpcc_dec::Logger::setLogLevel(uvgvpcc_dec::LogLevel::INFO);
+
+    std::string input_file;
+    std::string outputFilePath;
+
+
+    for(int i = 1; i<argc; ++i) {
+        if(!strcmp(argv[i], "-h")) {
+            displayHelp();
+            exit(EXIT_SUCCESS);
+        }
+
+        if(!strcmp(argv[i], "-i")) {
+            input_file = argv[i+1];
+        }
+
+        if(!strcmp(argv[i], "-o")) {
+            displayHelp();
+            outputFilePath = argv[i+1];
+        }
+
+
+    }
+
+    if(input_file.empty()) {
+        displayHelp();
+        std::cerr << "\n!!! Error : You didn't specify the input bitstream.\n" << std::endl;
+        exit(EXIT_FAILURE);
+    } else if(!std::filesystem::exists(input_file)) {
+        std::cerr << "\n!!! Error : The specified input bitstream does not exist :" << input_file << "\n" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+
+
+    if(outputFilePath.empty()) {
+        std::cerr << "\n!!! Warning : You didn't specify an output file path. No ply file will be writing.\n" << std::endl;
+    } else if(!std::filesystem::exists(std::filesystem::path(outputFilePath).parent_path())) {
+        std::cerr << "\n!!! Error : The directory in which you want to put the output ply files does not exist:" << std::filesystem::path(outputFilePath).parent_path() << "\n" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    
+
 
     if (argc != 4) {
         std::cout << "invalid number of arguments, enter .vpcc filename, 1/0 (file writing), 1/0 (fast color conversion) " << std::endl;
     }
     //std::string input_file = "longdress-f1.vpcc";
-    std::string input_file = argv[1];
+    // std::string input_file = argv[1];
     if (*argv[2] == '1') {
         write_to_file_  = true;
     }
 
-    uvgvpcc_dec::Logger::setLogLevel(uvgvpcc_dec::LogLevel::INFO);
     uvgvpcc_dec::Parameters param;
 
     if (*argv[3] == '1') {
@@ -56,7 +121,7 @@ int main(int argc, char* argv[]) {
     
     uvgvpcc_dec::API::decoded_output output; // Each point cloud frame gets appended to the output as they are decoded
     std::thread file_writer_thread;
-    file_writer_thread = std::thread(output_func, &output);
+    file_writer_thread = std::thread(output_func, &output, outputFilePath);
     
     for (size_t i = 0; i < unit_stream.v3c_chunks.size(); ++i) {
         /*const*/ auto& chunk = unit_stream.v3c_chunks.front();
@@ -109,8 +174,8 @@ void readFile(const std::string filename, uvgvpcc_dec::API::v3c_unit_stream &uni
     input_file.close();
 }
 
-bool output_func(uvgvpcc_dec::API::decoded_output* output)
-{
+bool output_func(uvgvpcc_dec::API::decoded_output* output, const std::string& outputFilePath)
+{   
     while (true) {
         output->available_frames.acquire();
         output->io_mutex.lock();
@@ -120,9 +185,10 @@ bool output_func(uvgvpcc_dec::API::decoded_output* output)
             uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::INFO, "APPLICATION", "Empty frame: All frames written.\n");
             break;
         }
-        if(write_to_file_ && frame->getPointCount() != 0) {
-            std::string out_name = "output-test-gof" + std::to_string(frame->gof_index) + "-f" + std::to_string(frame->frame_index_in_gof) + ".ply";
-            write(out_name, frame.get(), true);
+        if(!outputFilePath.empty() && frame->getPointCount() != 0) {
+            char filename[255];
+            std::snprintf(filename, sizeof(filename), outputFilePath.c_str(), frame->frameId);
+            write(filename, frame.get(), true);
         }
 
         output->frames.pop();   

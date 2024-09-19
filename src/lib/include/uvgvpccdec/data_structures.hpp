@@ -480,6 +480,8 @@ struct point_cloud_frame {
     size_t num_of_used_points = 0;
     std::mutex add_points_mtx;
 
+
+    size_t frameId = 0;
     size_t gof_index = 0;
     // Total frame index in a GOF. Not the same as frame index in a composition unit
     size_t frame_index_in_gof = 0;
