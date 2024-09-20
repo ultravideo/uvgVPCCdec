@@ -43,101 +43,6 @@ void displayHelp() {
     std::cout << std::endl;
 }
 
-int main(int argc, char* argv[]) {
-
-    // LF : missing support -> RA
-    // LF : missing support -> occupancyResolution=4
-    // LF : missing support -> voxel 9 (and 11?)
-    // LF : missing support -> having more than one GOF
-    // LF : missing support -> TMC2 bitstream
-
-    // LF : this works :  source my_env.sh && ./dev_utils.sh -i ready_for_winter_10 -f 38 -t 20 -b -v -d --uvgvpcc rate=16-22-2,geometry2DEncodingParam=Kvazaar-lossy-AI-YUV420-20-fast,attribute2DEncodingParam=Kvazaar-lossy-AI-YUV420-20-fast,preset=slow,occupancy2DEncodingParam=Kvazaar-lossless-AI-YUV420-20-fast
-
-    uvgvpcc_dec::Logger::setLogLevel(uvgvpcc_dec::LogLevel::INFO);
-
-    std::string input_file;
-    std::string outputFilePath;
-
-
-    for(int i = 1; i<argc; ++i) {
-        if(!strcmp(argv[i], "-h")) {
-            displayHelp();
-            exit(EXIT_SUCCESS);
-        }
-
-        if(!strcmp(argv[i], "-i")) {
-            input_file = argv[i+1];
-        }
-
-        if(!strcmp(argv[i], "-o")) {
-            displayHelp();
-            outputFilePath = argv[i+1];
-        }
-
-
-    }
-
-    if(input_file.empty()) {
-        displayHelp();
-        std::cerr << "\n!!! Error : You didn't specify the input bitstream.\n" << std::endl;
-        exit(EXIT_FAILURE);
-    } else if(!std::filesystem::exists(input_file)) {
-        std::cerr << "\n!!! Error : The specified input bitstream does not exist :" << input_file << "\n" << std::endl;
-        exit(EXIT_FAILURE);
-    }
-
-
-    if(outputFilePath.empty()) {
-        std::cerr << "\n!!! Warning : You didn't specify an output file path. No ply file will be writing.\n" << std::endl;
-    } else if(!std::filesystem::exists(std::filesystem::path(outputFilePath).parent_path())) {
-        std::cerr << "\n!!! Error : The directory in which you want to put the output ply files does not exist:" << std::filesystem::path(outputFilePath).parent_path() << "\n" << std::endl;
-        exit(EXIT_FAILURE);
-    }
-    
-
-
-    if (argc != 4) {
-        std::cout << "invalid number of arguments, enter .vpcc filename, 1/0 (file writing), 1/0 (fast color conversion) " << std::endl;
-    }
-    //std::string input_file = "longdress-f1.vpcc";
-    // std::string input_file = argv[1];
-    if (*argv[2] == '1') {
-        write_to_file_  = true;
-    }
-
-    uvgvpcc_dec::Parameters param;
-
-    if (*argv[3] == '1') {
-        param.fast_color_conversion  = true;
-    }
-    param.keep_intermediate_files = false;
-
-    //param.max_points = 738590;
-    uvgvpcc_dec::API::initializeDecoder(param);
-
-    uvgvpcc_dec::API::v3c_unit_stream unit_stream;
-    readFile(input_file, unit_stream);
-    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Application", "Number of V3C chunks " + std::to_string(unit_stream.v3c_chunks.size()) + " \n");
-    
-    uvgvpcc_dec::API::decoded_output output; // Each point cloud frame gets appended to the output as they are decoded
-    std::thread file_writer_thread;
-    file_writer_thread = std::thread(output_func, &output, outputFilePath);
-    
-    for (size_t i = 0; i < unit_stream.v3c_chunks.size(); ++i) {
-        /*const*/ auto& chunk = unit_stream.v3c_chunks.front();
-        uvgvpcc_dec::API::decodeV3CChunk(chunk, &output);
-        unit_stream.v3c_chunks.pop();
-    }
-    uvgvpcc_dec::API::emptyFrameQueue();
-    output.io_mutex.lock();
-    std::shared_ptr<point_cloud_frame> empty = std::make_shared<point_cloud_frame>();
-    output.frames.push(empty); // Push empty point cloud frame to signal end of data
-    output.io_mutex.unlock();
-    output.available_frames.release();
-    file_writer_thread.join();
-    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::INFO, "Application", "Done \n");
-    return EXIT_SUCCESS;
-}
 
 void readFile(const std::string filename, uvgvpcc_dec::API::v3c_unit_stream &unit_stream)
 {
@@ -151,7 +56,7 @@ void readFile(const std::string filename, uvgvpcc_dec::API::v3c_unit_stream &uni
     input_file.read(reinterpret_cast<char*> (&header_byte), sizeof(uint8_t));
     size_t v3c_unit_size_precision = (header_byte >> 5) + 1;
 
-    size_t data_read = 1; // hdr byte already read
+    // size_t data_read = 1; // hdr byte already read
     unit_stream.v3c_unit_size_precision_bytes = v3c_unit_size_precision;
     
     uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Application", "V3C unit size precision " + std::to_string(v3c_unit_size_precision) + " \n");
@@ -160,14 +65,14 @@ void readFile(const std::string filename, uvgvpcc_dec::API::v3c_unit_stream &uni
         
         uint8_t v3c_size_array[v3c_unit_size_precision];
         input_file.read(reinterpret_cast<char*>(v3c_size_array), v3c_unit_size_precision);
-        data_read += input_file.gcount();
+        // data_read += input_file.gcount();
 
         size_t v3c_unit_size = read_value(v3c_size_array, v3c_unit_size_precision);;
         latest_chunk.v3c_unit_sizes.push_back(v3c_unit_size);
         size_t old_size = latest_chunk.data.size();
         latest_chunk.data.resize(old_size + v3c_unit_size);
         input_file.read(reinterpret_cast<char*>(&latest_chunk.data[old_size]), v3c_unit_size);
-        data_read += input_file.gcount();
+        // data_read += input_file.gcount();
         
     }
     unit_stream.v3c_chunks.push(std::make_shared<uvgvpcc_dec::v3c_chunk>(latest_chunk));
@@ -303,4 +208,114 @@ bool write( const std::string fileName, point_cloud_frame* frame, const bool asA
     }
     fout.close();
     return true;
+}
+
+
+int main(int argc, char* argv[]) {
+
+    // LF : missing support -> RA
+    // LF : missing support -> occupancyResolution=4
+    // LF : missing support -> voxel 9 (and 11?)
+    // LF : missing support -> having more than one GOF
+    // LF : missing support -> TMC2 bitstream
+
+    // LF : this works :  source my_env.sh && ./dev_utils.sh -i ready_for_winter_10 -f 38 -t 20 -b -v -d --uvgvpcc rate=16-22-2,geometry2DEncodingParam=Kvazaar-lossy-AI-YUV420-20-fast,attribute2DEncodingParam=Kvazaar-lossy-AI-YUV420-20-fast,preset=slow,occupancy2DEncodingParam=Kvazaar-lossless-AI-YUV420-20-fast
+
+    uvgvpcc_dec::Logger::setLogLevel(uvgvpcc_dec::LogLevel::INFO);
+
+    std::string input_file;
+    std::string outputFilePath;
+    uvgvpcc_dec::Parameters param;
+
+    std::string paramName;
+    std::string paramValue;
+
+    for(int i = 1; i<argc; ++i) {
+
+
+
+
+        if(!strcmp(argv[i], "-h")) {
+            displayHelp();
+            exit(EXIT_SUCCESS);
+        } else if(!strcmp(argv[i], "-i")) {
+            input_file = argv[++i];
+        } else if(!strcmp(argv[i], "-o")) {
+            displayHelp();
+            outputFilePath = argv[++i];
+        } else if(!strcmp(argv[i], "--TMC2Upscalling=true")) {
+            param.useTMC2AttributeYUVConversion = true;
+        } else if(!strcmp(argv[i],"--TMC2Upscalling=false")) {
+            param.useTMC2AttributeYUVConversion = false;
+        } else {
+            std::cerr << "ERROR : Unknown command parameter: " << argv[i] << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        
+        
+        
+
+
+
+    }
+
+    if(input_file.empty()) {
+        displayHelp();
+        std::cerr << "\n!!! Error : You didn't specify the input bitstream.\n" << std::endl;
+        exit(EXIT_FAILURE);
+    } else if(!std::filesystem::exists(input_file)) {
+        std::cerr << "\n!!! Error : The specified input bitstream does not exist :" << input_file << "\n" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+
+
+    if(outputFilePath.empty()) {
+        std::cerr << "\n!!! Warning : You didn't specify an output file path. No ply file will be writing.\n" << std::endl;
+    } else if(!std::filesystem::exists(std::filesystem::path(outputFilePath).parent_path())) {
+        std::cerr << "\n!!! Error : The directory in which you want to put the output ply files does not exist:" << std::filesystem::path(outputFilePath).parent_path() << "\n" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    
+
+
+    if (argc != 4) {
+        std::cout << "invalid number of arguments, enter .vpcc filename, 1/0 (file writing), 1/0 (fast color conversion) " << std::endl;
+    }
+    //std::string input_file = "longdress-f1.vpcc";
+    // std::string input_file = argv[1];
+    if (*argv[2] == '1') {
+        write_to_file_  = true;
+    }
+
+
+    if (*argv[3] == '1') {
+        param.fast_color_conversion  = true;
+    }
+    param.keep_intermediate_files = false;
+
+    //param.max_points = 738590;
+    uvgvpcc_dec::API::initializeDecoder(param);
+
+    uvgvpcc_dec::API::v3c_unit_stream unit_stream;
+    readFile(input_file, unit_stream);
+    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Application", "Number of V3C chunks " + std::to_string(unit_stream.v3c_chunks.size()) + " \n");
+    
+    uvgvpcc_dec::API::decoded_output output; // Each point cloud frame gets appended to the output as they are decoded
+    std::thread file_writer_thread;
+    file_writer_thread = std::thread(output_func, &output, outputFilePath);
+    
+    for (size_t i = 0; i < unit_stream.v3c_chunks.size(); ++i) {
+        /*const*/ auto& chunk = unit_stream.v3c_chunks.front();
+        uvgvpcc_dec::API::decodeV3CChunk(chunk, &output);
+        unit_stream.v3c_chunks.pop();
+    }
+    uvgvpcc_dec::API::emptyFrameQueue();
+    output.io_mutex.lock();
+    std::shared_ptr<point_cloud_frame> empty = std::make_shared<point_cloud_frame>();
+    output.frames.push(empty); // Push empty point cloud frame to signal end of data
+    output.io_mutex.unlock();
+    output.available_frames.release();
+    file_writer_thread.join();
+    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::INFO, "Application", "Done \n");
+    return EXIT_SUCCESS;
 }

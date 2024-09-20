@@ -19,8 +19,17 @@ def comparePly(index, plyTMC2, plyUVGdec):
 # TMC2_DIR="/home/lfreneau/Desktop/workspace/runctctmc2/mpeg-pcc-tmc2"
 TMC2_DIR="/home/lfreneau/Desktop/workspace/dev_workspace/uvgVPCC/_utils/tmc2"
 TMC2_DECODER_EXE=f"{TMC2_DIR}/bin/PccAppDecoder"
+# TMC2_COMMON=f"\
+#   --colorSpaceConversionPath=YUV420toYUV444uvgVPCCSimple \
+#   --inverseColorSpaceConversionConfig={TMC2_DIR}/cfg/hdrconvert/yuv420toyuv444_16bit.cfg \
+#   --nbThread=20 \
+#   --colorTransform=0 \
+#   --computeMetrics=0 \
+#   --keepIntermediateFiles=1 \
+#   --computeChecksum=0 "
+
 TMC2_COMMON=f"\
-  --colorSpaceConversionPath=YUV420toYUV444uvgVPCCSimple \
+  --colorSpaceConversionPath= \
   --inverseColorSpaceConversionConfig={TMC2_DIR}/cfg/hdrconvert/yuv420toyuv444_16bit.cfg \
   --nbThread=20 \
   --colorTransform=0 \
@@ -49,7 +58,7 @@ def run(bitstream):
 
     os.system("rm -f _out/uvgVPCCdec/*  |:")
 
-    cmd = f"_build/src/app/uvgVPCCdec -i {bitstream} -o {outputFile} > {logFile}"
+    cmd = f"_build/src/app/uvgVPCCdec -i {bitstream} -o {outputFile} --TMC2Upscalling=true > {logFile}"
     if os.system(cmd): exit()
 
 

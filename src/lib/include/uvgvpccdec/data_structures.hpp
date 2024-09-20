@@ -1,9 +1,9 @@
 #pragma once
 
 #include <cmath>
-#include "uvgvpccdec/uvgvpccdec.hpp"
 #include "bitstream_common.hpp"
 #include <assert.h>
+#include <cstdint>
 #include <cstring>
 
 enum PCCCOLORFORMAT { UNKNOWN = 0, RGB444, YUV444, YUV420 };
@@ -269,6 +269,10 @@ struct picture {
     std::vector<uint8_t> U;
     std::vector<uint8_t> V;
 
+    std::vector<uint16_t> Y16;
+    std::vector<uint16_t> U16;
+    std::vector<uint16_t> V16;    
+
     uint8_t get_Y_value(const size_t u, const size_t v ) const {
         return Y.at(v * width + u);
     }
@@ -289,6 +293,26 @@ struct picture {
             return U.at(corrected_v * corrected_width + corrected_u);
         } else if (channel == 2) {
             return V.at(corrected_v * corrected_width + corrected_u);
+        }
+        return 0;
+    }
+
+    uint16_t get_value16(const size_t channel, const size_t u, const size_t v) const {
+        assert( channel < 3 );
+        size_t corrected_u = u;
+        size_t corrected_v = v;
+        size_t corrected_width = width;
+        if(format == PCCCOLORFORMAT::YUV420) {
+            corrected_u = u / 2;
+            corrected_v = v / 2;
+            corrected_width = width / 2;
+        }
+        if(channel == 0) {
+            return Y16.at(v * width + u);
+        } else if (channel == 1) {
+            return U16.at(corrected_v * corrected_width + corrected_u);
+        } else if (channel == 2) {
+            return V16.at(corrected_v * corrected_width + corrected_u);
         }
         return 0;
     }
@@ -376,6 +400,14 @@ struct uvg_color {
     uint8_t&       g() { return data_[1]; }
     uint8_t&       b() { return data_[2]; } 
     uvg_color() {data_[0] = 0; data_[1] = 0; data_[2] = 0;}
+};
+
+struct uvg_color16 {
+    uint16_t data_[3];
+    uint16_t&       r() { return data_[0]; }
+    uint16_t&       g() { return data_[1]; }
+    uint16_t&       b() { return data_[2]; } 
+    uvg_color16() {data_[0] = 0; data_[1] = 0; data_[2] = 0;}
 };
 
 struct patch {
@@ -472,6 +504,10 @@ struct patch {
 struct point_cloud_frame {
     std::vector<point3d> positions = {};
     std::vector<uvg_color> colors = {};
+    
+    std::vector<uvg_color16> colors16 = {};
+
+
 
     /* PointToPixel is filled during Reconstruction. It is used in Post-reconstruction to pick the correct
        color values from the attribute map  */
@@ -496,6 +532,11 @@ struct point_cloud_frame {
     void set_color( const size_t index, const uvg_color color ) {
         assert( index < colors.size() );
         colors[index] = color;
+    }
+
+    void set_color16( const size_t index, const uvg_color16 color ) {
+        assert( index < colors.size() );
+        colors16[index] = color;
     }
 
     size_t getPointCount() const { return num_of_used_points; }

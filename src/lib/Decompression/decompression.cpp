@@ -1,5 +1,6 @@
 #include "decompression.hpp"
 #include "uvgvpccdec/data_structures.hpp"
+#include <cstdint>
 #include <cstring>
 #include <sstream>
 #include <fstream>
@@ -192,7 +193,7 @@ void Decompression::parse_gofs(const uvgvpcc_dec::v3c_chunk &chunk, std::vector<
 }
 
 
-void convertYUV420ToYUV444uvgVPCCSimple( picture& picSrc, picture& picDst ) {
+void convertYUV420ToYUV444uvgVPCCSimpleFrame( picture& picSrc, picture& picDst ) {
 
     size_t width = picSrc.width;
     size_t height = picSrc.height;
@@ -229,7 +230,7 @@ void convertYUV420ToYUV444uvgVPCCSimple( picture& picSrc, picture& picDst ) {
     }
 }
 
-void convertYUV420ToYUV444uvgVPCCSimple(std::vector<video_map>& attribute_maps ) {
+void convertYUV420ToYUV444uvgVPCCSimpleVideo(std::vector<video_map>& attribute_maps ) {
   
 
     video_map videoSrc = attribute_maps[0];
@@ -239,15 +240,207 @@ void convertYUV420ToYUV444uvgVPCCSimple(std::vector<video_map>& attribute_maps )
     videoDst.width = videoSrc.width;
 
     for ( size_t i = 0; i < videoSrc.frame_count; i++ ) {
-        convertYUV420ToYUV444uvgVPCCSimple( videoSrc.pictures[i], videoDst.pictures[i]);
+        convertYUV420ToYUV444uvgVPCCSimpleFrame( videoSrc.pictures[i], videoDst.pictures[i]);
     }
 
     attribute_maps[0] = videoDst;
 
-    std::cerr << "LF LOG " << std::endl;
-    std::cerr << "LF LOG " << videoSrc.frame_count << std::endl;
-    std::cerr << "LF LOG " << std::endl;
 }
+
+  uint8_t                   clamp( uint8_t v, uint8_t a, uint8_t b )  { return ( ( v < a ) ? a : ( ( v > b ) ? b : v ) ); }
+  int                 clamp( int v, int a, int b )  { return ( ( v < a ) ? a : ( ( v > b ) ? b : v ) ); }
+  float               clamp( float v, float a, float b )  { return ( ( v < a ) ? a : ( ( v > b ) ? b : v ) ); }
+  double              clamp( double v, double a, double b )  { return ( ( v < a ) ? a : ( ( v > b ) ? b : v ) ); }
+  static inline float fMin( float a, float b ) { return ( ( a ) < ( b ) ) ? ( a ) : ( b ); }
+  static inline float fMax( float a, float b ) { return ( ( a ) > ( b ) ) ? ( a ) : ( b ); }
+  static inline float fClip( float x, float low, float high ) { return fMin( fMax( x, low ), high ); }
+
+void YUVtoFloatYUV( const std::vector<uint8_t>& src,
+                                                  std::vector<float>&   dst,
+                                                  const bool            chroma )  {
+  size_t count = src.size();
+  dst.resize( count );
+  float    minV   = chroma ? -0.5f : 0.f;
+  float    maxV   = chroma ? 0.5f : 1.f;
+  uint16_t offset = chroma ? 1 == 1 ? 128 : 512 : 0;
+  double   scale  = 1 == 1 ? 255. : 1023.;
+  double   weight = 1.0 / scale;
+  for ( size_t i = 0; i < count; i++ ) {
+    dst[i] = clamp( (float)( weight * (double)( src[i] - offset ) ), minV, maxV );
+  }
+}
+
+struct Filter {
+  std::vector<float> data_;
+  double             offset_;
+  double             shift_;
+};
+
+struct Filter420to444 {
+  Filter horizontal0_;
+  Filter vertical0_;
+  Filter horizontal1_;
+  Filter vertical1_;
+};
+
+static Filter420to444 g_filter420to444_0 = {
+    // 0 UF_F0
+     {{0.0, +256.0}, +128.0, 8.0},
+     {{-8.0, +64.0, +216.0, -16.0}, +128.0, 8.0},
+     {{-16.0, +144.0, +144.0, -16.0}, +128.0, 8.0},
+     {{-16.0, +216.0, +64.0, -8.0}, +128.0, 8.0}};
+
+
+inline float upsamplingVertical0( const std::vector<float>& im,
+                                const int                 width,
+                                const int                 height,
+                                const int                 i0,
+                                const int                 j0 )  {
+    const float scale    = 1.0f / ( (float)( 1 << ( (int)g_filter420to444_0.vertical0_.shift_ ) ) );
+    const float offset   = 0.00000000;
+    const int   position = int( g_filter420to444_0.vertical0_.data_.size() + 1 ) >> 1;
+    float       value    = 0;
+    for ( int i = 0; i < (int)g_filter420to444_0.vertical0_.data_.size(); i++ ) {
+        value += g_filter420to444_0.vertical0_.data_[i] * (float)( im[clamp( i0 + i - position, 0, height - 1 ) * width + j0] );
+    }
+    return (float)( ( value + (float)offset ) * (float)scale );
+}
+
+inline float upsamplingVertical1( const std::vector<float>& im,
+                                    int                       width,
+                                    int                       height,
+                                    int                       i0,
+                                    int                       j0 )  {
+    const float scale    = 1.0f / ( (float)( 1 << ( (int)g_filter420to444_0.vertical1_.shift_ ) ) );
+    const float offset   = 0.00000000;
+    const int   position = int( g_filter420to444_0.vertical1_.data_.size() + 1 ) >> 1;
+    float       value    = 0;
+    for ( int i = 0; i < (int)g_filter420to444_0.vertical1_.data_.size(); i++ ) {
+      value += g_filter420to444_0.vertical1_.data_[i] * (float)( im[clamp( i0 + i - position, 0, height - 1 ) * width + j0] );
+    }
+    return (float)( ( value + (float)offset ) * (float)scale );
+}
+
+inline float upsamplingHorizontal0( const std::vector<float>& im,
+                                      int                       width,
+                                      int                       i0,
+                                      int                       j0 )  {
+    const float scale    = 1.0f / ( (float)( 1 << ( (int)g_filter420to444_0.horizontal0_.shift_ ) ) );
+    const float offset   = 0.00000000;
+    const int   position = int( g_filter420to444_0.horizontal0_.data_.size() + 1 ) >> 1;
+    float       value    = 0;
+    for ( int j = 0; j < (int)g_filter420to444_0.horizontal0_.data_.size(); j++ ) {
+      value += g_filter420to444_0.horizontal0_.data_[j] * (float)( im[i0 * width + clamp( j0 + j - position, 0, width - 1 )] );
+    }
+    return (float)( ( value + (float)offset ) * (float)scale );
+}
+
+inline float upsamplingHorizontal1( const std::vector<float>& im,
+                                      int                       width,
+                                      int                       i0,
+                                      int                       j0 )  {
+    const float scale    = 1.0f / ( (float)( 1 << ( (int)g_filter420to444_0.horizontal1_.shift_ ) ) );
+    const float offset   = 0.00000000;
+    const int   position = int( g_filter420to444_0.horizontal1_.data_.size() + 1 ) >> 1;
+    float       value    = 0;
+    for ( int j = 0; j < (int)g_filter420to444_0.horizontal1_.data_.size(); j++ ) {
+      value += g_filter420to444_0.horizontal1_.data_[j] * (float)( im[i0 * width + clamp( j0 + j - position, 0, width - 1 )] );
+    }
+    return (float)( ( value + (float)offset ) * (float)scale );
+}
+
+
+void upsampling( const std::vector<float>& chromaIn,
+                                               std::vector<float>&       chromaOut,
+                                               const int                 widthIn,
+                                               const int                 heightIn
+                                                )  {
+  int                widthOut = widthIn * 2, heightOut = heightIn * 2;
+  std::vector<float> temp;
+  chromaOut.resize( widthOut * heightOut );
+  temp.resize( widthIn * heightOut );
+  for ( int i = 0; i < heightIn; i++ ) {
+    for ( int j = 0; j < widthIn; j++ ) {
+      temp[( 2 * i ) * widthIn + j] =
+          upsamplingVertical0( chromaIn, widthIn, heightIn, i + 0, j );
+      temp[( 2 * i + 1 ) * widthIn + j] =
+          upsamplingVertical1( chromaIn, widthIn, heightIn, i + 1, j );
+    }
+  }
+  for ( int i = 0; i < heightOut; i++ ) {
+    for ( int j = 0; j < widthIn; j++ ) {
+      chromaOut[i * widthOut + j * 2] =
+          upsamplingHorizontal0( temp, widthIn, i, j + 0 );
+      chromaOut[i * widthOut + j * 2 + 1] =
+          upsamplingHorizontal1( temp, widthIn, i, j + 1 );
+    }
+  }
+}
+
+
+void floatYUVToYUV( const std::vector<float>& src,
+                                                  std::vector<uint16_t>&           dst,
+                                                  const bool                chroma,
+                                                  const size_t              nbyte )  {
+  size_t count = src.size();
+  dst.resize( count );
+  double offset = chroma ? nbyte == 1 ? 128. : 32768. : 0;
+  double scale  = nbyte == 1 ? 255. : 65535.;
+
+  for ( size_t i = 0; i < count; i++ ) {
+    dst[i] = static_cast<uint16_t>( fClip( std::round( (float)( scale * (double)src[i] + offset ) ), 0.f, (float)scale ) );
+  }
+}
+
+void convertYUV420ToYUV444TMC2Frame( picture& picSrc, picture& picDst ) {
+
+    size_t width = picSrc.width;
+    size_t height = picSrc.height;
+    picDst.width = width;
+    picDst.height = height;
+    picDst.format = PCCCOLORFORMAT::YUV444;
+
+    picDst.Y.resize(width * height);
+    picDst.U.resize(width * height);
+    picDst.V.resize(width * height);
+    size_t             widthChroma  = width / 2;
+    size_t             heightChroma = height / 2;
+    std::vector<float> YUV444[3], YUV420[3];
+    YUVtoFloatYUV( picSrc.Y, YUV420[0], 0);
+    YUVtoFloatYUV( picSrc.U, YUV420[1], 1);
+    YUVtoFloatYUV( picSrc.V, YUV420[2], 1);
+    upsampling( YUV420[1], YUV444[1], widthChroma, heightChroma);
+    upsampling( YUV420[2], YUV444[2], widthChroma, heightChroma);
+    
+    // floatYUVToYUV( YUV420[0], picDst.Y, 0, 2 );
+    // floatYUVToYUV( YUV444[1], picDst.U, 1, 2 );
+    // floatYUVToYUV( YUV444[2], picDst.V, 1, 2 );
+
+    floatYUVToYUV( YUV420[0], picDst.Y16, 0, 2 );
+    floatYUVToYUV( YUV444[1], picDst.U16, 1, 2 );
+    floatYUVToYUV( YUV444[2], picDst.V16, 1, 2 );    
+
+}
+
+
+
+void convertYUV420ToYUV444TMC2Video(std::vector<video_map>& attribute_maps ) {
+  
+
+    video_map videoSrc = attribute_maps[0];
+    video_map videoDst;
+    videoDst.pictures.resize( videoSrc.frame_count );
+    videoDst.height = videoSrc.height;
+    videoDst.width = videoSrc.width;
+
+    for ( size_t i = 0; i < videoSrc.frame_count; i++ ) {
+        convertYUV420ToYUV444TMC2Frame( videoSrc.pictures[i], videoDst.pictures[i]);
+    }
+
+    attribute_maps[0] = videoDst;
+}
+
+
 
 
 
@@ -315,7 +508,12 @@ void Decompression::decompress_v3c_video_unit(V3C_UNIT_TYPE vuh_t, uint8_t* buf,
 
 
         // lf : convert from YUV420 to YUV444 //
-        convertYUV420ToYUV444uvgVPCCSimple(out_cu->attribute_maps);
+        if(dec_context1_->p_->useTMC2AttributeYUVConversion) {
+            convertYUV420ToYUV444TMC2Video(out_cu->attribute_maps);
+        } else {
+            convertYUV420ToYUV444uvgVPCCSimpleVideo(out_cu->attribute_maps);
+        }
+        
 
 
 

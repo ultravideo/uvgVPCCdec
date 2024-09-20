@@ -21,8 +21,10 @@ void API::initializeDecoder(const Parameters& param)
 {
     Logger::log(LogLevel::INFO, "API", "Initialize decoder " + std::to_string(param.hello) + "\n");
     dec_context_.queue = std::make_shared<ThreadQueue>(num_threads_);
+    dec_context_.p_ = &param;
     Decompression::initializeStaticParameters(param, &dec_context_);
     Reconstruction::initializeStaticParameters(param, &dec_context_);
+    PostReconstruction::initializeStaticParameters(&dec_context_);
     fast_color_conversion_ = param.fast_color_conversion;
 
 }
@@ -34,6 +36,7 @@ void API::emptyFrameQueue()
     }
     Logger::log(LogLevel::INFO, "API", "Frame queue empty \n");
 }
+
 
 void API::decodeV3CChunk(std::shared_ptr<v3c_chunk> chunk, uvgvpcc_dec::API::decoded_output* out) 
 {
@@ -84,7 +87,6 @@ void API::decodeV3CChunk(std::shared_ptr<v3c_chunk> chunk, uvgvpcc_dec::API::dec
             // Index runnning inside composition unit. Different from frame index running in GOF
             for (size_t frame_index_in_cu = 0; frame_index_in_cu < dec_cu->cu_frame_count; frame_index_in_cu++) {
                 
-                
                 // Point cloud reconstruction -> per frame
                 dec_context_.latest_gof->reconstructed_point_cloud = std::make_shared<point_cloud_frame>();
                 dec_context_.latest_gof->reconstructed_point_cloud->frame_index_in_gof = frame_index_in_gof;
@@ -107,14 +109,19 @@ void API::decodeV3CChunk(std::shared_ptr<v3c_chunk> chunk, uvgvpcc_dec::API::dec
                     pc_patch->addDependency(pc_setup);
                     pc_color->addDependency(pc_patch);
                 }
+
                 std::shared_ptr<Job> pc_convert;
-                if (fast_color_conversion_) {
-                    pc_convert = std::make_shared<Job>("Adaptation::convertYUV8ToRGB8",
-                        4, Adaptation::convert_colors_fast, dec_context_.latest_gof->reconstructed_point_cloud.get());
-                }
-                else {
-                    pc_convert = std::make_shared<Job>("Adaptation::convertYUV8ToRGB8",
-                        4, Adaptation::convert_colors_slow, dec_context_.latest_gof->reconstructed_point_cloud.get());
+                if(dec_context_.p_->useTMC2AttributeYUVConversion) {
+                    pc_convert = std::make_shared<Job>("Adaptation::convertYUV16ToRGB8",
+                        4, Adaptation::convertYUV16ToRGB8, dec_context_.latest_gof->reconstructed_point_cloud.get());
+                } else {
+                    if (fast_color_conversion_) {
+                        pc_convert = std::make_shared<Job>("Adaptation::convertYUV8ToRGB8",
+                            4, Adaptation::convert_colors_fast, dec_context_.latest_gof->reconstructed_point_cloud.get());
+                    } else {
+                        pc_convert = std::make_shared<Job>("Adaptation::convertYUV8ToRGB8",
+                            4, Adaptation::convert_colors_slow, dec_context_.latest_gof->reconstructed_point_cloud.get());
+                    }
                 }
                 
                 auto pc_out = std::make_shared<Job>("Adaptation::output_decoded_frame",

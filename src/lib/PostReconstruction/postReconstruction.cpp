@@ -3,6 +3,14 @@
 
 using namespace uvgvpcc_dec;
 
+uvgvpcc_dec::context* dec_context1PR_; // lf : PR stands for postReconstruction, way to avoid multiple definition
+
+
+void PostReconstruction::initializeStaticParameters(uvgvpcc_dec::context* context)
+{
+    dec_context1PR_ = context;
+}
+
 void PostReconstruction::PostProcess(decompressed_cu* cu, point_cloud_frame* reconstruct, const size_t cu_frame_index, const size_t gof_index)
 {
     Logger::log(LogLevel::TRACE, "Post-reconstruction", "Post-processing point cloud frame " + std::to_string(reconstruct->frame_index_in_gof)
@@ -32,8 +40,15 @@ void PostReconstruction::color_point_cloud(point_cloud_frame* reconstruct, const
 
     std::vector<point3d> &pointToPixel = reconstruct->point_to_pixel;
     auto&  color8bit = reconstruct->colors;
-    color8bit.resize(reconstruct->getPointCount());
+    auto&  color16bit = reconstruct->colors16;
+
     size_t pointCount = reconstruct->getPointCount();
+    
+    if(dec_context1PR_->p_->useTMC2AttributeYUVConversion) {
+        color16bit.resize(pointCount);
+    } else {
+        color8bit.resize(pointCount);
+    }
     
     /*printf( "pointCount                   = %zu \n", pointCount );
     printf( "pointToPixel size            = %zu \n", pointToPixel.size() );
@@ -51,7 +66,13 @@ void PostReconstruction::color_point_cloud(point_cloud_frame* reconstruct, const
         if ( f < mapCount ) {
             const picture &frame = videoAttributeMap0.pictures.at(shift + f);
             for ( size_t c = 0; c < 3; ++c ) {
-                color8bit.at(i).data_[c] = frame.get_value(c, x, y);
+                if(dec_context1PR_->p_->useTMC2AttributeYUVConversion) {
+                    color16bit.at(i).data_[c] = frame.get_value16(c, x, y);
+                } else {
+                    color8bit.at(i).data_[c] = frame.get_value(c, x, y);
+
+                }
+
             }
 
         }

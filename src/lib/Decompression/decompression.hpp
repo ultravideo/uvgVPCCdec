@@ -33,8 +33,8 @@ public:
     static void decompress_atlas_sub_bitstream(const size_t v3c_payload_size_bytes, decompressed_cu* output, const size_t location);
 
     const static parameter_sets &get_saved_params(const size_t gof_index);
-
 private:
+
 
     /* ---------------- Bitstream parsing functions ---------------- */
 
