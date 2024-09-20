@@ -116,9 +116,10 @@ def main():
         print("You are not in '/home/lfreneau/uvgvpccdec'. This is dangerous.")
         exit()
 
+    if len(sys.argv)==1:
+        print("WARNING !!! This python script is dangerous and it should be used with so much cautious that you should never use it without the approval of Louis Fréneau.")
 
     bitstream = sys.argv[-1]
-
     if "b" in sys.argv[1:]: build()
     if "r" in sys.argv[1:]: run(bitstream)
     if "d" in sys.argv[1:]: decodeTMC2(bitstream)
