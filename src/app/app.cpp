@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <string>
 #include <thread>
 #include <fstream>
 #include <iomanip>
@@ -216,10 +217,13 @@ int main(int argc, char* argv[]) {
     // LF : missing support -> RA
     // LF : missing support -> occupancyResolution=4
     // LF : missing support -> voxel 9 (and 11?)
-    // LF : missing support -> having more than one GOF
+    // LF : missing support -> having weird size of GOF?
     // LF : missing support -> TMC2 bitstream
+    // LF : missing support -> log level debug
 
     // LF : this works :  source my_env.sh && ./dev_utils.sh -i ready_for_winter_10 -f 38 -t 20 -b -v -d --uvgvpcc rate=16-22-2,geometry2DEncodingParam=Kvazaar-lossy-AI-YUV420-20-fast,attribute2DEncodingParam=Kvazaar-lossy-AI-YUV420-20-fast,preset=slow,occupancy2DEncodingParam=Kvazaar-lossless-AI-YUV420-20-fast
+
+    // LF : Added so far -> TMC2 upscalling, 16bit internal color, YUV16 to RGB8 conversion
 
     uvgvpcc_dec::Logger::setLogLevel(uvgvpcc_dec::LogLevel::INFO);
 
@@ -232,17 +236,15 @@ int main(int argc, char* argv[]) {
 
     for(int i = 1; i<argc; ++i) {
 
-
-
-
         if(!strcmp(argv[i], "-h")) {
             displayHelp();
             exit(EXIT_SUCCESS);
         } else if(!strcmp(argv[i], "-i")) {
             input_file = argv[++i];
         } else if(!strcmp(argv[i], "-o")) {
-            displayHelp();
             outputFilePath = argv[++i];
+        } else if(!strcmp(argv[i], "-t")) {
+            param.nbThread = std::stoi(argv[++i]);            
         } else if(!strcmp(argv[i], "--TMC2Upscalling=true")) {
             param.useTMC2AttributeYUVConversion = true;
         } else if(!strcmp(argv[i],"--TMC2Upscalling=false")) {
@@ -251,12 +253,6 @@ int main(int argc, char* argv[]) {
             std::cerr << "ERROR : Unknown command parameter: " << argv[i] << std::endl;
             exit(EXIT_FAILURE);
         }
-        
-        
-        
-
-
-
     }
 
     if(input_file.empty()) {
@@ -268,9 +264,8 @@ int main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
-
-    if(outputFilePath.empty()) {
-        std::cerr << "\n!!! Warning : You didn't specify an output file path. No ply file will be writing.\n" << std::endl;
+    if(outputFilePath.empty() || !strcmp(outputFilePath.c_str(), "/dev/null")) {
+        std::cerr << "\n!!! Warning : You didn't specify an output file path or you choose '/dev/null'. No ply file will be writing.\n" << std::endl;
     } else if(!std::filesystem::exists(std::filesystem::path(outputFilePath).parent_path())) {
         std::cerr << "\n!!! Error : The directory in which you want to put the output ply files does not exist:" << std::filesystem::path(outputFilePath).parent_path() << "\n" << std::endl;
         exit(EXIT_FAILURE);

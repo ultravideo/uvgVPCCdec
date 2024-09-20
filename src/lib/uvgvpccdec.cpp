@@ -11,7 +11,6 @@ namespace uvgvpcc_dec
 {
 
 context dec_context_;
-size_t num_threads_ = 30;
 bool fast_color_conversion_ = false;
 std::shared_ptr<uvgvpcc_dec::Job> last_out_ = nullptr;
 
@@ -20,7 +19,7 @@ void readFile(const std::string filename, std::vector<uint8_t> &data);
 void API::initializeDecoder(const Parameters& param)
 {
     Logger::log(LogLevel::INFO, "API", "Initialize decoder " + std::to_string(param.hello) + "\n");
-    dec_context_.queue = std::make_shared<ThreadQueue>(num_threads_);
+    dec_context_.queue = std::make_shared<ThreadQueue>(param.nbThread);
     dec_context_.p_ = &param;
     Decompression::initializeStaticParameters(param, &dec_context_);
     Reconstruction::initializeStaticParameters(param, &dec_context_);

@@ -45,22 +45,6 @@ def build():
     if os.system(cmd): exit()
     os.system("cp -f _build/compile_commands.json .")
 
-def run(bitstream):
-    print("### Command lines : run ###")
-
-    if not os.path.exists(bitstream):
-        print("This bitstream file does not exist:",bitstream)
-        exit()
-
-    baseName = bitstream.split("/")[-1].replace(".vpcc","").replace(".bin","")
-    outputFile = f"./_out/uvgVPCCdec/uvgVPCCdec_{baseName}_%04d.ply"
-    logFile = outputFile.replace(r"_%04d.ply",".log")
-
-    os.system("rm -f _out/uvgVPCCdec/*  |:")
-
-    cmd = f"_build/src/app/uvgVPCCdec -i {bitstream} -o {outputFile} --TMC2Upscalling=true > {logFile}"
-    if os.system(cmd): exit()
-
 
 
 
@@ -136,44 +120,36 @@ def main():
 
 
 
-# NB_FRAME = 10
-# NB_THREAD = 20
-
-# MAIN_COMMAND = f"./dev_utils.sh -i longdress -f {NB_FRAME} -t {NB_THREAD} "
-
-# # MAIN_COMMAND += "--uvgvpcc {}"
-# UVGVPCC = "--uvgvpcc "
-# # UVGVPCC = "preset=slow,"
-# UVGVPCC += "useTMC2BitstreamGeneration=true,"
 
 
 
-# UVGVPCC += "rate=16-22-2,"
-# # UVGVPCC += "exportIntermediateMaps=true,"
-# # UVGVPCC += "exportIntermediatePointClouds=true,"
+def run(bitstream):
+    print("### Command lines : run ###")
+
+    if not os.path.exists(bitstream):
+        print("This bitstream file does not exist:",bitstream)
+        exit()
+
+    baseName = bitstream.split("/")[-1].replace(".vpcc","").replace(".bin","")
+    outputFile = f"./_out/uvgVPCCdec/uvgVPCCdec_{baseName}_%04d.ply"
+    logFile = outputFile.replace(r"_%04d.ply",".log")
+
+    os.system("rm -f _out/uvgVPCCdec/*  |:")
+
+    ####################################
+    ######## uvgVPCCdec command ########
+    ####################################
+    
+    
+    cmd = f"_build/src/app/uvgVPCCdec -i {bitstream} -o {outputFile} --TMC2Upscalling=true -t 1 > {logFile}"
 
 
-# UVGVPCC += "useTMC2AttributeYUVConversion=true,"
-# UVGVPCC += "mapGenerationRefactored=false,"
-# UVGVPCC += "interPatchPacking=false,"
-# UVGVPCC += "doubleLayer=false,"
-# UVGVPCC += "occupancy2DEncodingParam=Kvazaar-lossless-AI-YUV420-20-fast,"
-# UVGVPCC += "geometry2DEncodingParam=Kvazaar-lossy-AI-YUV420-20-fast,"
-# UVGVPCC += "attribute2DEncodingParam=Kvazaar-lossy-AI-YUV420-20-fast,"
+    ####################################
+    ####################################
+    ####################################
 
 
-
-
-
-
-
-
-
-
-
-
-
-
+    if os.system(cmd): exit()
 
 
 

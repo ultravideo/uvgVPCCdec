@@ -44,8 +44,8 @@ struct Parameters {
     bool keep_intermediate_files = false;
     bool fast_color_conversion = false;
 
-    // bool useTMC2AttributeYUVConversion=true;
-    bool useTMC2AttributeYUVConversion=false;
+    bool useTMC2AttributeYUVConversion=true;
+    bool nbThread=20;
 
 };
 

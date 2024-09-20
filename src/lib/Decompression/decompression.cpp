@@ -1,12 +1,13 @@
+#include "Decompression/PCCBitstreamCommon.h"
+#include "PCCSei.h"
+
 #include "decompression.hpp"
+#include "uvgvpccdec/bitstream_common.hpp"
 #include "uvgvpccdec/data_structures.hpp"
 #include <cstdint>
 #include <cstring>
-#include <sstream>
-#include <fstream>
 #include <cstdio>
 #include <stdlib.h>
-#include <stdio.h>
 
 /* In debug mode print out some extra info */
 #define BITSTREAM_DEBUG false
@@ -448,6 +449,7 @@ void Decompression::decompress_v3c_video_unit(V3C_UNIT_TYPE vuh_t, uint8_t* buf,
 {    
     if(vuh_t == V3C_OVD) {
         occupancy_codec_mtx_.lock();
+        std::cerr << "OCCUPANCY MAP" << std::endl;
             /* ------------------ OCCUPANCY ------------------ */
         size_t occupancy_payload_start = in_cu->ovd_start + 4;
         size_t occupancy_payload_size = in_cu->ovd_size - 4;
@@ -472,6 +474,7 @@ void Decompression::decompress_v3c_video_unit(V3C_UNIT_TYPE vuh_t, uint8_t* buf,
     }
     else if (vuh_t == V3C_GVD) {
         geometry_codec_mtx_.lock();
+        std::cerr << "GEOMETRY MAP" << std::endl;
         /* ------------------ GEOMETRY ------------------ */
         size_t geometry_payload_start = in_cu->gvd_start + 4;
         size_t geometry_payload_size = in_cu->gvd_size - 4;
@@ -496,6 +499,7 @@ void Decompression::decompress_v3c_video_unit(V3C_UNIT_TYPE vuh_t, uint8_t* buf,
     }
     else if (vuh_t == V3C_AVD) {
         attribute_codec_mtx_.lock();
+        std::cerr << "ATTRIBUTE MAP" << std::endl;
         /* ------------------ ATTRIBUTE ------------------ */
         size_t attribute_payload_start = in_cu->avd_start + 4;
         size_t attribute_payload_size = in_cu->avd_size - 4;
@@ -711,6 +715,7 @@ void Decompression::read_profile_tier_level(profile_tier_level* ptl, bitstream_p
     // TODO: Parse PTC
 }
 
+// lf : name of this function in TMC2 : PCCBitstreamReader::atlasSequenceParameterSetRbsp( AtlasSequenceParameterSetRbsp& asps,PCCHighLevelSyntax& syntax,PCCBitstream& bitstream )
 void Decompression::read_asps(atlas_sequence_parameter_set &asps, bitstream_position &ptr)
 {
     asps.asps_atlas_sequence_parameter_set_id = read_ue(ptr, "asps_atlas_sequence_parameter_set_id");
@@ -988,32 +993,239 @@ void Decompression::read_atlas_tile_data_unit(atlas_tile_data_unit &atdu, atlas_
     }
 }
 
+// lf addition, from TMC2 //
+
+// bool Decompression::moreData(bitstream_position &ptr) {
+    
+//     return position_.bytes_ < data_.size(); }
+
+// bool moreRbspData( bitstream_position &ptr ) {
+//   // Return false if there is no more data.
+//   if (!bitstream.moreData()) {
+//     return false;
+//   }
+
+//   // Store bitstream state.
+//   auto position = bitstream.getPosition();
+
+
+//   // Skip first bit. It may be part of a RBSP or a rbsp_one_stop_bit.
+//   bitstream.read( 1 );
+
+//   while ( bitstream.moreData() ) {
+//     if ( bitstream.read( 1 ) ) {
+//       // We found a one bit beyond the first bit. Restore bitstream state and return true.
+//       bitstream.setPosition( position );
+//       return true;
+//     }
+//   }
+
+//   // We did not found a one bit beyond the first bit. Restore bitstream state and return false.
+//   bitstream.setPosition( position );
+//   return false;
+// }
+
+// F.2  SEI payload syntax
+// F.2.1  General SEI message syntax
+
+
+
+void Decompression::seiPayload( bitstream_position &ptr,
+                                     pcc::NalUnitType         nalUnitType,
+                                     pcc::SeiPayloadType      payloadType,
+                                     size_t              payloadSize,
+                                     pcc::PCCSEI&             seiList ) {
+
+
+  (void)ptr;
+  (void)payloadSize;
+
+  pcc::SEI& sei = seiList.addSei( nalUnitType, payloadType );
+//   printf( "        seiMessage: type = %d %s payloadSize = %zu \n", payloadType, toString( payloadType ).c_str(), payloadSize );
+//   fflush( stdout );
+  if ( nalUnitType == pcc::NAL_PREFIX_ESEI || nalUnitType == pcc::NAL_PREFIX_NSEI ) {
+    // if ( payloadType == pcc::BUFFERING_PERIOD ) {  // 0
+    //   bufferingPeriod( bitstream, sei );
+    // } else if ( payloadType == pcc::ATLAS_FRAME_TIMING ) {  // 1
+    //   assert( seiList.seiIsPresent( pcc::NAL_PREFIX_NSEI, pcc::BUFFERING_PERIOD ) );
+    //   auto& bpsei = *seiList.getLastSei( pcc::NAL_PREFIX_NSEI, pcc::BUFFERING_PERIOD );
+    //   atlasFrameTiming( bitstream, sei, bpsei, false );
+    // } else if ( payloadType == pcc::FILLER_PAYLOAD ) {  // 2
+    //   fillerPayload( bitstream, sei, payloadSize );
+    // } else if ( payloadType == pcc::USER_DATAREGISTERED_ITUTT35 ) {  // 3
+    //   userDataRegisteredItuTT35( bitstream, sei, payloadSize );
+    // } else if ( payloadType == pcc::USER_DATA_UNREGISTERED ) {  // 4
+    //   userDataUnregistered( bitstream, sei, payloadSize );
+    // } else if ( payloadType == pcc::RECOVERY_POINT ) {  // 5
+    //   recoveryPoint( bitstream, sei );
+    // } else if ( payloadType == pcc::NO_RECONSTRUCTION ) {  // 6
+    //   noReconstruction( bitstream, sei );
+    // } else if ( payloadType == pcc::TIME_CODE ) {  // 7
+    //   timeCode( bitstream, sei );
+    // } else if ( payloadType == pcc::SEI_MANIFEST ) {  // 8
+    //   seiManifest( bitstream, sei );
+    // } else if ( payloadType == pcc::SEI_PREFIX_INDICATION ) {  // 9
+    //   seiPrefixIndication( bitstream, sei );
+    // } else if ( payloadType == pcc::ACTIVE_SUB_BITSTREAMS ) {  // 10
+    //   activeSubBitstreams( bitstream, sei );
+    // } else if ( payloadType == pcc::COMPONENT_CODEC_MAPPING ) {  // 11
+    //   componentCodecMapping( bitstream, sei );
+    // } else if ( payloadType == pcc::SCENE_OBJECT_INFORMATION ) {  // 12
+    //   sceneObjectInformation( bitstream, sei );
+    // } else if ( payloadType == pcc::OBJECT_LABEL_INFORMATION ) {  // 13
+    //   objectLabelInformation( bitstream, sei );
+    // } else if ( payloadType == pcc::PATCH_INFORMATION ) {  // 14
+    //   patchInformation( bitstream, sei );
+    // } else if ( payloadType == pcc::VOLUMETRIC_RECTANGLE_INFORMATION ) {  // 15
+    //   volumetricRectangleInformation( bitstream, sei );
+    // } else if ( payloadType == pcc::ATLAS_OBJECT_INFORMATION ) {  // 16
+    //   atlasObjectInformation( bitstream, sei );
+    // } else if ( payloadType == pcc::VIEWPORT_CAMERA_PARAMETERS ) {  // 17
+    //   viewportCameraParameters( bitstream, sei );
+    // } else if ( payloadType == pcc::VIEWPORT_POSITION ) {  // 18
+    //   viewportPosition( bitstream, sei );
+    // } else if ( payloadType == pcc::ATTRIBUTE_TRANSFORMATION_PARAMS ) {  // 64
+    //   attributeTransformationParams( bitstream, sei );
+    // } else if ( payloadType == pcc::OCCUPANCY_SYNTHESIS ) {  // 65
+    //   occupancySynthesis( bitstream, sei );
+    // } else if ( payloadType == pcc::GEOMETRY_SMOOTHING ) {  // 66
+    //   geometrySmoothing( bitstream, sei );
+    // } else if ( payloadType == pcc::ATTRIBUTE_SMOOTHING ) {  // 67
+    //   attributeSmoothing( bitstream, sei );
+    // } else {
+    //   reservedSeiMessage( bitstream, sei, payloadSize );
+    // }
+  } else {
+    // if ( payloadType == pcc::FILLER_PAYLOAD ) {  // 2
+    //   fillerPayload( bitstream, sei, payloadSize );
+    // } else if ( payloadType == pcc::USER_DATAREGISTERED_ITUTT35 ) {  // 3
+    //   userDataRegisteredItuTT35( bitstream, sei, payloadSize );
+    // } else if ( payloadType == pcc::USER_DATA_UNREGISTERED ) {  // 4
+    //   userDataUnregistered( bitstream, sei, payloadSize );
+    // } else if ( payloadType == pcc::DECODED_ATLAS_INFORMATION_HASH ) {  // 21
+    //   decodedAtlasInformationHash( bitstream, sei );
+    // } else {
+    //   reservedSeiMessage( bitstream, sei, payloadSize );
+    // }
+  }
+//   if ( moreDataInPayload( bitstream ) ) {
+//     if ( payloadExtensionPresent( bitstream ) ) {
+//       bitstream.read( 1 );  // u(v)
+//     }
+//     byteAlignment( bitstream );
+//   }
+}
+
+
+
+
+// 8.3.8 Supplemental enhancement information message syntax
+void Decompression::seiMessage( bitstream_position &ptr,
+                                     NAL_UNIT_TYPE         nalUnitType,
+                                     pcc::PCCSEI&             sei ) {
+  int32_t payloadType = 0;
+  int32_t payloadSize = 0;
+  int32_t byte        = 0;
+  do {
+    // byte = bitstream.read( 8 );  // u(8)
+    byte = read(8, ptr);
+
+    payloadType += byte;
+  } while ( byte == 0xff );
+  do {
+    // byte = bitstream.read( 8 );  // u(8)
+    byte = read(8, ptr);
+    payloadSize += byte;
+  } while ( byte == 0xff );
+  seiPayload( ptr, static_cast<pcc::NalUnitType>(nalUnitType), static_cast<pcc::SeiPayloadType>( payloadType ), payloadSize, sei );
+}
+
+bool byteAligned( bitstream_position &ptr) { return ( ptr.bits == 0 ); }
+
+// 8.3.6.10 RBSP trailing bit syntax
+void Decompression::rbspTrailingBits( bitstream_position &ptr) {
+    // bitstream.read( 1 );  // f(1): equal to 1
+    read(1, ptr, "rbspTrailingBits");
+
+  while ( !byteAligned(ptr) ) {
+    // bitstream.read( 1 );  // f(1): equal to 0
+    read(1, ptr, "rbspTrailingBitsBis");
+  }
+}
+
+// 8.3.6.4  Supplemental enhancement information Rbsp
+void Decompression::seiRbsp( 
+                                  bitstream_position &ptr,
+                                  NAL_UNIT_TYPE         nalUnitType,
+                                  pcc::PCCSEI&             sei ) {
+    // do {
+    seiMessage( ptr, nalUnitType, sei );
+        // lf : I don't know how to find the size of the bitstream, so let's assume there is no more Rbsp Data : it might be VPS length in the parameter member of the current class Decompression
+    // } while ( moreRbspData( bitstream ) );  
+    rbspTrailingBits( ptr );
+}
+
+// end : lf addition, from TMC2 //
+
+
+
+
 void Decompression::read_atlas_nal_unit(NAL_UNIT_TYPE nal_unit_type, std::size_t nal_unit_size, decompressed_cu* output, bitstream_position &ptr)
-{                
+{
+
+
+    pcc::PCCSEI prefixSEITemp; // lf addition, currently we don't have a PCCHighLevelSyntax to store this sei list 
+
+
+
     switch(nal_unit_type) {
-            case NAL_UNIT_TYPE::NAL_ASPS:
-                read_asps(saved_params_.back().asps, ptr);
-                break;
-            case NAL_UNIT_TYPE::NAL_AFPS:
-                read_afps(saved_params_.back().afps, ptr);
-                break;
-            case NAL_UNIT_TYPE::NAL_IDR_N_LP: {
-                atlas_tile_layer_rbsp rbsp;
-                read_atlas_rbsp(&rbsp, nal_unit_type, ptr);
-                auto frame = std::make_unique<atlas_frame>();
-                frame.get()->atlas_index = 0;
-                decode_atlas_frame(frame.get(), rbsp);
-                output->atlas_map.push_back(std::move(frame));
-                output->cu_frame_count++;
-                break; }
-            case NAL_UNIT_TYPE::NAL_EOB: {
-                // No payload in EOB NAL unit
-                break; }
-            default: 
-                uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::ERROR, "Decompression", "Unsupported Atlas NAL type " + std::to_string(nal_unit_type) + " \n");
-                advance_bitstream(nal_unit_size * 8 - 16, ptr); // skip the rest of NAL unit for now 
-                break;
+        case NAL_UNIT_TYPE::NAL_ASPS:
+            read_asps(saved_params_.back().asps, ptr);
+            break;
+        case NAL_UNIT_TYPE::NAL_AFPS:
+            read_afps(saved_params_.back().afps, ptr);
+            break;
+        case NAL_UNIT_TYPE::NAL_IDR_N_LP: {
+            atlas_tile_layer_rbsp rbsp;
+            read_atlas_rbsp(&rbsp, nal_unit_type, ptr);
+            auto frame = std::make_unique<atlas_frame>();
+            frame.get()->atlas_index = 0;
+            decode_atlas_frame(frame.get(), rbsp);
+            output->atlas_map.push_back(std::move(frame));
+            output->cu_frame_count++;
+            break; }
+        case NAL_UNIT_TYPE::NAL_EOB: {
+            // No payload in EOB NAL unit
+            break; }
+
+        case NAL_UNIT_TYPE::NAL_TRAIL_N: {
+            uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::WARNING, "Decompression", "Unsupported Atlas NAL type " + std::to_string(nal_unit_type) + " (NAL_TRAIL_N -> Coded tile of a non-TSA, non STSA trailing atlas frame, atlas_tile_layer_rbsp() ).\n");
+            break;
         }
+        case NAL_UNIT_TYPE::NAL_TRAIL_R: {
+            uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::WARNING, "Decompression", "Unsupported Atlas NAL type " + std::to_string(nal_unit_type) + " (NAL_TRAIL_R -> Coded tile of a non-TSA, non STSA trailing atlas frame, atlas_tile_layer_rbsp() ).\n");
+            break;
+        }        
+        case NAL_UNIT_TYPE::NAL_PREFIX_NSEI: {
+            seiRbsp( ptr, nal_unit_type, prefixSEITemp );            
+            // seiRbsp( ssnuBitstream, nalu.getType(), prefixSEI );            
+            uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::WARNING, "Decompression", "Unsupported Atlas NAL type " + std::to_string(nal_unit_type) + " (NAL_PREFIX_NSEI -> Non-essential supplemental enhancement information sei_rbsp() ).\n");
+            break;
+        }
+        case NAL_UNIT_TYPE::NAL_PREFIX_ESEI: {
+            // seiRbsp(  ssnuBitstream, nalu.getType(), prefixSEI );            
+            uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::WARNING, "Decompression", "Unsupported Atlas NAL type " + std::to_string(nal_unit_type) + " (NAL_PREFIX_ESEI -> Essential supplemental enhancement information, sei_rbsp() ).\n");
+            break;
+        }
+        case NAL_UNIT_TYPE::NAL_RSV_ACL_32: {
+            uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::WARNING, "Decompression", "Unsupported Atlas NAL type " + std::to_string(nal_unit_type) + " (NAL_RSV_ACL_32 -> Reserved non-IRAP ACL NAL unit types).\n");
+            break;
+        }
+        default: 
+            uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::ERROR, "Decompression", "Unsupported Atlas NAL type " + std::to_string(nal_unit_type) + " \n");
+            advance_bitstream(nal_unit_size * 8 - 16, ptr); // skip the rest of NAL unit for now 
+            break;
+    }
 }
 
 void Decompression::decompress_atlas_sub_bitstream(const size_t v3c_payload_size_bytes, decompressed_cu* output, const size_t location)
@@ -1126,8 +1338,12 @@ void Decompression::decompress_video_sub_bitstream(uint8_t* buf, const size_t pt
 {
     std::vector<uint8_t> temp = {};
     std::vector<size_t> frame_boundaries = {};
+    std::cerr << "LF LOG ??? AAA" << std::endl;
     convert_video_sub_bitstream(buf, ptr, v3c_payload_size_bytes, temp, frame_boundaries);
+    std::cerr << "LF LOG ??? BBB" << std::endl;
     decode_video_sub_bitstream(temp, frame_boundaries, *map, codec_ctx);
+    std::cerr << "LF LOG ??? CCC" << std::endl;
+
 }
 
 void Decompression::convert_video_sub_bitstream(const uint8_t* buf, const size_t ptr, const size_t v3c_payload_size_bytes, std::vector<uint8_t> &output, std::vector<size_t> &frame_boundaries)
@@ -1220,7 +1436,10 @@ std::vector<AVFrame*> Decompression::decode_video_frames(std::vector<uint8_t> &i
 void Decompression::decode_video_sub_bitstream(std::vector<uint8_t> &input, std::vector<size_t> &frame_boundaries, video_map &map, AVCodecContext* codec_ctx)
 {
     std::vector<AVFrame*> frames = {};
+    std::cerr << "LF LOG ??? BBB AAA" << std::endl;
+
     frames = decode_video_frames(input, frame_boundaries, codec_ctx);
+    std::cerr << "LF LOG ??? BBB BBB" << std::endl;
     if(frames.empty()) {
         throw std::runtime_error("No frames decoded");
     }

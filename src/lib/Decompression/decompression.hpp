@@ -1,7 +1,9 @@
 #pragma once
 
+#include "PCCSei.h"
+
+#include "uvgvpccdec/bitstream_common.hpp"
 #include "uvgvpccdec/uvgvpccdec.hpp"
-#include "uvgvpccdec/log.hpp"
 
 extern "C" {
   #include <libavcodec/avcodec.h>
@@ -80,6 +82,22 @@ private:
     static void read_patch_information_data(atlas_tile_header &ath, patch_information_data &pid, bitstream_position &ptr);
     static void read_patch_data_unit(atlas_tile_header &ath, patch_data_unit &pdu, bitstream_position &ptr);
     static void read_atlas_tile_header(atlas_tile_header &ath, NAL_UNIT_TYPE nalu_t, bitstream_position &ptr);
+
+    /* lf addition */
+    static void rbspTrailingBits( bitstream_position &ptr);
+    static void seiPayload( bitstream_position &ptr,
+                                     pcc::NalUnitType         nalUnitType,
+                                     pcc::SeiPayloadType      payloadType,
+                                     size_t              payloadSize,
+                                     pcc::PCCSEI&             seiList );
+    static void seiMessage( bitstream_position &ptr,
+                                     NAL_UNIT_TYPE         nalUnitType,
+                                     pcc::PCCSEI&             sei );
+
+    static void seiRbsp( 
+                                  bitstream_position &ptr,
+                                  NAL_UNIT_TYPE         nalUnitType,
+                                  pcc::PCCSEI&             sei );                                 
 
 
 };

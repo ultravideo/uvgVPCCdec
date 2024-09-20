@@ -1,7 +1,8 @@
 #pragma once
-#include "uvgvpccdec/uvgvpccdec.hpp"
+// #include "uvgvpccdec/uvgvpccdec.hpp"
 
 // From TMC2, floorLog2() and ceilLog2() are used for V3C and NAL unit size precision calculations
+#include <cstdint>
 static inline int floorLog2(uint32_t x) {
     if (x == 0) {
         // note: ceilLog2() expects -1 as return value
