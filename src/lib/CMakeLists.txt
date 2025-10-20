@@ -27,10 +27,34 @@ endif()
 # pkg_check_modules(AVCODEC REQUIRED libavcodec)
 # find_package(avcodec CONFIG REQUIRED)
 set(CMAKE_SHARED_LINKER_FLAGS "-Wl,-Bsymbolic")
-find_package(FFMPEG REQUIRED)
+# find_package(FFMPEG REQUIRED)
 
-include_directories(${FFMPEG_INCLUDE_DIRS})
-link_directories(${FFMPEG_LIBRARY_DIRS})
+
+find_package(PkgConfig REQUIRED)
+if(PKG_CONFIG_FOUND)
+    pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET 
+        libavcodec
+        libavformat
+        libavutil
+    )
+    message(STATUS "FFmpeg found: ${FFMPEG_VERSION}")
+    # set(LIB_SOURCES ${LIB_SOURCES} encoderFFmpeg.cpp)
+    set(FFMPEG_LIBS PkgConfig::FFMPEG)
+else()
+    message(WARNING "FFmpeg not found, skipping encoderFFmpeg")
+    set(FFMPEG_LIBS "")
+endif()
+
+
+
+# include_directories(${FFMPEG_INCLUDE_DIRS})
+# link_directories(${FFMPEG_LIBRARY_DIRS})
+
+
+# if(FFMPEG_LIBS)
+#     target_link_libraries(uvgvpccdec PUBLIC ${FFMPEG_LIBS})
+# endif()
+
 
 target_link_libraries(uvgvpccdec
     decompressionLibrary
@@ -39,7 +63,8 @@ target_link_libraries(uvgvpccdec
     adaptationLibrary
     utilsLibrary
     logLibrary
-    ${FFMPEG_LIBRARIES}
+    ${FFMPEG_LIBS}
+    # ${FFMPEG_LIBRARIES}
 )
 
 # Include directories for headers
