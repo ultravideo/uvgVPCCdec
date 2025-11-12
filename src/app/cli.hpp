@@ -15,25 +15,23 @@ struct opts_t {
     std::string inputPath{};
     /** \brief Output filename */
     std::string outputPath{};
-    /** \brief Number of frames to encode */
-    uint32_t frames{};
-    /** \brief Input geometry precision */
-    uint8_t inputGeoPrecision{};
-    /** \brief Frame number to start the encoding */
-    uint32_t startFrame = std::numeric_limits<uint32_t>::max();
+    /** \brief TMC2Upscaling */
+    bool tmc2Upscaling{false};
+    /** \brief Fast color conversion */
+    bool fastColorConversion{false};
+    /** \brief Keep intermediate files */
+    bool keepIntermediateFiles{false};
     /** \brief Maximum number of threads to be used */
-    uint32_t threads{};
+    uint32_t threads{20};
     /** \brief Encoder configuration */
     std::string uvgvpccParametersString{};
     /** \brief Print help */
     bool help = false;
     /** \brief Print version */
     bool version = false;
-    /** \brief Whether to loop input */
-    uint32_t loop_input = 1;
 };
 
-opts_t opts_parse(const int argc, const char* const argv[]);
+bool opts_parse(cli::opts_t& opts, const int argc, const char* const argv[]);
 
 void print_usage(void);
 void print_version(void);

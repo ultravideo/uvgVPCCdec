@@ -112,7 +112,7 @@ std::vector<point3d> Reconstruction::generate_points(const patch& patch, const s
 /* ------------------------ somewhat ripped from tmc2------------------------ */
 void Reconstruction::generateOccupancyMap( const size_t width, const size_t height, const picture &videoFrame,
     std::vector<uint8_t> &occupancyMap, const size_t occupancyPrecision) {
-    Logger::log(LogLevel::TRACE, "Reconstruction", "Generate occupancy map with precision " + std::to_string(occupancyPrecision) + " \n");
+    Logger::log<LogLevel::TRACE>("Reconstruction", "Generate occupancy map with precision " + std::to_string(occupancyPrecision) + " \n");
     occupancyMap.resize( width * height, 0 );
     for ( size_t v = 0; v < height; ++v ) {
         for ( size_t u = 0; u < width; ++u ) {
@@ -218,7 +218,7 @@ void add_points(point_cloud_frame* reconstruct, const std::vector<point3d> &crea
 
 void Reconstruction::setup_point_cloud_frame(decompressed_cu* cu, point_cloud_frame* reconstruct, const size_t cu_frame_index, const size_t gof_index)
 {
-    Logger::log(LogLevel::TRACE, "Reconstruction", "Setup point cloud frame " + std::to_string(reconstruct->frame_index_in_gof)
+    Logger::log<LogLevel::TRACE>("Reconstruction", "Setup point cloud frame " + std::to_string(reconstruct->frame_index_in_gof)
         + " (in composition unit " + std::to_string(cu->cu_index)
         + ") in GOF " + std::to_string(gof_index) + " \n");
 
@@ -245,12 +245,12 @@ void Reconstruction::setup_point_cloud_frame(decompressed_cu* cu, point_cloud_fr
     size_t occupancyPrecision = vps.vps_frame_width.at(atlas_index) / cu->occupancy_map.width;
 
     generateOccupancyMap( frame_width, frame_height, current_occupancy_frame, current_occupancy_boolean_map, occupancyPrecision);
-    Logger::log(LogLevel::TRACE, "Reconstruction", "Occupancy map generated \n");
+    Logger::log<LogLevel::TRACE>("Reconstruction", "Occupancy map generated \n");
 
     size_t patch_packing_block_size = size_t( 1 ) << asps.asps_log2_patch_packing_block_size;
     generateBlockToPatchFromOccupancyMapVideo(*current_atlas_frame, current_occupancy_frame,
         current_block_to_patch, patch_packing_block_size, occupancyPrecision);
-    Logger::log(LogLevel::TRACE, "Reconstruction", "Block to patch generated \n");
+    Logger::log<LogLevel::TRACE>("Reconstruction", "Block to patch generated \n");
 }
 
 void Reconstruction::process_patch(const size_t index, decompressed_cu* cu, point_cloud_frame* reconstruct, const size_t cu_frame_index, const size_t gof_index)

@@ -18,7 +18,7 @@ void readFile(const std::string filename, std::vector<uint8_t> &data);
 
 void API::initializeDecoder(const Parameters& param)
 {
-    Logger::log(LogLevel::INFO, "API", "Initialize decoder " + std::to_string(param.hello) + "\n");
+    Logger::log<LogLevel::INFO>("API", "Initialize decoder " + std::to_string(param.hello) + "\n");
     dec_context_.queue = std::make_shared<ThreadQueue>(param.nbThread);
     dec_context_.p_ = &param;
     Decompression::initializeStaticParameters(param, &dec_context_);
@@ -33,7 +33,7 @@ void API::emptyFrameQueue()
     if (last_out_ != nullptr) {
         dec_context_.queue->waitForJob(last_out_);
     }
-    Logger::log(LogLevel::INFO, "API", "Frame queue empty \n");
+    Logger::log<LogLevel::INFO>("API", "Frame queue empty \n");
 }
 
 

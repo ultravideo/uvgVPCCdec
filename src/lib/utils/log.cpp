@@ -9,73 +9,106 @@
 #include <vector>
 #include <mutex>
 
+// NOLINTNEXTLINE(hicpp-deprecated-headers)
+#include <stdio.h>  // Needed for vasprintf
+
 #include "chrono.hpp"
 
 namespace uvgvpcc_dec {
 
-#define RED "\x1B[31m"
-#define GRN "\x1B[32m"
-#define YEL "\x1B[33m"
-#define BLU "\x1B[34m"
-#define MAG "\x1B[35m"
-#define CYN "\x1B[36m"
-#define WHT "\x1B[37m"
-#define BLD "\x1b[1m"
-#define RST "\x1B[0m"
 
-LogLevel Logger::logLevel = LogLevel::INFO;
+namespace {
 
-static std::string log_color[7] = {BLD RED, RED, YEL, BLU, CYN, GRN, MAG};
+// Define color codes using const char*
+constexpr const char* RED = "\x1B[31m";
+constexpr const char* YEL = "\x1B[33m";
+constexpr const char* BLU = "\x1B[34m";
+constexpr const char* CYN = "\x1B[36m";
+constexpr const char* GRN = "\x1B[32m";
+constexpr const char* MAG = "\x1B[35m";
+constexpr const char* BLD = "\x1B[1m";
+constexpr const char* RST = "\x1B[0m";
+constexpr const char* REDANDBLD = "\x1B[31m\x1B[1m";
 
-#define GET_LOG_PREFIX(level) \
-    std::string("[" + global_timer.elapsed_str() + "][" + LogLevelStr[static_cast<int>(level)] + "] [" + context + "] ")
-
-void Logger::setLogLevel(LogLevel level) { logLevel = level; }
-LogLevel Logger::getLogLevel() { return logLevel; }
-
-void Logger::log(LogLevel level, const std::string context, const std::string& message) {
-    static std::mutex logMutex;
-    std::lock_guard<std::mutex> lock(logMutex);
-
-    static bool is_newline = true;
-    if (level <= Logger::getLogLevel()) {
-        std::ostringstream oss;
-        if (is_newline) {
-            oss << GET_LOG_PREFIX(level);
-            is_newline = false;
-        }
-        bool last_is_newline = !message.empty() ? message.back() == '\n' : false;
-        if (message.find('\n') != std::string::npos && !last_is_newline) {
-            oss << std::regex_replace(message, std::regex(R"(\n(?!$))"), "\n" + GET_LOG_PREFIX(level));
-        } else {
-            oss << message;
-        }
-
-        if (last_is_newline) {
-            is_newline = true;
-        }
-
-        std::cerr << log_color[static_cast<int>(level)] << oss.str() << RST;
+constexpr const char* colorForLevel(LogLevel level) {
+    switch (level) {
+        case LogLevel::FATAL:
+            return REDANDBLD;
+        case LogLevel::ERROR:
+            return RED;
+        case LogLevel::WARNING:
+            return YEL;
+        case LogLevel::INFO:
+            return BLU;
+        case LogLevel::PROFILING:
+            return CYN;
+        case LogLevel::TRACE:
+            return GRN;
+        case LogLevel::DEBUG:
+            return MAG;
+        default:
+            return RST;
     }
 }
 
+inline std::string getLogPrefix(const std::string& context, LogLevel level) {
+    const std::string elapsedStr = global_timer.elapsed_str();
+    return "[" + elapsedStr + "][" + LogLevelStr[static_cast<int>(level)] + "]\t[" + context + "] ";
+}
+}  // anonymous namespace
+
+LogLevel Logger::logLevel = logLevelDefaultValue;
+bool Logger::errorsAreFatal_ = errorsAreFatalDefaultValue;
+std::ostream* Logger::outputStream_ = outputDefaultValue;
+
+void Logger::setLogLevel(const LogLevel& level) { logLevel = level; }
+void Logger::setErrorsAreFatal(const bool& isFatal) { errorsAreFatal_ = isFatal; }
+void Logger::setOutputStream(std::ostream& out) { outputStream_ = &out; }
+LogLevel Logger::getLogLevel() { return logLevel; }
+
+void Logger::printLogMessage(const std::string& context, LogLevel level, const std::string& message) {
+    static bool is_newline = true;
+    std::ostringstream oss;
+    if (is_newline) {
+        oss << getLogPrefix(context, level);
+        is_newline = false;
+    }
+    const bool last_is_newline = !message.empty() ? message.back() == '\n' : false;
+    if (message.find('\n') != std::string::npos && !last_is_newline) {
+        oss << std::regex_replace(message, std::regex(R"(\n(?!$))"), "\n" + getLogPrefix(context, level));
+    } else {
+        oss << message;
+    }
+
+    is_newline = last_is_newline;
+
+    *Logger::outputStream_ << colorForLevel(level) << oss.str() << RST;
+}
+// NOLINTBEGIN(cppcoreguidelines-pro-type-vararg,hicpp-vararg,cert-dcl50-cpp,cppcoreguidelines-pro-bounds-array-to-pointer-decay,hicpp-no-array-decay,cppcoreguidelines-owning-memory,cppcoreguidelines-no-malloc,hicpp-no-malloc)
 std::string Logger::printfStrToStdStr(const char* fmt, ...) {
-    char* str;
+    char* str = nullptr;
     va_list args;
     va_start(args, fmt);
-    if(vasprintf(&str, fmt, args) == -1) {
-        std::cout << "Erreur vasprintf" << std::endl;
+    if (vasprintf(&str, fmt, args) == -1 || str == nullptr) {
+        uvgvpcc_dec::Logger::log<LogLevel::ERROR>("LOGGER", "vasprintf error in printfStrToStdStr function.\n");
+        if (errorsAreFatal_) throw std::runtime_error("");
     }
     va_end(args);
-    return (std::string)str;
+    std::string result(str);
+    free(str);  // Free the allocated memory
+    return result;
 }
 
 std::string Logger::vprintfStrToStdStr(const char* fmt, va_list args) {
-    char* str;
-    if(vasprintf(&str, fmt, args) == -1) {
-        std::cout << "Erreur vasprintf" << std::endl;
+    char* str = nullptr;
+    if (vasprintf(&str, fmt, args) == -1 || str == nullptr) {
+        uvgvpcc_dec::Logger::log<LogLevel::ERROR>("LOGGER", "vasprintf error in vprintfStrToStdStr function.\n");
+        if (errorsAreFatal_) throw std::runtime_error("");
     }
-    return (std::string)str;
+    std::string result(str);
+    free(str);  // Free the allocated memory
+    return result;
 }
+// NOLINTEND(cppcoreguidelines-pro-type-vararg,hicpp-vararg,cert-dcl50-cpp,cppcoreguidelines-pro-bounds-array-to-pointer-decay,hicpp-no-array-decay,cppcoreguidelines-owning-memory,cppcoreguidelines-no-malloc,hicpp-no-malloc)
 
 }  // namespace uvgvpcc_dec

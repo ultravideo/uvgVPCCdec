@@ -46,81 +46,30 @@
 
 namespace cli {
 
-static const char short_options[] = "i:g:l:n:o:s:t:b:";
-static const struct option long_options[] = {{"input", required_argument, NULL, 'i'},   {"output", required_argument, NULL, 'o'},
-                                             {"frames", required_argument, NULL, 'n'},  {"start-frame", required_argument, NULL, 's'},
-                                             {"geo-precision", required_argument, NULL, 'g'},
-                                             {"threads", required_argument, NULL, 't'}, {"uvgvpccdec", required_argument, NULL, 0},
-                                             {"loop-input", required_argument, NULL, 'l'},      {"help", no_argument, NULL, 0},
-                                             {"version", no_argument, NULL, 0},         {0, 0, 0, 0}};
+static const char short_options[] = "i:o:t:"; // Only input, output, threads
+static const struct option long_options[] = {
+    {"input", required_argument, NULL, 'i'},
+    {"output", required_argument, NULL, 'o'},
+    {"threads", required_argument, NULL, 't'},
+    {"TMC2Upscaling", required_argument, NULL, 0},
+    {"fastColorConversion", required_argument, NULL, 0},
+    {"keepIntermediateFiles", required_argument, NULL, 0},
+    {"uvgvpccParametersString", required_argument, NULL, 0},
+    {"help", no_argument, NULL, 0},
+    {"version", no_argument, NULL, 0},
+    {0, 0, 0, 0}};
 
-/**
- * \brief Try to detect voxel size from file name automatically
- *
- * \param file_name    file name to get voxel size from
- * \return voxel_size on success, 0 on fail
- */
-static uint8_t select_voxel_size_auto(std::string file_name) {
-    std::regex pattern("vox([0-9]+)");
-    std::smatch match;
-    int number = 0;
-    if (std::regex_search(file_name, match, pattern)) {
-        // The first match captures the entire pattern, so we need to access the second capture group (index 1)
-        std::string number_str = match[1].str();
-        number = std::stoi(number_str);
-    }
-    return number;
-}
-
-/**
- * \brief Try to detect frame count from file name automatically
- *
- * \param file_name    file name to get frame count from
- * \return frame count on success, 0 on fail
- */
-static uint16_t select_frame_count_auto(std::string file_name) {
-    std::regex pattern("([0-9]+)_%");
-    std::smatch match;
-    int number = 0;
-    if (std::regex_search(file_name, match, pattern)) {
-        // The first match captures the entire pattern, so we need to access the second capture group (index 1)
-        std::string number_str = match[1].str();
-        number = std::stoi(number_str);
-    }
-    return number;
-}
-
-/**
- * \brief Try to detect start frame from file name automatically
- *
- * \param file_name    file name to get frame count from
- * \return start frame on success, 0 on fail
- */
-static uint16_t select_start_frame_auto(std::string file_name) {
-    std::regex pattern("([0-9]+)_[0-9]+_%");
-    std::smatch match;
-    int number = 0;
-    if (std::regex_search(file_name, match, pattern)) {
-        // The first match captures the entire pattern, so we need to access the second capture group (index 1)
-        std::string number_str = match[1].str();
-        number = std::stoi(number_str);
-    }
-    return number;
-}
 
 /**
  * \brief Parse command line arguments.
+ * \param opts  Options structure to fill
  * \param argc  Number of arguments
  * \param argv  Argument list
- * \return      Parsed options
+ * \return      True if execution execution should end (for exemple if the flag --help is used).
  */
-opts_t opts_parse(const int argc, const char* const argv[]) {
-    opts_t opts;
-
-    // Parse command line options
+bool opts_parse(cli::opts_t& opts, const int argc, const char* const argv[]) {
     for (optind = 0;;) {
         int long_options_index = -1;
-
         int c = getopt_long(argc, const_cast<char* const*>(argv), short_options, long_options, &long_options_index);
         if (c == -1) break;
 
@@ -145,33 +94,32 @@ opts_t opts_parse(const int argc, const char* const argv[]) {
                 throw std::runtime_error("Input error: More than one output file given.");
             }
             opts.outputPath = optarg;
-        } else if (name == "geo-precision") {
-            opts.inputGeoPrecision = std::stoi(optarg);
-            if (opts.inputGeoPrecision == 0) {
-                throw std::runtime_error("Input error: Geometry precision is set to zero");
-            }
-        } else if (name == "frames") {
-            opts.frames = std::stoi(optarg);
-            if (opts.frames == 0) {
-                throw std::runtime_error("Input error: Frame count is zero");
-            }
-        } else if (name == "start-frame") {
-            opts.startFrame = std::stoi(optarg);
-        } else if (name == "loop-input") {
-            opts.loop_input = std::stoi(optarg);
+        } else if (name == "threads") {
+            opts.threads = std::stoi(optarg);
+        } else if (name == "TMC2Upscaling") {
+            opts.tmc2Upscaling = std::string(optarg) == "true";
+        } else if (name == "fastColorConversion") {
+            opts.fastColorConversion = std::string(optarg) == "true";
+        } else if (name == "keepIntermediateFiles") {
+            opts.keepIntermediateFiles = std::string(optarg) == "true";
+        } else if (name == "uvgvpccParametersString") {
+            opts.uvgvpccParametersString = optarg;
         } else if (name == "version") {
+            print_version();
             opts.version = true;
         } else if (name == "help") {
+            print_help();
             opts.help = true;
         }
     }
+
     // Check for extra arguments.
     if (argc - optind > 0) {
         throw std::runtime_error("Input error: Extra argument found: " + std::string(argv[optind]) + ".");
     }
 
     if (opts.help || opts.version) {
-        return opts;
+        return true;
     }
 
     // Check that the required files were defined
@@ -179,33 +127,7 @@ opts_t opts_parse(const int argc, const char* const argv[]) {
         throw std::runtime_error("Input error: Input or output path is empty\n");
     }
 
-    if (opts.inputGeoPrecision == 0) {
-        opts.inputGeoPrecision = select_voxel_size_auto(opts.inputPath);
-        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::INFO, "APPLICATION", "Detected geometry precision from file name: " + std::to_string(opts.inputGeoPrecision) + ".\n");
-        if (opts.inputGeoPrecision == 0) {
-            throw std::runtime_error("Input error: Geometry precision is set to zero");
-        }
-    }
-
-    if (opts.frames == 0) {
-        opts.frames = select_frame_count_auto(opts.inputPath);
-        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::INFO, "APPLICATION",
-                             "Detected frame count from file name: " + std::to_string(opts.frames) + ".\n");
-        if (opts.frames == 0) {
-            throw std::runtime_error("Input error: Frame count is zero");
-        }
-    }
-
-    if (opts.startFrame == std::numeric_limits<uint32_t>::max()) {
-        opts.startFrame = select_start_frame_auto(opts.inputPath);
-        uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::INFO, "APPLICATION",
-                             "Detected start frame from file name: " + std::to_string(opts.startFrame) + ".\n");
-        if (opts.startFrame == std::numeric_limits<uint32_t>::max()) {
-            throw std::runtime_error("Input error: Frame count is zero");
-        }
-    }
-
-    return opts;
+    return false;
 }
 
 void print_usage(void) {

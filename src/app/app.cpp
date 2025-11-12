@@ -1,5 +1,7 @@
 #include "uvgvpccdec/log.hpp"
 #include "uvgvpccdec/uvgvpccdec.hpp"
+#include "cli.hpp"
+
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
@@ -14,8 +16,7 @@
 
 
 void readFile(const std::string filename, uvgvpcc_dec::API::v3c_unit_stream &unit_stream);
-bool write_to_file_ = false;
-bool fast_yuv_to_rgb_ = false;
+bool write_to_file_ = true;
 
 /* ------------------------ ripped from tmc2------------------------ */
 bool write( const std::string fileName, point_cloud_frame* frame, const bool asAscii = true );
@@ -47,7 +48,7 @@ void displayHelp() {
 
 void readFile(const std::string filename, uvgvpcc_dec::API::v3c_unit_stream &unit_stream)
 {
-    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Application", "Opening file " + filename + " \n");
+    uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::DEBUG>("Application", "Opening file " + filename + " \n");
     std::ifstream input_file (filename);
 
     if(!input_file.is_open()) {
@@ -60,7 +61,7 @@ void readFile(const std::string filename, uvgvpcc_dec::API::v3c_unit_stream &uni
     // size_t data_read = 1; // hdr byte already read
     unit_stream.v3c_unit_size_precision_bytes = v3c_unit_size_precision;
     
-    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::DEBUG, "Application", "V3C unit size precision " + std::to_string(v3c_unit_size_precision) + " \n");
+    uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::DEBUG>("Application", "V3C unit size precision " + std::to_string(v3c_unit_size_precision) + " \n");
     uvgvpcc_dec::v3c_chunk latest_chunk;
     while (input_file.peek() != EOF) {
         
@@ -88,7 +89,7 @@ bool output_func(uvgvpcc_dec::API::decoded_output* output, const std::string& ou
         std::shared_ptr<point_cloud_frame> frame = output->frames.front();
 
         if(frame->getPointCount() == 0) {
-            uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::INFO, "APPLICATION", "Empty frame: All frames written.\n");
+            uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::INFO>("APPLICATION", "Empty frame: All frames written.\n");
             break;
         }
         if(!outputFilePath.empty() && frame->getPointCount() != 0) {
@@ -105,7 +106,7 @@ bool output_func(uvgvpcc_dec::API::decoded_output* output, const std::string& ou
 
 void exportPointCloud(const std::string fileName, point_cloud_frame* frame) {
 
-    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Adaptation", "Write to file " + fileName + " \n");
+    uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::TRACE>("Adaptation", "Write to file " + fileName + " \n");
 
     std::ofstream fout(fileName, std::ofstream::out | std::ofstream::trunc);
     if (!fout.is_open()) {
@@ -138,7 +139,7 @@ void exportPointCloud(const std::string fileName, point_cloud_frame* frame) {
 /* ------------------------ ripped from tmc2------------------------ */
 bool write( const std::string fileName, point_cloud_frame* frame, const bool asAscii ) {
 
-    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Adaptation", "Write to file " + fileName + " \n");
+    uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::TRACE>("Adaptation", "Write to file " + fileName + " \n");
     std::ofstream fout( fileName, std::ofstream::out );
     if ( !fout.is_open() ) { return false; }
     const size_t pointCount = frame->getPointCount();
@@ -225,75 +226,60 @@ int main(int argc, char* argv[]) {
 
     // LF : Added so far -> TMC2 upscalling, 16bit internal color, YUV16 to RGB8 conversion
 
-    uvgvpcc_dec::Logger::setLogLevel(uvgvpcc_dec::LogLevel::INFO);
+    //uvgvpcc_dec::Logger::setLogLevel(uvgvpcc_dec::LogLevel::INFO);
 
-    std::string input_file;
-    std::string outputFilePath;
-    uvgvpcc_dec::Parameters param;
+    uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::INFO>("APPLICATION", "uvgVPCCdec application starts.\n");
 
-    std::string paramName;
-    std::string paramValue;
+    // Parse application parameters //
+    cli::opts_t appParameters;
+    bool exitOnParse = false;
+    try {
+        exitOnParse = cli::opts_parse(appParameters, argc, argv);
+    } catch (const std::exception& e) {
+        uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::FATAL>("APPLICATION",
+                                                            "An exception was caught during the parsing of the application parameters.\n");
+        uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::FATAL>("APPLICATION", e.what() + std::string("\n"));
+        cli::print_usage();
+        return EXIT_FAILURE;
+    }
+    if (exitOnParse) {
+        // --version or --help //
+        return EXIT_SUCCESS;
+    }
 
-    for(int i = 1; i<argc; ++i) {
+    if(!std::filesystem::exists(appParameters.inputPath)) {
+        std::cerr << "\n!!! Error : The specified input bitstream does not exist :" << appParameters.inputPath << "\n" << std::endl;
+        exit(EXIT_FAILURE);
+    }
 
-        if(!strcmp(argv[i], "-h")) {
-            displayHelp();
-            exit(EXIT_SUCCESS);
-        } else if(!strcmp(argv[i], "-i")) {
-            input_file = argv[++i];
-        } else if(!strcmp(argv[i], "-o")) {
-            outputFilePath = argv[++i];
-        } else if(!strcmp(argv[i], "-t")) {
-            param.nbThread = std::stoi(argv[++i]);            
-        } else if(!strcmp(argv[i], "--TMC2Upscalling=true")) {
-            param.useTMC2AttributeYUVConversion = true;
-        } else if(!strcmp(argv[i],"--TMC2Upscalling=false")) {
-            param.useTMC2AttributeYUVConversion = false;
-        } else {
-            std::cerr << "ERROR : Unknown command parameter: " << argv[i] << std::endl;
-            exit(EXIT_FAILURE);
+    if(appParameters.outputPath.empty() || !strcmp(appParameters.outputPath.c_str(), "/dev/null")) {
+        uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::WARNING>("APPLICATION",
+            "!!! Warning : No out path given or output path is '/dev/null'. No ply file will be writing.\n");
+        if (*argv[2] == '1') {
+            write_to_file_  = false;
         }
-    }
-
-    if(input_file.empty()) {
-        displayHelp();
-        std::cerr << "\n!!! Error : You didn't specify the input bitstream.\n" << std::endl;
-        exit(EXIT_FAILURE);
-    } else if(!std::filesystem::exists(input_file)) {
-        std::cerr << "\n!!! Error : The specified input bitstream does not exist :" << input_file << "\n" << std::endl;
+    } else if(!std::filesystem::exists(std::filesystem::path(appParameters.outputPath).parent_path())) {
+        uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::FATAL>("APPLICATION",
+            std::string("!!! Error : The directory in which you want to put the output ply files does not exist:") + std::filesystem::path(appParameters.outputPath).parent_path().string() + "\n");
         exit(EXIT_FAILURE);
     }
 
-    if(outputFilePath.empty() || !strcmp(outputFilePath.c_str(), "/dev/null")) {
-        std::cerr << "\n!!! Warning : You didn't specify an output file path or you choose '/dev/null'. No ply file will be writing.\n" << std::endl;
-    } else if(!std::filesystem::exists(std::filesystem::path(outputFilePath).parent_path())) {
-        std::cerr << "\n!!! Error : The directory in which you want to put the output ply files does not exist:" << std::filesystem::path(outputFilePath).parent_path() << "\n" << std::endl;
-        exit(EXIT_FAILURE);
-    }
-    
+    uvgvpcc_dec::Parameters param;
+    std::string input_file = appParameters.inputPath;
+    std::string outputFilePath = appParameters.outputPath;
 
-
-    if (argc != 4) {
-        std::cout << "invalid number of arguments, enter .vpcc filename, 1/0 (file writing), 1/0 (fast color conversion) " << std::endl;
-    }
-    //std::string input_file = "longdress-f1.vpcc";
-    // std::string input_file = argv[1];
-    if (*argv[2] == '1') {
-        write_to_file_  = true;
-    }
-
-
-    if (*argv[3] == '1') {
-        param.fast_color_conversion  = true;
-    }
-    param.keep_intermediate_files = false;
+    // Populate dec params
+    param.nbThread = appParameters.threads;
+    param.useTMC2AttributeYUVConversion = appParameters.tmc2Upscaling;
+    param.fast_color_conversion = appParameters.fastColorConversion;
+    param.keep_intermediate_files = appParameters.keepIntermediateFiles;
 
     //param.max_points = 738590;
     uvgvpcc_dec::API::initializeDecoder(param);
 
     uvgvpcc_dec::API::v3c_unit_stream unit_stream;
     readFile(input_file, unit_stream);
-    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::TRACE, "Application", "Number of V3C chunks " + std::to_string(unit_stream.v3c_chunks.size()) + " \n");
+    uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::TRACE>("Application", "Number of V3C chunks " + std::to_string(unit_stream.v3c_chunks.size()) + " \n");
     
     uvgvpcc_dec::API::decoded_output output; // Each point cloud frame gets appended to the output as they are decoded
     std::thread file_writer_thread;
@@ -311,6 +297,6 @@ int main(int argc, char* argv[]) {
     output.io_mutex.unlock();
     output.available_frames.release();
     file_writer_thread.join();
-    uvgvpcc_dec::Logger::log(uvgvpcc_dec::LogLevel::INFO, "Application", "Done \n");
+    uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::INFO>("Application", "Done \n");
     return EXIT_SUCCESS;
 }

@@ -12,7 +12,7 @@ inline double PCCClip( const double& n, const double& lower, const double& upper
 
 void Adaptation::output_decoded_frame(std::shared_ptr<point_cloud_frame> reconstruct, uvgvpcc_dec::API::decoded_output* out)
 {
-    Logger::log(LogLevel::INFO, "Adaptation", "Output decoded frame, GOF " + std::to_string(reconstruct->gof_index)
+    Logger::log<LogLevel::INFO>("Adaptation", "Output decoded frame, GOF " + std::to_string(reconstruct->gof_index)
     + " frame " + std::to_string(reconstruct->frame_index_in_gof) + " \n");
     out->io_mutex.lock();
     out->frames.push(reconstruct);
@@ -22,7 +22,7 @@ void Adaptation::output_decoded_frame(std::shared_ptr<point_cloud_frame> reconst
 }
 
 void Adaptation::convert_colors_fast(point_cloud_frame* reconstruct) {
-    Logger::log(LogLevel::TRACE, "Adaptation", "Convert colors YUV 8bit -> RGB 8bit (FAST/APPROXIMATE) \n");
+    Logger::log<LogLevel::TRACE>("Adaptation", "Convert colors YUV 8bit -> RGB 8bit (FAST/APPROXIMATE) \n");
     std::vector<uvg_color>& colors = reconstruct->colors;
     // Precomputed constants to avoid recalculating
     const int offset = 128;
@@ -47,7 +47,7 @@ void Adaptation::convert_colors_fast(point_cloud_frame* reconstruct) {
 
 void Adaptation::convert_colors_slow(point_cloud_frame* reconstruct)
 {
-    Logger::log(LogLevel::TRACE, "Adaptation", "Convert colors YUV 8bit -> RGB 8bit (SLOW/REFERENCE) \n");
+    Logger::log<LogLevel::TRACE>("Adaptation", "Convert colors YUV 8bit -> RGB 8bit (SLOW/REFERENCE) \n");
     std::vector<uvg_color>& colors = reconstruct->colors;
     for ( size_t k = 0; k < reconstruct->getPointCount(); k++ ) {
         double y1     = colors[k].data_[0];
