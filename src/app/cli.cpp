@@ -131,7 +131,7 @@ bool opts_parse(cli::opts_t& opts, const int argc, const char* const argv[]) {
 }
 
 void print_usage(void) {
-    std::cout << "usage: to do\n"
+    std::cout << "usage: uvgVPCCdec -i <input> -o <output>\n"
               << "       --help for more information" << std::endl;
 }
 
@@ -140,39 +140,25 @@ void print_version(void) { std::cout << "uvgvpccdec " << uvgvpcc_dec::get_versio
 void print_help(void) {
     fprintf(stdout,
             "Usage:\n"
-            "uvg266 -i <input> --input-res <width>x<height> -o <output>\n"
+            "uvgVPCCdec -i <input> -o <output>\n"
             "\n"
             /* Word wrap to this width to stay under 80 characters (including ") *************/
             "Required:\n"
-            "  -i, --input <filename>     : Input file\n"
-            "      --input-res <res>      : Input resolution [auto]\n"
-            "                                   - auto: Detect from file name.\n"
-            "                                   - <int>x<int>: width times height\n"
-            "  -o, --output <filename>    : Output file\n"
+            "  -i, --input=<filename>                 : Input bitstream file\n"
             "\n"
             /* Word wrap to this width to stay under 80 characters (including ") *************/
-            "Presets:\n"
-            "      --preset <preset>      : Set options to a preset [medium]\n"
-            "                                   - ultrafast, superfast, veryfast, faster,\n"
-            "                                     fast, medium, slow, slower, veryslow\n"
-            "                                     placebo\n"
+            "Optional:\n"
+            "  -o, --output=<filename>                : Output ply file path (file name in the form of\n"
+            "                                           e.g. 'name_%%04d.ply')\n"
+            "  -t, --threads=<num>                    : Maximum number of threads to be used (default: 20)\n"
+            "      --TMC2Upscaling=<bool>             : Enable TMC2 upscaling (default: false)\n"
+            "      --fastColorConversion=<bool>       : Enable fast color conversion from YUV to RGB (default: false)\n"
+            "      --keepIntermediateFiles=<bool>     : Keep intermediate files (default: false)\n"
+            "      --uvgvpccParametersString=<string> : uvgVPCC decoder parameters string\n"
             "\n"
-            /* Word wrap to this width to stay under 80 characters (including ") *************/
-            "Input:\n"
-            "  -n, --frames <integer>     : Number of frames to code [all]\n"
-            "      --seek <integer>       : First frame to code [0]\n"
-            "      --input-fps <num>[/<denom>] : Frame rate of the input video [25]\n"
-            "      --source-scan-type <string> : Source scan type [progressive]\n"
-            "                                   - progressive: Progressive scan\n"
-            "                                   - tff: Top field first\n"
-            "                                   - bff: Bottom field first\n"
-            "      --input-format <string> : P420 or P400 [P420]\n"
-            "      --input-bitdepth <int> : 8-16 [8]\n"
-            "      --loop-input           : Re-read input file forever.\n"
-            "      --input-file-format <string> : Input file format [auto]\n"
-            "                                    - auto: Check the file ending for format\n"
-            "                                    - y4m (skips frame headers)\n"
-            "                                    - yuv\n"
+            "Other options:\n"
+            "      --help                             : Print this help message\n"
+            "      --version                          : Print version information\n"
             "\n"
             /* Word wrap to this width to stay under 80 characters (including ") *************/
     );
