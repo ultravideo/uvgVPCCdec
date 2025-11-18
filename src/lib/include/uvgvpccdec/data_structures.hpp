@@ -503,11 +503,9 @@ struct patch {
 
 struct point_cloud_frame {
     std::vector<point3d> positions = {};
+
     std::vector<uvg_color> colors = {};
-    
     std::vector<uvg_color16> colors16 = {};
-
-
 
     /* PointToPixel is filled during Reconstruction. It is used in Post-reconstruction to pick the correct
        color values from the attribute map  */
@@ -557,13 +555,15 @@ struct point_cloud_frame {
         const size_t index = getPointCount();
         positions.push_back(position);
         point_to_pixel.push_back(p_to_p);
-        /*if(index == positions.size()) {
-            positions.resize(num_of_used_points + 1);
-            point_to_pixel.resize(num_of_used_points + 1);
-            //std::cout << "resized positions to " << num_of_used_points + 1 << std::endl;
-        }
-        positions[index] = position;
-        point_to_pixel[index] = p_to_p;*/
+
+        // if(index == positions.size()) {
+        //     positions.resize(num_of_used_points + 1);
+        //     point_to_pixel.resize(num_of_used_points + 1);
+        //     //std::cout << "resized positions to " << num_of_used_points + 1 << std::endl;
+        // }
+        // positions[index] = position;
+        // point_to_pixel[index] = p_to_p;
+
         num_of_used_points++;
         return index;
     }
@@ -582,8 +582,8 @@ struct atlas_frame {
     size_t frame_height = 0;
 };
 
-// composition unit
-struct decompressed_cu {
+// Composition unit
+struct composition_unit { 
     size_t cu_index = 0;
     size_t cu_frame_count = 0;
     std::vector<std::shared_ptr<atlas_frame>> atlas_map; // frames or tiles? currently 1 tile per frame
@@ -594,14 +594,14 @@ struct decompressed_cu {
     std::vector<std::vector<uint8_t>> occupancy_boolean_maps = {};
     std::vector<std::vector<size_t>> block_to_patches = {};
 
-    decompressed_cu() = default;
+    composition_unit() = default;
 };
 
 struct decompressed_gof { // of a gof currently
     size_t gof_index = 0;
     size_t gof_frame_count = 0; // this is fetched from the number of atlas frames
 
-    std::vector<std::shared_ptr<decompressed_cu>> composition_units;
+    std::vector<std::shared_ptr<composition_unit>> composition_units;
 
     decompressed_gof() = default;
 };

@@ -15,7 +15,7 @@ of the sub-bitstream composition units (3.117) is a coded atlas access unit (3.3
 
    3.50 composition time
 time or time period at which a frame needs to be composed, used for reconstruction, or presented */
-struct composition_unit {
+struct composition_unit_boundary {
     size_t ad_start = 0;
     size_t ad_size = 0;
 
@@ -34,7 +34,7 @@ struct gof_info {
     size_t vps_start = 0;
     size_t vps_size = 0;
     size_t cu_count = 0;
-    std::vector<composition_unit> composition_units;
+    std::vector<composition_unit_boundary> composition_unit_boundaries;
 };
 
 struct Parameters {
@@ -96,6 +96,7 @@ struct decoded_output {
 
     void initializeDecoder(const Parameters& param);
     void decodeV3CChunk(std::shared_ptr<v3c_chunk> chunk, uvgvpcc_dec::API::decoded_output* out);
+    void decodeV3CChunk_serial(std::shared_ptr<v3c_chunk> chunk, uvgvpcc_dec::API::decoded_output* out);
     void emptyFrameQueue();
 } // namespace API
 

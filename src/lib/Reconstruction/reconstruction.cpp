@@ -81,17 +81,21 @@ size_t Reconstruction::patch_to_canvas(const size_t u, const size_t v, const siz
 
 /* ------------------------ ripped from tmc2------------------------ */
 std::vector<point3d> Reconstruction::generate_points(const patch& patch, const std::vector<video_map>& videoGeometryMultiple,
-    const size_t videoFrameIndex, const size_t u, const size_t v, const size_t x,
-    const size_t y, const size_t map_count, const bool multipleStreams, const bool absoluteD1_)
+    const size_t videoFrameIndex, const size_t u, const size_t v, 
+    const size_t x, const size_t y, const size_t map_count, 
+    const bool multipleStreams, const bool absoluteD1_)
 {
     auto& frame0 = videoGeometryMultiple[0].pictures.at(videoFrameIndex);
     std::vector<point3d> createdPoints;
     point3d point0;
 
+    // First layer
     point0 = patch.generatePoint( u, v, frame0.get_Y_value(x, y) );
-
     createdPoints.push_back( point0 );
-    if ( map_count > 1 ) {
+
+    // Second layer if Double Layer is enabled, map_count = 2
+    //if ( map_count > 1 )
+    if ( map_count == 2 ) {
       point3d  point1( point0 );
       auto& frame1 = multipleStreams ? videoGeometryMultiple[1].pictures.at(videoFrameIndex) 
                                             : videoGeometryMultiple[0].pictures.at( 1 + videoFrameIndex );
@@ -216,13 +220,13 @@ void add_points(point_cloud_frame* reconstruct, const std::vector<point3d> &crea
     reconstruct->add_points_thread_safe(created_points, created_point_to_pixel);
 }
 
-void Reconstruction::setup_point_cloud_frame(decompressed_cu* cu, point_cloud_frame* reconstruct, const size_t cu_frame_index, const size_t gof_index)
+void Reconstruction::setup_point_cloud_frame(composition_unit* cu, point_cloud_frame* reconstruct, const size_t cu_frame_index)
 {
-    Logger::log<LogLevel::TRACE>("Reconstruction", "Setup point cloud frame " + std::to_string(reconstruct->frame_index_in_gof)
+    const size_t &gof_index = reconstruct->gof_index;
+    printf("Point cloud frame setup ------------------------>\n");
+    Logger::log<LogLevel::INFO>("Reconstruction", "Setup point cloud frame " + std::to_string(reconstruct->frame_index_in_gof)
         + " (in composition unit " + std::to_string(cu->cu_index)
         + ") in GOF " + std::to_string(gof_index) + " \n");
-
-    reconstruct->gof_index = gof_index;
 
     atlas_frame* current_atlas_frame = cu->atlas_map.at(cu_frame_index).get();
     size_t atlas_index = current_atlas_frame->atlas_index;
@@ -245,15 +249,21 @@ void Reconstruction::setup_point_cloud_frame(decompressed_cu* cu, point_cloud_fr
     size_t occupancyPrecision = vps.vps_frame_width.at(atlas_index) / cu->occupancy_map.width;
 
     generateOccupancyMap( frame_width, frame_height, current_occupancy_frame, current_occupancy_boolean_map, occupancyPrecision);
-    Logger::log<LogLevel::TRACE>("Reconstruction", "Occupancy map generated \n");
+    Logger::log<LogLevel::INFO>("Reconstruction", "Occupancy map generated \n");
 
     size_t patch_packing_block_size = size_t( 1 ) << asps.asps_log2_patch_packing_block_size;
     generateBlockToPatchFromOccupancyMapVideo(*current_atlas_frame, current_occupancy_frame,
         current_block_to_patch, patch_packing_block_size, occupancyPrecision);
-    Logger::log<LogLevel::TRACE>("Reconstruction", "Block to patch generated \n");
+    Logger::log<LogLevel::INFO>("Reconstruction", "Block to patch generated \n");
+    printf("Point cloud frame setup ------------------------> Done\n");
 }
 
-void Reconstruction::process_patch(const size_t index, decompressed_cu* cu, point_cloud_frame* reconstruct, const size_t cu_frame_index, const size_t gof_index)
+void Reconstruction::process_patch(
+    const size_t index, 
+    composition_unit* cu, 
+    point_cloud_frame* reconstruct, 
+    const size_t cu_frame_index, 
+    const size_t gof_index)
 {
     atlas_frame* current_atlas_frame = cu->atlas_map.at(cu_frame_index).get();
     size_t atlas_index = current_atlas_frame->atlas_index;
@@ -271,16 +281,32 @@ void Reconstruction::process_patch(const size_t index, decompressed_cu* cu, poin
     if ( geoFrameCount < ( videoFrameIndex + mapCount ) ) { throw std::runtime_error("Invalid geoFrameCount");}
     
     size_t patchIndex = patchPrecedenceOrderFlag  ? ( patch_count - index - 1 ) : index;
+    //printf("Processing patch %d / %d (patch index %d)\n", (int) index, (int) patch_count, (int) patchIndex);
     const size_t patchIndexPlusOne = patchIndex + 1;
     const patch& patch  = current_atlas_frame->patches_map[patchIndex];
 
-    create_points_from_patch(reconstruct, patch, *cu, patchIndexPlusOne, videoFrameIndex, cu->occupancy_boolean_maps.at(cu_frame_index),
-            *current_atlas_frame, cu->block_to_patches.at(cu_frame_index), gof_index);
+    create_points_from_patch(
+        reconstruct, 
+        patch, 
+        *cu, 
+        patchIndexPlusOne, 
+        videoFrameIndex, 
+        cu->occupancy_boolean_maps.at(cu_frame_index),
+        *current_atlas_frame, 
+        cu->block_to_patches.at(cu_frame_index), 
+        gof_index);
 }
 
-void Reconstruction::create_points_from_patch(point_cloud_frame* reconstruct, const patch &p, const decompressed_cu &cu, const size_t patch_index_plus_1,
-    const size_t video_frame_index, const std::vector<uint8_t> &occupancy_map,
-    const atlas_frame &atlas_frame, const std::vector<size_t> &block_to_patch, const size_t gof_index)
+void Reconstruction::create_points_from_patch(
+    point_cloud_frame* reconstruct, 
+    const patch &p, 
+    const composition_unit &cu, 
+    const size_t patch_index_plus_1,
+    const size_t video_frame_index, 
+    const std::vector<uint8_t> &occupancy_map,
+    const atlas_frame &atlas_frame, 
+    const std::vector<size_t> &block_to_patch, 
+    const size_t gof_index)
 {
     std::vector<point3d> point_to_pixel = {};
     std::vector<point3d> created_points = {};
@@ -309,7 +335,7 @@ void Reconstruction::create_points_from_patch(point_cloud_frame* reconstruct, co
                         size_t x; // value filled in patch_to_canvas
                         size_t y; // value filled in patch_to_canvas
                         size_t canvasIndex = patch_to_canvas(u, v, frame_width, frame_height, x, y, p);
-                        bool         occupancy     = false;
+                        bool occupancy     = false;
 
                         occupancy = occupancy_map[canvasIndex] != 0;
                         bool multipleStreams_ = vps.vps_multiple_map_streams_present_flag.at(atlas_index);
@@ -319,6 +345,10 @@ void Reconstruction::create_points_from_patch(point_cloud_frame* reconstruct, co
                         std::vector<point3d> generated_points;
                         generated_points = generate_points(p, cu.geometry_maps, video_frame_index, u,
                                             v, x, y, map_count, multipleStreams_, absoluteD1_);
+                        /*
+                            Size of generated_points is 2 for Double layer,
+                            Size of generated_points is 1 for Single layer
+                        */
                         for ( size_t i = 0; i < generated_points.size(); i++ ) {
                             if ( ( i == 0 ) || ( generated_points[i] != generated_points[0] )  ) {
 
@@ -330,6 +360,7 @@ void Reconstruction::create_points_from_patch(point_cloud_frame* reconstruct, co
                                                                         geo_bit_depth_3d, generated_points[i], tmp );
                                     created_points.push_back(tmp);
                                 }
+                                //printf("i value: %d, generated_points.size: %d\n", (int)i, (int)generated_points.size());
                                 assert(i < 2);
                                 point_to_pixel.emplace_back( x, y, i);
                             }

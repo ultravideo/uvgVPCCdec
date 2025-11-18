@@ -11,9 +11,9 @@ void PostReconstruction::initializeStaticParameters(uvgvpcc_dec::context* contex
     dec_context1PR_ = context;
 }
 
-void PostReconstruction::PostProcess(decompressed_cu* cu, point_cloud_frame* reconstruct, const size_t cu_frame_index, const size_t gof_index)
+void PostReconstruction::PostProcess(composition_unit* cu, point_cloud_frame* reconstruct, const size_t cu_frame_index, const size_t gof_index)
 {
-    Logger::log<LogLevel::TRACE>("Post-reconstruction", "Post-processing point cloud frame " + std::to_string(reconstruct->frame_index_in_gof)
+    Logger::log<LogLevel::INFO>("Post-reconstruction", "Post-processing point cloud frame " + std::to_string(reconstruct->frame_index_in_gof)
         + " (in composition unit " + std::to_string(cu->cu_index)
         + ") in GOF " + std::to_string(gof_index) + " \n");
 
@@ -21,7 +21,10 @@ void PostReconstruction::PostProcess(decompressed_cu* cu, point_cloud_frame* rec
     color_point_cloud(reconstruct, *cu, cu_frame_index, gof_index);
 }
 
-void PostReconstruction::color_point_cloud(point_cloud_frame* reconstruct, const decompressed_cu &cu, const size_t cu_frame_index,
+void PostReconstruction::color_point_cloud(
+    point_cloud_frame* reconstruct, 
+    const composition_unit &cu, 
+    const size_t cu_frame_index,
     const size_t gof_index )
 {
     const size_t atlas_index = cu.atlas_map.at(cu_frame_index).get()->atlas_index;
@@ -33,7 +36,7 @@ void PostReconstruction::color_point_cloud(point_cloud_frame* reconstruct, const
     uint8_t attributeCount = vps.ai_attribute_count;
 
     if ( attributeCount == 0 ) {
-    Logger::log<LogLevel::INFO>("Post-reconstruction", "No attribute data \n");
+        Logger::log<LogLevel::INFO>("Post-reconstruction", "No attribute data \n");
         return;
     }
     const size_t mapCount = vps.vps_map_count_minus1.at(atlas_index) + 1;

@@ -287,7 +287,8 @@ int main(int argc, char* argv[]) {
     
     for (size_t i = 0; i < unit_stream.v3c_chunks.size(); ++i) {
         /*const*/ auto& chunk = unit_stream.v3c_chunks.front();
-        uvgvpcc_dec::API::decodeV3CChunk(chunk, &output);
+        uvgvpcc_dec::API::decodeV3CChunk_serial(chunk, &output);
+        //uvgvpcc_dec::API::decodeV3CChunk(chunk, &output);
         unit_stream.v3c_chunks.pop();
     }
     uvgvpcc_dec::API::emptyFrameQueue();

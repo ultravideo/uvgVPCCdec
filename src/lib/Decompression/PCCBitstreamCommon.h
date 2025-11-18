@@ -42,6 +42,7 @@
 #include <cstring>
 #include <sys/stat.h>
 #include <algorithm>
+#include <stdint.h>
 #include "PCCConfig.h"
 #if defined( WIN32 )
 #include <windows.h>

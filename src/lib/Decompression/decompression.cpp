@@ -27,6 +27,19 @@ std::mutex occupancy_codec_mtx_;
 std::mutex geometry_codec_mtx_;
 std::mutex attribute_codec_mtx_;
 
+bool byteAligned( bitstream_position &ptr) { return ( ptr.bits == 0 ); }
+
+// 8.3.6.10 RBSP trailing bit syntax
+void Decompression::rbspTrailingBits( bitstream_position &ptr) {
+    // bitstream.read( 1 );  // f(1): equal to 1
+    read(1, ptr, "rbspTrailingBits");
+
+  while ( !byteAligned(ptr) ) {
+    // bitstream.read( 1 );  // f(1): equal to 0
+    read(1, ptr, "rbspTrailingBitsBis");
+  }
+}
+
 static size_t read_value(const uint8_t* src, size_t len) {
     size_t value = 0;
     for (size_t i = 0; i < len; ++i) {
@@ -45,19 +58,66 @@ const parameter_sets &Decompression::get_saved_params(const size_t gof_index)
 /* TODO: make sure this function works in all cases */
 void Decompression::advance_bitstream(std::size_t bits, bitstream_position &pos)
 {
-    std::size_t bytes = bits / 8 + (pos.bits + bits % 8) / 8;
-    pos.bytes += bytes;
-    pos.bits = (pos.bits + bits % 8) % 8;
+    // std::size_t bytes = bits / 8 + (pos.bits + bits % 8) / 8;
+    // pos.bytes += bytes;
+    // pos.bits = (pos.bits + bits % 8) % 8;
+
+    // if(bits == 0) return;
+    // size_t bits_tmp = pos.bits + bits;
+    // pos.bytes += bits_tmp / 8;
+    // pos.bits  = bits_tmp % 8;
+
+    // const std::size_t bits_tmp = (pos.bits + bits % 8);
+    // pos.bytes += (bits + bits_tmp) / 8;
+    // pos.bits = bits_tmp % 8;
+    
+    // Currently working properly
+    // size_t total_bits =  pos.bits + bits;
+    // pos.bytes += total_bits / 8;
+    // pos.bits  = total_bits % 8;
+
+    for ( std::size_t i = 0; i < bits; i++ ) {
+        if ( pos.bits == 7 ) {
+            pos.bytes++;
+            pos.bits = 0;
+        } else {
+            pos.bits++;
+        }
+    }
+    
 }
 
 /* TODO: make sure this function works in all cases */
 void Decompression::align_bitstream(bitstream_position &pos)
 {
-    if(pos.bits != 0) {
-        pos.bytes++;
-        pos.bits = 0;
+    // if(pos.bits != 0) {
+    //     pos.bytes++;
+    //     pos.bits = 0;
+    // } 
+
+    // if ( pos.bits <= 7 ) {
+    //     pos.bytes++;
+    //     pos.bits = 0;
+    // } else {
+    //     pos.bits++;
+    // }
+
+    // Currently working properly
+    // if ( pos.bits < 8 ) {
+    //     pos.bytes++;
+    //     pos.bits = 0;
+    // } else {
+    //     pos.bits++;
+    // }
+
+    // bitstream.read( 1 );  // f(1): equal to 1
+    read(1, pos, "readbits");
+    while ( !byteAligned(pos) ) {
+        // bitstream.read( 1 );  // f(1): equal to 0
+        read(1, pos, "readbits");
     }
 }
+
 
 /* NOTE -------------------- Straight from TMC2 -------------------- */
 uint32_t Decompression::read_bits(uint8_t bits, bitstream_position &pos) {
@@ -147,48 +207,66 @@ void Decompression::parse_gofs(const uvgvpcc_dec::v3c_chunk &chunk, std::vector<
 
     for (size_t i = 0; i < chunk.v3c_unit_sizes.size(); i++) {
         size_t v3c_unit_size = chunk.v3c_unit_sizes.at(i);
-        size_t v3c_unit_payload_size = chunk.v3c_unit_sizes.at(i) - 4; // not incl. header
+        size_t v3c_unit_payload_size = v3c_unit_size - 4; // not incl. header
+
         size_t pre_header = ptr.bytes;
         // Next 4 bytes are the V3C unit header
         uint8_t vuh_unit_type = read(5, ptr, "vuh_unit_type");
-        uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::TRACE>("Parser", "V3C unit size " + std::to_string(chunk.v3c_unit_sizes.at(i))
-            + ", type " + std::to_string(vuh_unit_type) + " \n");
         advance_bitstream(4 * 8 - 5, ptr); // skip the rest of v3c header for now
+        std::string v3c_type = "";
 
         if(vuh_unit_type == V3C_UNIT_TYPE::V3C_VPS) {
-            uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::TRACE>("Parser", "** Added GOF, start " + std::to_string(pre_header) + " ** \n");
+            uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::INFO>("Parser", "** Added GOF, start " + std::to_string(pre_header) + " ** \n");
             uvgvpcc_dec::gof_info new_gof;
             new_gof.vps_start = pre_header;
             new_gof.vps_size = v3c_unit_size;
             infos.push_back(new_gof);
+
+            v3c_type = "V3C_VPS";
+            //printf("Parsing V3C_VPS of GOF %d ------------> DONE\n", (int)i/5);
         }
         else if (vuh_unit_type == V3C_UNIT_TYPE::V3C_AD) {
-            uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::TRACE>("Parser", "** Added composition unit, start " + std::to_string(pre_header) + " ** \n");
+            uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::INFO>("Parser", "** Added composition unit, start " + std::to_string(pre_header) + " ** \n");
 
             // V3C_AD units signal the start of new composition units
-            uvgvpcc_dec::composition_unit new_comp_unit ;
-            new_comp_unit.ad_start = pre_header;
-            new_comp_unit.ad_size = v3c_unit_size;
+            uvgvpcc_dec::composition_unit_boundary new_cu_boundary ;
+            new_cu_boundary.ad_start = pre_header;
+            new_cu_boundary.ad_size = v3c_unit_size;
 
-            infos.back().composition_units.push_back(new_comp_unit);
+            infos.back().composition_unit_boundaries.push_back(new_cu_boundary);
             infos.back().cu_count++;
+
+            v3c_type = "V3C_AD";
+            //printf("Parsing V3C_AD of GOF %d ------------> DONE\n", (int)i/5);
         }
         else if (vuh_unit_type == V3C_UNIT_TYPE::V3C_OVD) {
-            infos.back().composition_units.back().ovd_start = pre_header;
-            infos.back().composition_units.back().ovd_size = v3c_unit_size;
+            infos.back().composition_unit_boundaries.back().ovd_start = pre_header;
+            infos.back().composition_unit_boundaries.back().ovd_size = v3c_unit_size;
+
+            v3c_type = "V3C_OVD";
+            //printf("Parsing V3C_OVD of GOF %d ------------> DONE\n", (int)i/5);
         }
         else if (vuh_unit_type == V3C_UNIT_TYPE::V3C_GVD) {
-            infos.back().composition_units.back().gvd_start = pre_header;
-            infos.back().composition_units.back().gvd_size = v3c_unit_size;
+            infos.back().composition_unit_boundaries.back().gvd_start = pre_header;
+            infos.back().composition_unit_boundaries.back().gvd_size = v3c_unit_size;
+
+            v3c_type = "V3C_GVD";
+            //printf("Parsing V3C_GVD of GOF %d ------------> DONE\n", (int)i/5);
         }
         else if(vuh_unit_type == V3C_UNIT_TYPE::V3C_AVD) {
-            infos.back().composition_units.back().avd_start = pre_header;
-            infos.back().composition_units.back().avd_size = v3c_unit_size;
+            infos.back().composition_unit_boundaries.back().avd_start = pre_header;
+            infos.back().composition_unit_boundaries.back().avd_size = v3c_unit_size;
+
+            v3c_type = "V3C_AVD";
+            //printf("Parsing V3C_AVD of GOF %d ------------> DONE\n", (int)i/5);
         }
         else {
             uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::FATAL>("Parser", "Unkown V3C unit type " + std::to_string(vuh_unit_type) + " \n");
         }
         advance_bitstream(v3c_unit_payload_size * 8, ptr);
+
+        uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::INFO>("Parser", "V3C unit size " + std::to_string(v3c_unit_size)
+            + ", type " + std::to_string(vuh_unit_type) + " : " + v3c_type + " \n");
     }
     saved_params_.resize(infos.size());
 }
@@ -445,7 +523,11 @@ void convertYUV420ToYUV444TMC2Video(std::vector<video_map>& attribute_maps ) {
 
 
 
-void Decompression::decompress_v3c_video_unit(V3C_UNIT_TYPE vuh_t, uint8_t* buf, std::shared_ptr<uvgvpcc_dec::composition_unit> in_cu, std::shared_ptr<decompressed_cu> out_cu)
+void Decompression::decompress_v3c_video_unit(
+    V3C_UNIT_TYPE vuh_t, 
+    uint8_t* buf, 
+    std::shared_ptr<uvgvpcc_dec::composition_unit_boundary> in_cu, 
+    std::shared_ptr<composition_unit> out_cu)
 {    
     if(vuh_t == V3C_OVD) {
         occupancy_codec_mtx_.lock();
@@ -453,20 +535,25 @@ void Decompression::decompress_v3c_video_unit(V3C_UNIT_TYPE vuh_t, uint8_t* buf,
             /* ------------------ OCCUPANCY ------------------ */
         size_t occupancy_payload_start = in_cu->ovd_start + 4;
         size_t occupancy_payload_size = in_cu->ovd_size - 4;
-        decompress_video_sub_bitstream(buf, occupancy_payload_start, occupancy_payload_size,
-            &out_cu->occupancy_map, occupancy_codec_ctx_);
+        decompress_video_sub_bitstream(
+            buf, 
+            occupancy_payload_start, 
+            occupancy_payload_size,
+            &out_cu->occupancy_map, 
+            occupancy_codec_ctx_
+        );
 
         out_cu->occupancy_boolean_maps.resize(out_cu->occupancy_map.frame_count);
         out_cu->block_to_patches.resize(out_cu->cu_frame_count);
         
         occupancy_codec_mtx_.unlock();
 
-    uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::TRACE>("Nominal format", "Occupancy map frame count = "
-    + std::to_string(out_cu->occupancy_map.frame_count) + " (" + std::to_string(out_cu->occupancy_map.width)
-    + "x" + std::to_string(out_cu->occupancy_map.height) + ") \n" + "Channels (frame 0) Y="
-    + std::to_string(out_cu->occupancy_map.pictures.front().Y.size()) + " U=" +
-    std::to_string(out_cu->occupancy_map.pictures.front().U.size())
-    + " V=" + std::to_string(out_cu->occupancy_map.pictures.front().V.size()) + "\n");
+        uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::TRACE>("Nominal format", "Occupancy map frame count = "
+        + std::to_string(out_cu->occupancy_map.frame_count) + " (" + std::to_string(out_cu->occupancy_map.width)
+        + "x" + std::to_string(out_cu->occupancy_map.height) + ") \n" + "Channels (frame 0) Y="
+        + std::to_string(out_cu->occupancy_map.pictures.front().Y.size()) + " U=" +
+        std::to_string(out_cu->occupancy_map.pictures.front().U.size())
+        + " V=" + std::to_string(out_cu->occupancy_map.pictures.front().V.size()) + "\n");
 
         if (out_cu->occupancy_map.pictures.front().format == PCCCOLORFORMAT::YUV420) {
             uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::TRACE>("Note", "Occupancy map in YUV420 (nominal format would be 444) \n");
@@ -480,20 +567,25 @@ void Decompression::decompress_v3c_video_unit(V3C_UNIT_TYPE vuh_t, uint8_t* buf,
         size_t geometry_payload_size = in_cu->gvd_size - 4;
         video_map new_geo_map;
         out_cu->geometry_maps.push_back(new_geo_map);
-        decompress_video_sub_bitstream(buf, geometry_payload_start, geometry_payload_size,
-        &out_cu->geometry_maps.back(), geometry_codec_ctx_);
+        decompress_video_sub_bitstream(
+            buf, 
+            geometry_payload_start, 
+            geometry_payload_size,
+            &out_cu->geometry_maps.back(), 
+            geometry_codec_ctx_
+        );
 
         geometry_codec_mtx_.unlock();
 
         for (size_t i = 0; i < out_cu->geometry_maps.size(); i++) {
-            uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::TRACE>("Nominal format", "Geometry map [" + std::to_string(i)
+            uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::INFO>("Nominal format", "Geometry map [" + std::to_string(i)
                 + "] frame count = " + std::to_string(out_cu->geometry_maps.at(i).frame_count) 
                 + " (" + std::to_string(out_cu->geometry_maps.at(i).width) + "x" + std::to_string(out_cu->geometry_maps.at(i).height) + ") \n"
                 + "Channels (frame 0) Y=" + std::to_string(out_cu->geometry_maps.at(i).pictures.front().Y.size())
                 + " U=" + std::to_string(out_cu->geometry_maps.at(i).pictures.front().U.size())
                 + " V=" + std::to_string(out_cu->geometry_maps.at(i).pictures.front().V.size()) + "\n");
             if (out_cu->geometry_maps.at(i).pictures.front().format == PCCCOLORFORMAT::YUV420) {
-                uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::TRACE>("Note", "Geometry map in YUV420 (nominal format would be 444) \n");
+                uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::INFO>("Note", "Geometry map in YUV420 (nominal format would be 444) \n");
             }
         }
     }
@@ -581,8 +673,12 @@ void Decompression::read_v3c_parameter_set(v3c_parameter_set* vps, bitstream_pos
     vps->geometry_info.resize(vps->vps_atlas_count_minus1 + 1);
     vps->attribute_info.resize(vps->vps_atlas_count_minus1 + 1);
 
+    printf("VPS Atlas Count Minus1: %d\n", vps->vps_atlas_count_minus1+1);
     for (uint8_t j = 0; j < (vps->vps_atlas_count_minus1 + 1); j++) {
-        vps->vps_atlas_id.at(j) = read(6, ptr, "vps_atlas_id");
+        //vps->vps_atlas_id.at(j) = read(6, ptr, "vps_atlas_id");
+        read(6, ptr, "vps_atlas_id");
+        vps->vps_atlas_id.at(j) = j;
+        printf("VPS Atlas ID: %d\n", vps->vps_atlas_id.at(j));
         vps->vps_frame_width.at(j) = read_ue(ptr, "vps_frame_width");
         vps->vps_frame_height.at(j) = read_ue(ptr, "vps_frame_height");
         vps->vps_map_count_minus1.at(j) = read(4, ptr, "vps_map_count_minus1");
@@ -684,7 +780,7 @@ void Decompression::read_v3c_parameter_set(v3c_parameter_set* vps, bitstream_pos
             vps->vps_miv_extension_present_flag = read(1, ptr, "vps_miv_extension_present_flag");
             vps->vps_extension_6bits = read(6, ptr, "vps_extension_6bits");
         }
-        align_bitstream(ptr);
+        //align_bitstream(ptr);
 
         // No packing information
         // No MIV extension
@@ -839,6 +935,9 @@ void Decompression::read_atlas_tile_header(atlas_tile_header &ath, NAL_UNIT_TYPE
     if(nalu_t >= NAL_GBLA_W_LP && nalu_t <= NAL_RSV_IRAP_ACL_29) {
         ath.ath_no_output_of_prior_atlas_frames_flag = read(1, ptr, "ath_no_output_of_prior_atlas_frames_flag");
     }
+    // if(nalu_t >= NAL_BLA_W_LP && nalu_t <= NAL_RSV_IRAP_ACL_29) {
+    //     ath.ath_no_output_of_prior_atlas_frames_flag = read(1, ptr, "ath_no_output_of_prior_atlas_frames_flag");
+    // }
     ath.ath_atlas_frame_parameter_set_id = read_ue(ptr, "ath_atlas_frame_parameter_set_id");
     ath.ath_atlas_adaptation_parameter_set_id = read_ue(ptr, "ath_atlas_adaptation_parameter_set_id");
     //ath.ath_id = read("ath_id"); TODO: Figure out the dynamic bit length for this field
@@ -853,6 +952,7 @@ void Decompression::read_atlas_tile_header(atlas_tile_header &ath, NAL_UNIT_TYPE
 
     if(saved_params_.back().asps.asps_num_ref_atlas_frame_lists_in_asps > 0) {
         ath.ath_ref_atlas_frame_list_asps_flag = read(1, ptr, "ath_ref_atlas_frame_list_asps_flag");
+        //printf("ath_ref_atlas_frame_list_asps_flag : %d\n", ath.ath_ref_atlas_frame_list_asps_flag);
     }
     if(ath.ath_ref_atlas_frame_list_asps_flag == 0) {
         throw std::runtime_error("Using atlas ref frame lists not implemented");
@@ -912,6 +1012,7 @@ void Decompression::read_patch_information_data(atlas_tile_header &ath, patch_in
             //mergePatchDataUnit(mpdu, ath, syntax, bitstream);
         } else if (pid.patchMode == P_INTRA) {
             auto& pdu = pid.patch;
+            //read_patch_data_unit(ath, pdu, ptr);
             //patchDataUnit(pdu, ath, syntax, bitstream);
         } else if (pid.patchMode == P_INTER) {
             auto& ipdu = pid.inter;
@@ -972,24 +1073,43 @@ void Decompression::read_patch_data_unit(atlas_tile_header &ath, patch_data_unit
 
 void Decompression::read_atlas_tile_data_unit(atlas_tile_data_unit &atdu, atlas_tile_header &ath, bitstream_position &ptr)
 {
+    // uint16_t tileID = ath.ath_id;
+    // if (ath.ath_type == SKIP_TILE) {
+    //     //skipPatchDataUnit(bitstream);
+    //     // This is just empty?
+    // }
+    // else {
+    //     while (true ) {
+    //         atdu.atdu_patch_mode = read_ue(ptr, "atdu_patch_mode");
+    //         if(atdu.atdu_patch_mode == ATDU_PATCH_MODE_I_TILE::I_END
+    //             || atdu.atdu_patch_mode == ATDU_PATCH_MODE_P_TILE::P_END) {
+    //             break;
+    //         }
+    //         patch_information_data pid;
+    //         pid.patchMode = atdu.atdu_patch_mode;
+    //         read_patch_information_data(ath, pid, ptr);
+    //         atdu.pid_vec.push_back(pid);
+
+    //     }
+    // }
+
     uint16_t tileID = ath.ath_id;
     if (ath.ath_type == SKIP_TILE) {
         //skipPatchDataUnit(bitstream);
         // This is just empty?
+        return;
     }
-    else {
-        while (true ) {
-            atdu.atdu_patch_mode = read_ue(ptr, "atdu_patch_mode");
-            if(atdu.atdu_patch_mode == ATDU_PATCH_MODE_I_TILE::I_END
-                || atdu.atdu_patch_mode == ATDU_PATCH_MODE_P_TILE::P_END) {
-                break;
-            }
-            patch_information_data pid;
-            pid.patchMode = atdu.atdu_patch_mode;
-            read_patch_information_data(ath, pid, ptr);
-            atdu.pid_vec.push_back(pid);
-
+    while (true ) {
+        atdu.atdu_patch_mode = read_ue(ptr, "atdu_patch_mode");
+        if(atdu.atdu_patch_mode == ATDU_PATCH_MODE_I_TILE::I_END
+            || atdu.atdu_patch_mode == ATDU_PATCH_MODE_P_TILE::P_END) {
+            break;
         }
+        patch_information_data pid;
+        pid.patchMode = atdu.atdu_patch_mode;
+        read_patch_information_data(ath, pid, ptr);
+        atdu.pid_vec.push_back(pid);
+
     }
 }
 
@@ -1140,18 +1260,18 @@ void Decompression::seiMessage( bitstream_position &ptr,
   seiPayload( ptr, static_cast<pcc::NalUnitType>(nalUnitType), static_cast<pcc::SeiPayloadType>( payloadType ), payloadSize, sei );
 }
 
-bool byteAligned( bitstream_position &ptr) { return ( ptr.bits == 0 ); }
+// bool byteAligned( bitstream_position &ptr) { return ( ptr.bits == 0 ); }
 
-// 8.3.6.10 RBSP trailing bit syntax
-void Decompression::rbspTrailingBits( bitstream_position &ptr) {
-    // bitstream.read( 1 );  // f(1): equal to 1
-    read(1, ptr, "rbspTrailingBits");
+// // 8.3.6.10 RBSP trailing bit syntax
+// void Decompression::rbspTrailingBits( bitstream_position &ptr) {
+//     // bitstream.read( 1 );  // f(1): equal to 1
+//     read(1, ptr, "rbspTrailingBits");
 
-  while ( !byteAligned(ptr) ) {
-    // bitstream.read( 1 );  // f(1): equal to 0
-    read(1, ptr, "rbspTrailingBitsBis");
-  }
-}
+//   while ( !byteAligned(ptr) ) {
+//     // bitstream.read( 1 );  // f(1): equal to 0
+//     read(1, ptr, "rbspTrailingBitsBis");
+//   }
+// }
 
 // 8.3.6.4  Supplemental enhancement information Rbsp
 void Decompression::seiRbsp( 
@@ -1167,16 +1287,9 @@ void Decompression::seiRbsp(
 
 // end : lf addition, from TMC2 //
 
-
-
-
-void Decompression::read_atlas_nal_unit(NAL_UNIT_TYPE nal_unit_type, std::size_t nal_unit_size, decompressed_cu* output, bitstream_position &ptr)
+void Decompression::read_atlas_nal_unit(NAL_UNIT_TYPE nal_unit_type, std::size_t nal_unit_size, composition_unit* output, bitstream_position &ptr)
 {
-
-
     pcc::PCCSEI prefixSEITemp; // lf addition, currently we don't have a PCCHighLevelSyntax to store this sei list 
-
-
 
     switch(nal_unit_type) {
         case NAL_UNIT_TYPE::NAL_ASPS:
@@ -1221,26 +1334,28 @@ void Decompression::read_atlas_nal_unit(NAL_UNIT_TYPE nal_unit_type, std::size_t
             uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::WARNING>("Decompression", "Unsupported Atlas NAL type " + std::to_string(nal_unit_type) + " (NAL_RSV_ACL_32 -> Reserved non-IRAP ACL NAL unit types).\n");
             break;
         }
-        default: 
-            uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::ERROR>("Decompression", "Unsupported Atlas NAL type " + std::to_string(nal_unit_type) + " \n");
+        default: {
+            uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::ERROR>("Decompression", "Unsupported Atlas NAL type " + 
+                std::to_string(nal_unit_type) + " size " + std::to_string(nal_unit_size) + " \n");
             advance_bitstream(nal_unit_size * 8 - 16, ptr); // skip the rest of NAL unit for now 
             break;
-    }
+        }
+    }    
 }
 
-void Decompression::decompress_atlas_sub_bitstream(const size_t v3c_payload_size_bytes, decompressed_cu* output, const size_t location)
+
+void Decompression::decompress_atlas_sub_bitstream(const size_t v3c_payload_size_bytes, composition_unit* output, const size_t location)
 {
-    uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::TRACE>("Decompression", "Reading V3C atlas data, size "
+    uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::INFO>("Decompression", "Reading V3C atlas data, size "
         + std::to_string(v3c_payload_size_bytes) + ", location " + std::to_string(location) + " \n");
 
     bitstream_position ptr;
     ptr.bytes = location;
 
     std::size_t end_ptr = ptr.bytes + v3c_payload_size_bytes;
-    //advance_bitstream(v3c_payload_size_bytes * 8);
     // 3 bits for nAL unit size precision - 1 and 5 reserved
     uint8_t nal_size_precision_bytes = read(3, ptr, "nal_size_precision_minus_1") + 1;
-    uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::TRACE>("Decompression", "NAL size precision " + std::to_string(nal_size_precision_bytes) + " \n");
+    uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::INFO>("Decompression", "NAL size precision " + std::to_string(nal_size_precision_bytes) + " \n");
     std::size_t nal_unit_precision_bits = nal_size_precision_bytes * 8;
 
     advance_bitstream(5, ptr);
@@ -1257,14 +1372,15 @@ void Decompression::decompress_atlas_sub_bitstream(const size_t v3c_payload_size
         NAL_UNIT_TYPE nal_unit_type = static_cast<NAL_UNIT_TYPE>(read(6, ptr, "nal_unit_type"));
         uint8_t nal_layer_id = read(6, ptr, "nal_layer_id");
         uint8_t nal_temporal_id_plus1 = read(3, ptr, "nal_temporal_id_plus1");
-    uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::TRACE>("Decompression", "Current NAL unit location " + std::to_string(ptr.bytes) + ", size "
+        uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::INFO>("Decompression", "Current NAL unit location " + std::to_string(ptr.bytes) + ", size "
             + std::to_string(nal_unit_size) + ", type " + std::to_string(nal_unit_type) +  " \n");
 
         read_atlas_nal_unit(nal_unit_type, nal_unit_size, output, ptr);
     }
-    uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::TRACE>("Decompression", "Number of expected point cloud frames in composition unit: "
+    uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::INFO>("Decompression", "Number of expected point cloud frames in composition unit: "
         + std::to_string(output->cu_frame_count) + " \n");
 }
+
 
 void Decompression::decode_atlas_frame(atlas_frame* frame, const atlas_tile_layer_rbsp &rbsp)
 {
@@ -1334,7 +1450,12 @@ void Decompression::decode_atlas_frame(atlas_frame* frame, const atlas_tile_laye
     }
 }
 
-void Decompression::decompress_video_sub_bitstream(uint8_t* buf, const size_t ptr, const size_t v3c_payload_size_bytes, video_map* map, AVCodecContext* codec_ctx)
+void Decompression::decompress_video_sub_bitstream(
+    uint8_t* buf, 
+    const size_t ptr, 
+    const size_t v3c_payload_size_bytes, 
+    video_map* map, 
+    AVCodecContext* codec_ctx)
 {
     std::vector<uint8_t> temp = {};
     std::vector<size_t> frame_boundaries = {};
@@ -1357,25 +1478,43 @@ void Decompression::convert_video_sub_bitstream(const uint8_t* buf, const size_t
     std::size_t read_ptr = ptr;
     const std::size_t end_point = read_ptr + v3c_payload_size_bytes;
     const char hevc_start_code[4] = {0x00, 0x00, 0x00, 0x01};
+    //int NUM_FRAME_ADDED = 0;
+    int NUM_FRAME_CHECKED = 0;
+    printf("read_ptr: %d\n", (int) read_ptr);
+    printf("end_point: %d\n", (int) end_point);
+    printf("v3c_payload_size_bytes: %d\n", (int)v3c_payload_size_bytes);
     while (true) {
         if (read_ptr >= end_point) {
+            //printf("read_ptr >= end_point\n");
             break;
         }
         std::size_t nalu_size = read_value(&buf[read_ptr], 4); //read(32, "hevc nal unit size");
         read_ptr += 4;
         std::size_t hevc_nal_type = buf[read_ptr] >> 1;
-    uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::TRACE>("Decompression", "HEVC NAL unit (type " + std::to_string(hevc_nal_type) + ") found, size " + std::to_string(nalu_size) + " \n");
-        
+        uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::TRACE>("Decompression", "HEVC NAL unit (type " + std::to_string(hevc_nal_type) + ") found, size " + std::to_string(nalu_size) + " \n");
+
         memcpy(&output[write_ptr], hevc_start_code, 4);
         write_ptr += 4;
 
         memcpy(&output[write_ptr], &buf[read_ptr], nalu_size);
         write_ptr += nalu_size;
         read_ptr += nalu_size;
+
+        // NUM_FRAME_CHECKED++;
+        // printf("hevc_nal_type: %d, Number of frame checked: %d, nalu_size %d\n", 
+        //     (int)hevc_nal_type,
+        //     NUM_FRAME_CHECKED,
+        //     (int)nalu_size
+        // );
+        
         if(hevc_nal_type == 19 || hevc_nal_type == 1) {
             frame_boundaries.push_back(write_ptr); 
-        } 
+            //NUM_FRAME_ADDED++;
+            //printf("Number of frame added: %d\n", NUM_FRAME_ADDED);
+        }
+
     }
+    //printf("size: %d\n", (int)frame_boundaries.size()-1);
 }
 
 std::vector<AVFrame*> Decompression::decode_video_frames(std::vector<uint8_t> &input, std::vector<size_t> &frame_boundaries, AVCodecContext* codec_ctx)
@@ -1393,6 +1532,7 @@ std::vector<AVFrame*> Decompression::decode_video_frames(std::vector<uint8_t> &i
     input.resize(padded_size, 0);
 
     // Process full frames through individual packets
+    printf("Decoding %d frames ----------------->\n", (int)frame_boundaries.size()-1);
     for (size_t frame_index = 0; frame_index < frame_boundaries.size() - 1; frame_index++) {
         AVPacket* packet = av_packet_alloc();
         if (!packet) {
@@ -1428,7 +1568,7 @@ std::vector<AVFrame*> Decompression::decode_video_frames(std::vector<uint8_t> &i
         }
         av_packet_free(&packet);
     }
-
+    
     uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::TRACE>("Decompression", "Decoded " + std::to_string(output.size()) + " HEVC frames \n");
     return output;
 }
@@ -1443,6 +1583,7 @@ void Decompression::decode_video_sub_bitstream(std::vector<uint8_t> &input, std:
     if(frames.empty()) {
         throw std::runtime_error("No frames decoded");
     }
+
     map.width = frames.front()->width; // not perfect solution to only take from the first frames stats
     map.height = frames.front()->height; // not perfect solution
 
@@ -1471,10 +1612,11 @@ void Decompression::decode_video_sub_bitstream(std::vector<uint8_t> &input, std:
         // Copy V plane
         std::memcpy(frame420.V.data(), fr->data[2], width * height / 4);
 
-        /*picture frame444;
+        picture frame444;
         if(frame420.format == PCCCOLORFORMAT::YUV420) {
             frame444.convert_yuv_420_to_444(&frame420);
-        }*/
+        }
+
         map.pictures.push_back(std::move(frame420)); // frame444 if we convert
         map.frame_count++;
         av_frame_free(&fr);
