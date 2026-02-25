@@ -3,6 +3,7 @@ message(DEBUG "./src/lib/utils/cmake")
 # Define the library
 add_library(utilsLibrary STATIC
     threadqueue.cpp
+    fileExport.cpp
 )
 
 add_library(logLibrary STATIC

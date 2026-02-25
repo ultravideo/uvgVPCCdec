@@ -1,21 +1,20 @@
-#include "uvgvpccdec/log.hpp"
+/// \file Custom logging class that enables fine-tuning of the log level and retrieval of Kvazaar's own logs.
 
-#include <cstdarg>
-#include <ctime>
-#include <iostream>
-#include <regex>
-#include <sstream>
-#include <string>
-#include <vector>
-#include <mutex>
+#include "uvgvpcc/log.hpp"
 
 // NOLINTNEXTLINE(hicpp-deprecated-headers)
 #include <stdio.h>  // Needed for vasprintf
 
-#include "chrono.hpp"
+#include <cstdarg>
+#include <cstdlib>
+#include <ctime>
+#include <iostream>
+#include <regex>
+#include <sstream>
+#include <stdexcept>
+#include <string>
 
 namespace uvgvpcc_dec {
-
 
 namespace {
 

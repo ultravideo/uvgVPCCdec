@@ -5,15 +5,14 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/incl
 configure_file(version.cpp.in version.cpp)
 
 add_subdirectory(utils)
-add_subdirectory(Decompression)
-add_subdirectory(PreReconstruction)
-add_subdirectory(Reconstruction)
-add_subdirectory(PostReconstruction)
-add_subdirectory(Adaptation)
+add_subdirectory(bitstreamParsing)
+add_subdirectory(mapDecoding)
+add_subdirectory(reconstruction)
+add_subdirectory(adaptation)
 
 set(LIB_SOURCES
     version.cpp
-    uvgvpccdec.cpp
+    uvgvpcc.cpp
 )
 
 if(BUILD_SHARED_LIBS)
@@ -30,20 +29,20 @@ set(CMAKE_SHARED_LINKER_FLAGS "-Wl,-Bsymbolic")
 # find_package(FFMPEG REQUIRED)
 
 
-find_package(PkgConfig REQUIRED)
-if(PKG_CONFIG_FOUND)
-    pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET 
-        libavcodec
-        libavformat
-        libavutil
-    )
-    message(STATUS "FFmpeg found: ${FFMPEG_VERSION}")
-    # set(LIB_SOURCES ${LIB_SOURCES} encoderFFmpeg.cpp)
-    set(FFMPEG_LIBS PkgConfig::FFMPEG)
-else()
-    message(WARNING "FFmpeg not found, skipping encoderFFmpeg")
-    set(FFMPEG_LIBS "")
-endif()
+# find_package(PkgConfig REQUIRED)
+# if(PKG_CONFIG_FOUND)
+#     pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET 
+#         libavcodec
+#         libavformat
+#         libavutil
+#     )
+#     message(STATUS "FFmpeg found: ${FFMPEG_VERSION}")
+#     # set(LIB_SOURCES ${LIB_SOURCES} encoderFFmpeg.cpp)
+#     set(FFMPEG_LIBS PkgConfig::FFMPEG)
+# else()
+#     message(WARNING "FFmpeg not found, skipping encoderFFmpeg")
+#     set(FFMPEG_LIBS "")
+# endif()
 
 
 
@@ -57,13 +56,13 @@ endif()
 
 
 target_link_libraries(uvgvpccdec
-    decompressionLibrary
-    reconstructionLibrary
-    postReconstructionLibrary
-    adaptationLibrary
+    bitstreamParsing
+    mapDecodingLibrary
+    reconstruction
+    adaptation
     utilsLibrary
     logLibrary
-    ${FFMPEG_LIBS}
+    #${FFMPEG_LIBS}
     # ${FFMPEG_LIBRARIES}
 )
 

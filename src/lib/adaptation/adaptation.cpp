@@ -1,0 +1,253 @@
+#include "adaptation.hpp"
+
+#include <mutex>
+#include <cmath>
+
+
+#include "uvgvpcc/log.hpp"
+#include "uvgvpcc/uvgvpcc.hpp"
+
+using namespace uvgvpcc_dec;
+
+namespace {
+
+inline double PCCClip( const double& n, const double& lower, const double& upper ) {
+    return ( std::max )( lower, ( std::min )( n, upper ) );
+}
+
+
+/*
+offset = 128.0 but for what ?
+*/
+// constexpr int32_t horizontal0_[2] = {0, 256};             // Pos = 1
+// constexpr int32_t horizontal1_[4] = {-16, 144, 144, -16}; // Pos = 2
+// constexpr int32_t vertical0_[4] = {-8, 64, 216, -16};     // Pos = 2
+// constexpr int32_t vertical1_[4] = {-16, 216, 64, -8};     // Pos = 2
+
+// void upsamling_horizontal0() {
+//     constexpr float scale = 0.003906f; //  1 / (1 << 8) 
+
+// }
+
+// void upsampleYUV420toYUV444(
+//     const std::vector<uint8_t>& src, 
+//     const size_t& width, 
+//     const size_t& height, 
+//     std::vector<uint16_t>& dst, 
+//     bool invertChroma = true
+// ) {
+//     dst.resize(width * height);
+
+//     // Copy Y and convert to 16-bit
+//     for(size_t i = 0; i < width * height; ++i)
+//         Y16[i] = static_cast<uint16_t>(.Y[i]) << 8;
+
+//     size_t width2 = width / 2;
+
+//     size_t width2 = width >> 1;
+
+//     size_t idx = 0;
+//     for(size_t y = 0; y < height; y += 2) {
+//         for(size_t x2 = 0; x2 < width2; ++x2, ++idx) {
+//             size_t x = x2 * 2;
+//             uint16_t val = static_cast<uint16_t>(src[idx]) << 8;
+//             if (invertChroma) val = 65535 - val; // TMC2 color inversion
+//             dst[y * width + x]     = val;
+//             dst[y * width + x + 1] = val;
+//             dst[(y+1) * width + x]     = val;
+//             dst[(y+1) * width + x + 1] = val;
+//         }
+//     }
+
+//     // // Helper lambda to upsample U or V
+//     // auto upsampleChannel = [&](const std::vector<uint8_t>& src, std::vector<uint16_t>& dst) {
+//     //     size_t idx = 0;
+//     //     for(size_t y = 0; y < height; y += 2) {
+//     //         for(size_t x2 = 0; x2 < width2; ++x2, ++idx) {
+//     //             size_t x = x2 * 2;
+//     //             uint16_t val = static_cast<uint16_t>(src[idx]) << 8;
+//     //             if (invertChroma) val = 65535 - val; // TMC2 color inversion
+//     //             dst[y * width + x]     = val;
+//     //             dst[y * width + x + 1] = val;
+//     //             dst[(y+1) * width + x]     = val;
+//     //             dst[(y+1) * width + x + 1] = val;
+//     //         }
+//     //     }
+//     // };
+
+//     // upsampleChannel(old.U, U16);
+//     // upsampleChannel(old.V, V16);
+// }
+
+
+void upsampleYUV420toYUV444(
+    const std::vector<Vector3<uint8_t>>& src_colors, 
+    const size_t& width, 
+    const size_t& height, 
+    std::vector<Vector3<uint16_t>>& dst, 
+    bool invertChroma = true
+) {
+    dst.resize(width * height);
+
+    // Copy Y and convert to 16-bit
+    for(size_t i = 0; i < width * height; ++i)
+        dst[i][0] = static_cast<uint16_t>(src_colors[i][0]) << 8;
+
+    size_t width2 = width >> 1;
+
+    size_t idx = 0;
+    for(size_t y = 0; y < height; y += 2) {
+        for(size_t x2 = 0; x2 < width2; ++x2, ++idx) {
+            size_t x = x2 * 2;
+            uint16_t val_U = static_cast<uint16_t>(src_colors[idx][1]) << 8;
+            uint16_t val_V = static_cast<uint16_t>(src_colors[idx][2]) << 8;
+            if (invertChroma) {
+                val_U = 65535 - val_U; // TMC2 color inversion
+                val_V = 65535 - val_V; // TMC2 color inversion
+            } 
+            dst[y * width + x][1]     = val_U;
+            dst[y * width + x + 1][1] = val_U;
+            dst[(y+1) * width + x][1]     = val_U;
+            dst[(y+1) * width + x + 1][1] = val_U;
+
+            dst[y * width + x][2]     = val_V;
+            dst[y * width + x + 1][2] = val_V;
+            dst[(y+1) * width + x][2]     = val_V;
+            dst[(y+1) * width + x + 1][2] = val_V;
+        }
+    }
+}
+
+
+// void convertYUV16toRGB8(const std::vector<uint16_t>& Y16,
+//                         const std::vector<uint16_t>& U16,
+//                         const std::vector<uint16_t>& V16,
+//                         RGBFrame& rgb)
+// {
+//     size_t N = Y16.size();
+//     rgb.R.resize(N);
+//     rgb.G.resize(N);
+//     rgb.B.resize(N);
+
+//     for(size_t i = 0; i < N; ++i) {
+//         // Normalize
+//         double y = static_cast<double>(Y16[i]) / 65535.0;
+//         double u = (static_cast<double>(U16[i]) - 32768.0) / 65535.0;
+//         double v = (static_cast<double>(V16[i]) - 32768.0) / 65535.0;
+
+//         // Clamp
+//         y = std::clamp(y, 0.0, 1.0);
+//         u = std::clamp(u, -0.5, 0.5);
+//         v = std::clamp(v, -0.5, 0.5);
+
+//         // YUV -> RGB (TMC2 coefficients)
+//         double r = y + 1.57480 * v;
+//         double g = y - 0.18733 * u - 0.46813 * v;
+//         double b = y + 1.85563 * u;
+
+//         // Convert to 8-bit
+//         rgb.R[i] = static_cast<uint8_t>(std::clamp(std::round(r * 255.0), 0.0, 255.0));
+//         rgb.G[i] = static_cast<uint8_t>(std::clamp(std::round(g * 255.0), 0.0, 255.0));
+//         rgb.B[i] = static_cast<uint8_t>(std::clamp(std::round(b * 255.0), 0.0, 255.0));
+//     }
+// }
+
+
+
+void convert_colors_slow(std::vector<Vector3<uint8_t>>& colors) {
+    const double& offset = 128.0;
+    const double& scale = 255.0;
+    const double& weight = 1.0 / scale;
+
+    for (auto& color : colors) {
+        double y1 = weight * color[0];
+        double u1 = weight * (color[1] - offset);
+        double v1 = weight * (color[2] - offset);
+
+        y1 = (std::max) (y1, 0.0);
+        y1 = (std::min) (y1, 1.0);
+        u1 = (std::max) (u1, -0.5);
+        u1 = (std::min) (u1, 0.5);
+        v1 = (std::max) (v1, -0.5);
+        v1 = (std::min) (v1, 0.5);
+
+        double r = y1 + 1.57480 * v1;
+        double g = y1 - 0.18733 * u1 - 0.46813 * v1;
+        double b = y1 + 1.85563 * u1;
+
+        r = PCCClip( std::round( r * scale ), 0.0, scale );
+        g = PCCClip( std::round( g * scale ), 0.0, scale );
+        b = PCCClip( std::round( b * scale ), 0.0, scale );
+
+        color[0] = static_cast<uint8_t>(r);
+        color[1] = static_cast<uint8_t>(g);
+        color[2] = static_cast<uint8_t>(b);
+    }
+
+}
+
+} // anonymous namespace
+
+void Adaptation::adapt(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, uvgvpcc_dec::API::point_cloud_frame_stream* output) {
+    // const size_t n_frames = gofUVG->frames.size();
+    // {
+    //     std::lock_guard<std::mutex> lock(output->io_mutex);
+
+    //     for (auto &frame : gofUVG->frames) {
+
+    //         if (!p_->useTMC2AttributeYUVConversion &&
+    //             !p_->fast_color_conversion) {
+    //             convert_colors_slow(frame->pointsAttribute);
+    //         }
+    //         uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::INFO>("Adaptation", "Output decoded frame, GOF " + std::to_string(gofUVG->gofId)
+    //             + " frame " + std::to_string(i) + " \n");
+    //         output->frames.push(std::move(frame));
+    //     }
+    // }
+
+
+    // output->io_mutex.lock();
+    // for (int i = 0; i < gofUVG->frames.size(); i++) {
+    //     auto &frame = gofUVG->frames[i];
+        
+
+    //     if (p_->useTMC2AttributeYUVConversion) {
+
+    //     } else {
+    //         if (p_->fast_color_conversion) {
+
+    //         } else {
+    //             convert_colors_slow(frame->pointsAttribute);
+    //         }
+    //     }
+        
+    //     uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::INFO>("Adaptation", "Output decoded frame, GOF " + std::to_string(gofUVG->gofId)
+    //         + " frame " + std::to_string(i) + " \n");
+    //     output->frames.push(std::move(frame));
+    // }
+    // output->io_mutex.unlock();
+    // output->available_frames.release();
+
+
+    output->io_mutex.lock();
+    for (int i = 0; i < gofUVG->frames.size(); i++) {
+        auto &frame = gofUVG->frames[i];
+
+        if (p_->useTMC2AttributeYUVConversion) {
+
+        } else {
+            if (p_->fast_color_conversion) {
+
+            } else {
+                convert_colors_slow(frame->pointsAttribute);
+            }
+        }
+        
+        uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::INFO>("Adaptation", "Output decoded frame, GOF " + std::to_string(gofUVG->gofId)
+            + " frame " + std::to_string(i) + " \n");
+        output->frames.push(std::move(frame));
+    }
+    output->io_mutex.unlock();
+    output->available_frames.release();
+
+}

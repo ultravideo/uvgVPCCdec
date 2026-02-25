@@ -1,0 +1,76 @@
+/*****************************************************************************
+ * This file is part of uvgVPCCenc V-PCC encoder.
+ *
+ * Copyright (c) 2024-present, Tampere University, ITU/ISO/IEC, project contributors
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without modification,
+ * are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice, this
+ *   list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice, this
+ *   list of conditions and the following disclaimer in the documentation and/or
+ *   other materials provided with the distribution.
+ *
+ * * Neither the name of the Tampere University or ITU/ISO/IEC nor the names of its
+ *   contributors may be used to endorse or promote products derived from
+ *   this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION HOWEVER CAUSED AND ON
+ * ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * INCLUDING NEGLIGENCE OR OTHERWISE ARISING IN ANY WAY OUT OF THE USE OF THIS
+ ****************************************************************************/
+
+/// \file Intermediary files exportation management.
+
+#include <cstddef>
+#include <memory>
+#include <string>
+#include <vector>
+
+#include "utils/utils.hpp"
+#include "uvgvpcc/uvgvpcc.hpp"
+
+using namespace uvgvpcc_dec;
+
+namespace FileExport {
+
+const std::array<Vector3<uint8_t>, 10> ppiColors = {{
+    {91, 91, 91},    // Charcoal Gray
+    {0, 102, 51},    // Forest Green
+    {153, 0, 0},     // Rich Crimson
+    {0, 51, 102},    // Deep Blue
+    {255, 204, 0},   // Golden Yellow
+    {102, 204, 204}, // Muted Cyan
+    {255,0,255},     // Magenta for isolated point identification
+    {255,255,255},   // White for masters
+    {0,0,0},         // Black
+    {255, 0, 255} // 
+}};    
+
+void cleanIntermediateFiles();
+
+
+// Map generation
+void exportImageOccupancy(const std::shared_ptr<Frame>& frame, const size_t& mapWidth);
+void exportImageOccupancyDS(const std::shared_ptr<Frame>& frame);
+void exportImageAttribute(const std::shared_ptr<Frame>& frame);
+void exportImageGeometry(const std::shared_ptr<Frame>& frame);
+void exportImageAttributeBgFill(const std::shared_ptr<Frame>& frame);
+void exportImageGeometryBgFill(const std::shared_ptr<Frame>& frame, const size_t& mapWidth, const size_t& mapHeight, const bool& doubleLayer);
+void exportImageAttributeYUV(const std::shared_ptr<Frame>& frame, const size_t& mapWidth, const size_t& mapHeight, const bool& doubleLayer);
+
+// Bitstream generation
+void exportAtlasInformation(const size_t& gofId, const std::string& logLine);
+
+
+}  // namespace FileExport

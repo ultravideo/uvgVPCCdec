@@ -6,7 +6,9 @@
  */
 #include <limits>
 #include <string>
-#include "uvgvpccdec/uvgvpccdec.hpp"
+#include <span>
+#include <cstdint>
+#include <vector>
 
 namespace cli {
 
@@ -29,6 +31,16 @@ struct opts_t {
     bool help = false;
     /** \brief Print version */
     bool version = false;
+    /** \brief If dummyRun is true, config is verified but no encoding is done */
+    bool dummyRun = false;    
+    /** \brief Destination address for rtp streams */
+    std::string dstAddress{};
+    /** \brief Destination port for rtp streams */
+    std::vector<uint16_t> dstPort{};
+    /** \brief Output directory for SDP files */
+    std::string sdpOutdir{};
+    /** \brief FPS limit for reading input frames */
+    size_t inputFramePerSecondLimiter = 0; // 0 means no input frame limiter (maxConcurrentFrames can still be a limiter)
 };
 
 bool opts_parse(cli::opts_t& opts, const int argc, const char* const argv[]);

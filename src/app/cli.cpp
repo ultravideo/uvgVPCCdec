@@ -36,13 +36,19 @@
  */
 #include "cli.hpp"
 
-#include <getopt.h>
-
+// NOLINTBEGIN(misc-include-cleaner)
+#include "extras/getopt.h"
+#include <cstddef>
+#include <cstdlib>
+#include <iostream>
+#include <limits>
 #include <regex>
+#include <span>
+#include <stdexcept>
 #include <string>
-
-#include "uvgvpccdec/log.hpp"
-#include "uvgvpccdec/version.hpp"
+#include <sstream>
+#include "uvgvpcc/log.hpp"
+#include "uvgvpcc/version.hpp"
 
 namespace cli {
 

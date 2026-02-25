@@ -14,11 +14,11 @@ project(uvgVPCCdec VERSION ${uvgVPCCdec_VER})
 
 #set(CMAKE_BUILD_TYPE Debug)
 
-if(MSVC)
-add_compile_options(/W3 /WX)
-else()
-add_compile_options(-W -Wall -Werror -Wno-unused-variable)
-endif()
+# if(MSVC)
+# add_compile_options(/W3 /WX)
+# else()
+# add_compile_options(-W -Wall -Werror -Wno-unused-variable)
+# endif()
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
@@ -60,6 +60,11 @@ add_custom_target(format
   COMMENT "Formatting source code..."
   VERBATIM
 )
+
+# INSTALL
+include(GNUInstallDirs)
+
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/src/lib/include/uvgvpcc DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 # # Find Doxygen package
 # find_package(Doxygen)
