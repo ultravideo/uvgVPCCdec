@@ -108,6 +108,7 @@ void atlas_context::read_atlas_seq_parameter_set(bitstream_t* stream) {
     asps_.asps_pixel_deinterleaving_enabled_flag = readU(stream, 1, "asps_pixel_deinterleaving_enabled_flag",get_gof_id());
 
     if (asps_.asps_pixel_deinterleaving_enabled_flag) { 
+        asps_.asps_map_pixel_deinterleaving_flag.resize(asps_.asps_map_count_minus1 + 1);
         for (size_t j = 0; j < asps_.asps_map_count_minus1; ++j) {
             asps_.asps_map_pixel_deinterleaving_flag.at(j) = readU(stream, 1, "asps_map_pixel_deinterleaving_flag",get_gof_id());
         }
@@ -121,18 +122,11 @@ void atlas_context::read_atlas_seq_parameter_set(bitstream_t* stream) {
     if (asps_.asps_raw_patch_enabled_flag || asps_.asps_eom_patch_enabled_flag) {
         asps_.asps_auxiliary_video_enabled_flag = readU(stream, 4, "asps_auxiliary_video_enabled_flag",get_gof_id());
     }
+
     asps_.asps_plr_enabled_flag = readU(stream, 1, "asps_plr_enabled_flag",get_gof_id());
-    /* Not needed since above
-    if( asps_plr_enabled_flag )
-        asps_plr_information( asps_map_count_minus1 ) */
-
     asps_.asps_vui_parameters_present_flag = readU(stream, 1, "asps_vui_parameters_present_flag",get_gof_id());
-    /* Not needed since above
-    if( asps_vui_parameters_present_flag )
-        vui_parameters( ) */
-
+    
     asps_.asps_extension_present_flag = readU(stream, 1, "asps_extension_present_flag",get_gof_id());
-
     if (asps_.asps_extension_present_flag) {
         asps_.asps_vpcc_extension_present_flag = readU(stream, 1, "asps_vpcc_extension_present_flag",get_gof_id());
         asps_.asps_miv_extension_present_flag = readU(stream, 1, "asps_miv_extension_present_flag",get_gof_id());
@@ -182,8 +176,9 @@ void atlas_context::read_atlas_tile_header(atlas_tile_header &ath, NAL_UNIT_TYPE
     if (asps_.asps_num_ref_atlas_frame_lists_in_asps > 0) {
         ath.ath_ref_atlas_frame_list_asps_flag = readU(stream, 1, "ath_ref_atlas_frame_list_asps_flag", get_gof_id());
     }
-    if (!ath.ath_ref_atlas_frame_list_asps_flag) {
-        std::cout << "ERROR: NOT IMPLEMENTED" << std::endl;
+    if (ath.ath_ref_atlas_frame_list_asps_flag == 0) {
+        // std::cout << "ERROR: NOT IMPLEMENTED" << std::endl;
+        throw std::runtime_error("Using atlas ref frame lists not implemented");
         return;
     } else if (asps_.asps_num_ref_atlas_frame_lists_in_asps > 1) {
         const uint8_t bit_len = std::ceil(std::log2(asps_.asps_num_ref_atlas_frame_lists_in_asps));
@@ -333,67 +328,116 @@ void atlas_context::read_nal_hdr(uint8_t& nal_type, uint8_t& nal_layer_id, uint8
 }
 
 void atlas_context::read_atlas_sub_bitstream(const size_t& v3c_unit_payload_size, std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, bitstream_t* stream) {
-    uint8_t nal_type;
-    uint8_t nal_layer_id;
-    uint8_t nal_temporal_id_plus1;
+    // uint8_t nal_type;
+    // uint8_t nal_layer_id;
+    // uint8_t nal_temporal_id_plus1;
 
-    // Atlas NAL sample stream header
+    // // Atlas NAL sample stream header
+    // ad_nal_precision_ = bitstream_read(stream, 3) + 1;
+    // bitstream_advance(stream, 5); 
+    // const uint32_t nal_precision_in_bits = ad_nal_precision_ * 8;
+    // //printf("NAL precision in bits: %u\n", nal_precision_in_bits);
+
+    // // ASPS NALU
+    // ad_nal_sizes_.push_back(bitstream_read(stream, nal_precision_in_bits));
+    // //printf("ASPS NAL size: %d\n", (int)ad_nal_sizes_.back());
+    // /*
+    //     nal_type = NAL_ASPS
+    //     nal_layer_id = 0
+    //     nal_temporal_id_plus1 = 1
+    // */
+    // read_nal_hdr(nal_type, nal_layer_id, nal_temporal_id_plus1, stream); 
+    // //printf("NAL type: %d\n", nal_type);
+    // read_atlas_seq_parameter_set(stream);
+
+    // // AFPS NAL unit
+    // ad_nal_sizes_.push_back(bitstream_read(stream, nal_precision_in_bits));
+    // //printf("AFPS NAL size: %d\n", (int)ad_nal_sizes_.back());
+    // /*
+    //     nal_type = NAL_AFPS
+    //     nal_layer_id = 0
+    //     nal_temporal_id_plus1 = 1
+    // */
+    // read_nal_hdr(nal_type, nal_layer_id, nal_temporal_id_plus1, stream); 
+    // //printf("NAL type: %d\n", nal_type);
+    // read_atlas_frame_parameter_set(stream);
+
+    // size_t frameId = gofUVG->gofId * gofUVG->gofCount;
+    // while (stream->len < v3c_unit_payload_size) {
+    //     ad_nal_sizes_.push_back(bitstream_read(stream, nal_precision_in_bits));
+    //     //printf("NAL_IDR_N_LP NAL size: %d\n", (int)ad_nal_sizes_.back());
+    //     /*
+    //         nal_type = NAL_IDR_N_LP
+    //         nal_layer_id = 0
+    //         nal_temporal_id_plus1 = 1
+    //     */
+    //     read_nal_hdr(nal_type, nal_layer_id, nal_temporal_id_plus1, stream);        // TODO(lf): Dynamic NALU type
+    //     //printf("NAL type: %d\n", nal_type);
+    //     atlas_tile_layer_rbsp rbsp;
+    //     read_atlas_tile_layer_rbsp(rbsp, static_cast<NAL_UNIT_TYPE>(nal_type), stream);
+    //     atlas_data_.push_back(rbsp);
+    //     //printf("Done reading ATDL RBSP\n");
+    //     write_atlas_tile_layer_rbsp_to_gof(rbsp, gofUVG);
+    //     gofUVG->frames.back()->frameId = frameId++;
+    //     //printf("stream len: %zu, v3c_unit_payload_size: %zu\n", stream->len, v3c_unit_payload_size);
+    // }
+
+    // bitstream_advance(stream, nal_precision_in_bits);
+    // /*
+    //     nal_type = NAL_EOB
+    //     nal_layer_id = 0
+    //     nal_temporal_id_plus1 = 1
+    // */
+    // read_nal_hdr(nal_type, nal_layer_id, nal_temporal_id_plus1, stream);
+    // // No payload in end of bitstream NAL unit
+
+
+
+    const size_t length = stream->len + v3c_unit_payload_size;
     ad_nal_precision_ = bitstream_read(stream, 3) + 1;
-    bitstream_advance(stream, 5); 
     const uint32_t nal_precision_in_bits = ad_nal_precision_ * 8;
-    //printf("NAL precision in bits: %u\n", nal_precision_in_bits);
 
-    // ASPS NALU
-    ad_nal_sizes_.push_back(bitstream_read(stream, nal_precision_in_bits));
-    //printf("ASPS NAL size: %d\n", (int)ad_nal_sizes_.back());
-    /*
-        nal_type = NAL_ASPS
-        nal_layer_id = 0
-        nal_temporal_id_plus1 = 1
-    */
-    read_nal_hdr(nal_type, nal_layer_id, nal_temporal_id_plus1, stream); 
-    //printf("NAL type: %d\n", nal_type);
-    read_atlas_seq_parameter_set(stream);
+    bitstream_advance(stream, 5); 
 
-    // AFPS NAL unit
-    ad_nal_sizes_.push_back(bitstream_read(stream, nal_precision_in_bits));
-    //printf("AFPS NAL size: %d\n", (int)ad_nal_sizes_.back());
-    /*
-        nal_type = NAL_AFPS
-        nal_layer_id = 0
-        nal_temporal_id_plus1 = 1
-    */
-    read_nal_hdr(nal_type, nal_layer_id, nal_temporal_id_plus1, stream); 
-    //printf("NAL type: %d\n", nal_type);
-    read_atlas_frame_parameter_set(stream);
+    size_t frameId = gofUVG->gofId * (gofUVG->gofCount + (gofUVG->gofCount & 1));
+    while (true) {
+        if (stream->len >= length) {
+            break;
+        }
+        
+        const size_t nal_unit_size = bitstream_read(stream, nal_precision_in_bits);
 
-    size_t frameId = gofUVG->gofId * gofUVG->gofCount;
-    while (stream->len < v3c_unit_payload_size) {
-        ad_nal_sizes_.push_back(bitstream_read(stream, nal_precision_in_bits));
-        //printf("NAL_IDR_N_LP NAL size: %d\n", (int)ad_nal_sizes_.back());
-        /*
-            nal_type = NAL_IDR_N_LP
-            nal_layer_id = 0
-            nal_temporal_id_plus1 = 1
-        */
-        read_nal_hdr(nal_type, nal_layer_id, nal_temporal_id_plus1, stream);        // TODO(lf): Dynamic NALU type
-        //printf("NAL type: %d\n", nal_type);
-        atlas_tile_layer_rbsp rbsp;
-        read_atlas_tile_layer_rbsp(rbsp, static_cast<NAL_UNIT_TYPE>(nal_type), stream);
-        atlas_data_.push_back(rbsp);
-        //printf("Done reading ATDL RBSP\n");
-        write_atlas_tile_layer_rbsp_to_gof(rbsp, gofUVG);
-        gofUVG->frames.back()->frameId = frameId++;
-        //printf("stream len: %zu, v3c_unit_payload_size: %zu\n", stream->len, v3c_unit_payload_size);
+        bitstream_read(stream, 1);
+        const NAL_UNIT_TYPE nal_unit_type = static_cast<NAL_UNIT_TYPE>(bitstream_read(stream, 6));
+        const uint8_t nal_layer_id = bitstream_read(stream, 6);
+        const uint8_t nal_temporal_id_plus1 = bitstream_read(stream, 3);
+
+        if (nal_unit_type == NAL_ASPS) {
+            read_atlas_seq_parameter_set(stream);
+        } else if (nal_unit_type == NAL_AFPS) {
+            read_atlas_frame_parameter_set(stream);
+        } else if (nal_unit_type == NAL_IDR_N_LP) {
+            atlas_tile_layer_rbsp rbsp;
+            read_atlas_tile_layer_rbsp(rbsp, nal_unit_type, stream);
+            atlas_data_.push_back(rbsp);
+            write_atlas_tile_layer_rbsp_to_gof(rbsp, gofUVG);
+            gofUVG->frames.back()->frameId = frameId++;
+        } 
+        // else if (nal_unit_type == NAL_EOB) {
+
+        // } else if (nal_unit_type == NAL_TRAIL_N) {
+
+        // } else if (nal_unit_type == NAL_TRAIL_R) {
+
+        // } else if (nal_unit_type == NAL_PREFIX_NSEI) {
+        //     //seiRbsp( ptr, nal_unit_type, prefixSEITemp );  .
+        // } else if (nal_unit_type == NAL_PREFIX_ESEI) {
+
+        // } else if (nal_unit_type == NAL_RSV_ACL_32) {
+
+        // } else {
+
+        // }
     }
-
-    bitstream_advance(stream, nal_precision_in_bits);
-    /*
-        nal_type = NAL_EOB
-        nal_layer_id = 0
-        nal_temporal_id_plus1 = 1
-    */
-    read_nal_hdr(nal_type, nal_layer_id, nal_temporal_id_plus1, stream);
-    // No payload in end of bitstream NAL unit
-
+    
 }

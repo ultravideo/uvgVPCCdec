@@ -21,9 +21,10 @@
 bool vps::read_vps(bitstream_t* stream) {
     
     // profile_tier_level
+    ptl_.ptl_profile_toolset_idc = readU(stream, 8, "ptl_profile_toolset_idc",gofId);
     ptl_.ptl_tier_flag = readU(stream, 1, "ptl_tier_flag",gofId);
     ptl_.ptl_profile_codec_group_idc = readU(stream, 7, "ptl_profile_codec_group_idc",gofId);
-    ptl_.ptl_profile_toolset_idc = readU(stream, 8, "ptl_profile_toolset_idc",gofId);
+    // ptl_.ptl_profile_toolset_idc = readU(stream, 8, "ptl_profile_toolset_idc",gofId);
     ptl_.ptl_profile_reconstruction_idc = readU(stream, 8, "ptl_profile_reconstruction_idc",gofId);
     uint16_t ptl_reserved_zero_16bits = readU(stream, 16, "ptl_reserved_zero_16bits",gofId);
     ptl_.ptl_max_decodes_idc = readU(stream, 4, "ptl_max_decodes_idc",gofId);
@@ -58,10 +59,9 @@ bool vps::read_vps(bitstream_t* stream) {
     geometry_info_.resize(vps_atlas_count);
     attribute_info_.resize(vps_atlas_count);
 
-    for (uint8_t j = 0; j < (vps_atlas_count_minus1_ + 1); j++) {
+    for (uint8_t j = 0; j < vps_atlas_count; j++) {
         vps_atlas_id_.at(j) = readU(stream, 6, "vps_atlas_id",gofId);
         vps_frame_width_.at(j) = readUE(stream, "vps_frame_width",gofId);
-        // printf("vps_frame_width_: %d\n", (int)vps_frame_width_.at(j));
         vps_frame_height_.at(j) = readUE(stream, "vps_frame_height",gofId);
         vps_map_count_minus1_.at(j) = readU(stream, 4, "vps_map_count_minus1",gofId);
 
@@ -132,7 +132,7 @@ bool vps::read_vps(bitstream_t* stream) {
 
                 uint8_t m = 0;
                 if (d == 0) {  // true
-                    m = 0;
+                    // m = 0;
                     attribute_info_.at(j).ai_attribute_dimension_partitions_minus1.at(i) = 0;
                 } else {
                     m = readU(stream, 6, "ai_attribute_dimension_partitions_minus1",gofId);

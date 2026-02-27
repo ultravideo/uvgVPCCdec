@@ -254,8 +254,8 @@ bool output_func(uvgvpcc_dec::API::point_cloud_frame_stream* output, const std::
                             outputFilePath.c_str(),
                             frame->frameId);
 
-            //write_point_cloud(filename, frame.get(), true);
-            write_point_cloud(filename, frame.get(), false);
+            write_point_cloud(filename, frame.get(), true);
+            //write_point_cloud(filename, frame.get(), false);
             output->frames.pop();
         }
         output->io_mutex.unlock();
@@ -375,6 +375,7 @@ int main(int argc, char* argv[]) {
     // std::shared_ptr<uvgvpcc_dec::Job> last_out = nullptr;
 
     // const size_t num_gof = input.v3c_chunks.size();
+    // std::cout << "Num gof: " << std::to_string(num_gof) << std::endl;
     // for (size_t i = 0; i < num_gof; ++i) {
         
     //     input.io_mutex.lock();
