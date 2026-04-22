@@ -1,5 +1,9 @@
 #include "adaptation.hpp"
 
+#include <fstream>
+//#include <iostream>
+
+
 #include <mutex>
 #include <cmath>
 
@@ -186,50 +190,163 @@ void convert_colors_slow(std::vector<Vector3<uint8_t>>& colors) {
 
 }
 
+enum PCCEndianness { PCC_BIG_ENDIAN = 0, PCC_LITTLE_ENDIAN = 1 };
+static inline PCCEndianness PCCSystemEndianness() {
+  uint32_t num = 1;
+  return ( *( reinterpret_cast<char*>( &num ) ) == 1 ) ? PCC_LITTLE_ENDIAN : PCC_BIG_ENDIAN;
+}
+
+bool write_point_cloud( const std::string fileName, uvgvpcc_dec::Frame* frame, const bool asAscii ) {
+
+    uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::TRACE>("Adaptation", "Write to file " + fileName + " \n");
+
+    // Open in the proper mode from the start
+    std::ofstream fout;
+    fout.open(fileName, asAscii ? std::ofstream::out : std::ofstream::binary | std::ofstream::out);
+    if (!fout.is_open()) return false;
+    
+    const size_t pointCount = frame->pointCount;
+
+    fout << "ply\n";
+    if ( asAscii ) {
+        fout << "format ascii 1.0\n";
+    } else {
+        if ( PCCSystemEndianness() == PCC_BIG_ENDIAN ) {
+        fout << "format binary_big_endian 1.0\n";
+        } else {
+        fout << "format binary_little_endian 1.0\n";
+        }
+    }
+    fout << "element vertex " << pointCount << '\n';
+    fout << "property float x\nproperty float y\nproperty float z\n";
+
+    const bool hasAttri = !frame->pointsAttribute.empty();
+
+    if (hasAttri) {
+        fout << "property uchar red\nproperty uchar green\nproperty uchar blue\n";
+    }
+    fout << "element face 0\nproperty list uint8 int32 vertex_index\nend_header\n";
+
+    if ( asAscii ) {
+        fout << std::setprecision( std::numeric_limits<double>::max_digits10 );
+        for ( size_t i = 0; i < pointCount; ++i ) {
+            const uvgvpcc_dec::Vector3<uvgvpcc_dec::typeGeometryInput>& position = frame->pointsGeometry[i];
+            fout << position[0] << " " << position[1] << " " << position[2];
+
+            if ( hasAttri ) {
+                const uvgvpcc_dec::Vector3<uint8_t>& color = frame->pointsAttribute[i];
+                fout << " " << static_cast<int>( color[0] ) << " " << static_cast<int>( color[1] ) << " "
+                    << static_cast<int>( color[2] );
+            }
+
+            //fout << std::endl;
+            fout << '\n';
+        }
+    } else {
+        for ( size_t i = 0; i < pointCount; ++i ) {
+            const uvgvpcc_dec::Vector3<uvgvpcc_dec::typeGeometryInput>& position = frame->pointsGeometry[i];
+            float value[3] = { static_cast<float>(position[0]), static_cast<float>(position[1]), static_cast<float>(position[2]) };
+            fout.write( reinterpret_cast<const char*>( &value ), sizeof( float ) * 3 );
+            if ( hasAttri ) {
+                const uvgvpcc_dec::Vector3<uint8_t>& color = frame->pointsAttribute[i];
+                fout.write( reinterpret_cast<const char*>( &color ), sizeof( uint8_t ) * 3 );
+            }
+        }
+    }
+    fout.close();
+    return true;
+}
+
 } // anonymous namespace
 
-void Adaptation::adapt(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, uvgvpcc_dec::API::point_cloud_frame_stream* output) {
-    // const size_t n_frames = gofUVG->frames.size();
-    // {
-    //     std::lock_guard<std::mutex> lock(output->io_mutex);
+void Adaptation::adapt_in_order(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, uvgvpcc_dec::API::point_cloud_frame_stream* output) {
+    for (int i = 0; i < gofUVG->frames.size(); i++) {
+        auto &frame = gofUVG->frames[i];
 
-    //     for (auto &frame : gofUVG->frames) {
+        if (p_->useTMC2AttributeYUVConversion) {
 
-    //         if (!p_->useTMC2AttributeYUVConversion &&
-    //             !p_->fast_color_conversion) {
-    //             convert_colors_slow(frame->pointsAttribute);
-    //         }
-    //         uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::INFO>("Adaptation", "Output decoded frame, GOF " + std::to_string(gofUVG->gofId)
-    //             + " frame " + std::to_string(i) + " \n");
-    //         output->frames.push(std::move(frame));
-    //     }
-    // }
+        } else {
+            if (p_->fast_color_conversion) {
 
-
-    // output->io_mutex.lock();
-    // for (int i = 0; i < gofUVG->frames.size(); i++) {
-    //     auto &frame = gofUVG->frames[i];
-        
-
-    //     if (p_->useTMC2AttributeYUVConversion) {
-
-    //     } else {
-    //         if (p_->fast_color_conversion) {
-
-    //         } else {
-    //             convert_colors_slow(frame->pointsAttribute);
-    //         }
-    //     }
-        
-    //     uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::INFO>("Adaptation", "Output decoded frame, GOF " + std::to_string(gofUVG->gofId)
-    //         + " frame " + std::to_string(i) + " \n");
-    //     output->frames.push(std::move(frame));
-    // }
-    // output->io_mutex.unlock();
-    // output->available_frames.release();
-
+            } else {
+                convert_colors_slow(frame->pointsAttribute);
+            }
+        }
+    }
 
     output->io_mutex.lock();
+    output->available_gofs[gofUVG->gofId].gof = gofUVG;
+    output->available_gofs[gofUVG->gofId].ready = true;
+    output->io_mutex.unlock();
+    output->available_frames.release();
+}
+
+// void Adaptation::adapt(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, const std::string& outputFilePath) {
+//     for (int i = 0; i < gofUVG->frames.size(); i++) {
+//         auto &frame = gofUVG->frames[i];
+
+//         if (p_->useTMC2AttributeYUVConversion) {
+
+//         } else {
+//             if (p_->fast_color_conversion) {
+
+//             } else {
+//                 convert_colors_slow(frame->pointsAttribute);
+//             }
+//         }
+        
+//         // uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::INFO>("Adaptation", "Output decoded frame, GOF " + std::to_string(gofUVG->gofId)
+//         //     + " frame " + std::to_string(i) + " \n");
+
+//         char filename[255];
+//         std::snprintf(filename,
+//                     sizeof(filename),
+//                     outputFilePath.c_str(),
+//                     frame->gofId,
+//                     frame->frameId);
+
+//         write_point_cloud(filename, frame.get(), false);
+//         //write_point_cloud(filename, frame.get(), true);
+//     }
+// }
+
+void Adaptation::adapt(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, uvgvpcc_dec::API::point_cloud_frame_stream* output, const bool& in_order_output, const std::string& outputFilePath) {
+    for (int i = 0; i < gofUVG->frames.size(); i++) {
+        auto &frame = gofUVG->frames[i];
+
+        if (p_->useTMC2AttributeYUVConversion) {
+
+        } else {
+            if (p_->fast_color_conversion) {
+
+            } else {
+                convert_colors_slow(frame->pointsAttribute);
+            }
+        }
+
+        if (in_order_output) continue;
+
+        char filename[255];
+        std::snprintf(filename,
+                    sizeof(filename),
+                    outputFilePath.c_str(),
+                    frame->gofId,
+                    frame->frameId);
+
+        write_point_cloud(filename, frame.get(), false);
+    }
+
+    if (in_order_output) {
+        output->io_mutex.lock();
+        output->available_gofs[gofUVG->gofId].gof = gofUVG;
+        output->available_gofs[gofUVG->gofId].ready = true;
+        output->io_mutex.unlock();
+        output->available_frames.release();
+    }
+}
+
+void Adaptation::adapt_remote_output(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, const std::shared_ptr<zmqHandler> zmq_handler) {
+    std::mutex io_mutex;
     for (int i = 0; i < gofUVG->frames.size(); i++) {
         auto &frame = gofUVG->frames[i];
 
@@ -243,11 +360,35 @@ void Adaptation::adapt(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, uvgvpcc_dec::A
             }
         }
         
-        uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::INFO>("Adaptation", "Output decoded frame, GOF " + std::to_string(gofUVG->gofId)
-            + " frame " + std::to_string(i) + " \n");
-        output->frames.push(std::move(frame));
-    }
-    output->io_mutex.unlock();
-    output->available_frames.release();
+        // zmq_handler->zmq_mutex.lock();
+        // zmq_send(zmq_handler->positionSocket, frame->pointsGeometry.data(), frame->pointsGeometry.size()*sizeof(uvgvpcc_dec::Vector3<uint16_t>), 0);
+        // zmq_send(zmq_handler->colorSocket, frame->pointsAttribute.data(), frame->pointsAttribute.size()*sizeof(uvgvpcc_dec::Vector3<uint8_t>), 0);
+        // zmq_handler->zmq_mutex.unlock();
 
+        {
+            std::lock_guard<std::mutex> lock(zmq_handler->zmq_mutex);
+
+            zmq_send(
+                zmq_handler->positionSocket,
+                frame->pointsGeometry.data(),
+                frame->pointsGeometry.size() * sizeof(uvgvpcc_dec::Vector3<uint16_t>),
+                0
+            );
+
+            zmq_send(
+                zmq_handler->colorSocket,
+                frame->pointsAttribute.data(),
+                frame->pointsAttribute.size() * sizeof(uvgvpcc_dec::Vector3<uint8_t>),
+                0
+            );
+        }
+
+
+        /*Send remote output*/
+        // io_mutex.lock();
+        // frame->pointsGeometry;
+        // frame->pointsAttribute;
+        // io_mutex.unlock();
+    }
+    printf("GOF %d sent\n", (int)gofUVG->gofId);
 }

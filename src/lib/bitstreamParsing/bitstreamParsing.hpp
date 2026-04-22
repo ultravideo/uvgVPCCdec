@@ -13,4 +13,7 @@ class BitstreamParsing {
 
    static void parseV3CGOFBitstream(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, std::shared_ptr<v3c_gof> gof_, 
                                     const uvgvpcc_dec::Parameters& param, uvgvpcc_dec::API::v3c_chunk& chunk);
+
+   static void parseV3CGOFBitstream_parallel(std::shared_ptr<uvgvpcc_dec::GOF> gofUVG, std::shared_ptr<v3c_gof> gof_,
+                                    const uvgvpcc_dec::Parameters& param, std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk);
 };

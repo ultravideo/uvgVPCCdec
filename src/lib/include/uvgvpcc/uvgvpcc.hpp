@@ -16,6 +16,9 @@
 #include "../utils/utils.hpp"
 #include "../utils/threadqueue.hpp"
 
+#include "zmq_lib.h"
+#include "zmq.hpp"
+
 namespace uvgvpcc_dec {
 
 struct point3d {
@@ -171,7 +174,8 @@ struct Frame {
     size_t frameId;      // aka relative index (0 if first encoded frame)
     size_t frameNumber;  // aka number from the input frame file name (TODO(lf): correct)
     std::weak_ptr<GOF> gof;
-    std::shared_ptr<std::counting_semaphore<UINT16_MAX>> conccurentFrameSem;
+    size_t gofId; 
+    // std::shared_ptr<std::counting_semaphore<UINT16_MAX>> conccurentFrameSem;
 
     std::vector<point3d> pointsPosList; // Positions of 3D-points
     std::vector<point3d> pointsPixelsList; // 3D-points of the 2D map that correspond to the points in the pointsPosList, it is used to for coloring 3D-points
@@ -204,11 +208,11 @@ struct Frame {
     // Frame(const size_t& frameId, const size_t& frameNumber, const std::string& pointCloudPath)
     //     : frameId(frameId), frameNumber(frameNumber), pointCloudPath(pointCloudPath), pointCount(0) {}
     Frame() {}
-    ~Frame() {
-        if (conccurentFrameSem) {
-            conccurentFrameSem->release();
-        }
-    };
+    // ~Frame() {
+    //     if (conccurentFrameSem) {
+    //         conccurentFrameSem->release();
+    //     }
+    // };
     void printInfo() const;
 };
 
@@ -223,6 +227,7 @@ struct GOF {
 
     bool doubleLayer = false;
 
+    size_t baseFrameId = 0;
     size_t gofCount;
     size_t nbFrames;
     size_t gofId;
@@ -233,6 +238,14 @@ struct GOF {
     std::vector<uint8_t> bitstreamOccupancy;
     std::vector<uint8_t> bitstreamGeometry;
     std::vector<uint8_t> bitstreamAttribute;
+
+    // std::shared_ptr<std::counting_semaphore<UINT16_MAX>> conccurentFrameSem;
+    // ~GOF() {
+    //     if (conccurentFrameSem) {
+    //         conccurentFrameSem->release();
+    //     }
+    // };
+
 };
 
 /// @brief API of the uvgVPCCdec library
@@ -246,7 +259,15 @@ struct v3c_chunk {
     size_t gof_id;
     size_t gof_count;
 
+    //std::shared_ptr<std::counting_semaphore<UINT16_MAX>> conccurentFrameSem;
+
     v3c_chunk() = default;
+
+    // ~v3c_chunk() {
+    //     if (conccurentFrameSem) {
+    //         conccurentFrameSem->release();
+    //     }
+    // };
     // v3c_chunk(size_t len, std::unique_ptr<std::vector<uint8_t>> data) : len(len), data(std::move(data)) {}
 };
 
@@ -259,16 +280,37 @@ struct v3c_unit_stream {
     std::mutex io_mutex;  // Locks production and consumption in the v3c_chunks queue
 };
 
+struct decodedGOF {
+    std::shared_ptr<uvgvpcc_dec::GOF> gof;
+    bool terminated = false;
+    bool ready = false;
+};
+
 struct point_cloud_frame_stream {
     std::queue<std::shared_ptr<Frame>> frames = {};
+    std::vector<decodedGOF> available_gofs;
     std::counting_semaphore<> available_frames{0};
+    int total_gof = -1;
     std::mutex io_mutex;  // Locks production and consumption in the v3c_chunks queue
 };
 
 void initializeDecoder();
 void setParameter(const std::string& parameterName, const std::string& parameterValue);
-void decodeFrame(uvgvpcc_dec::API::v3c_chunk& chunk, point_cloud_frame_stream* output);
+
+// void decodeFrame(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, const std::string& outputFilePath);
+// void decodeFrame_parallel(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, const std::string& outputFilePath);
+
+void decodeFrame(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, uvgvpcc_dec::API::point_cloud_frame_stream* output, const bool in_order_output, const std::string& outputFilePath);
+void decodeFrame_parallel(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, uvgvpcc_dec::API::point_cloud_frame_stream* output, const bool in_order_output, const std::string& outputFilePath);
+
+void decodeFrame_in_order(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, uvgvpcc_dec::API::point_cloud_frame_stream* output);
+void decodeFrame_parallel_in_order(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, uvgvpcc_dec::API::point_cloud_frame_stream* output);
+
+void decodeFrame_remote_output(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, const std::shared_ptr<zmqHandler> zmq_handler);
+void decodeFrame_parallel_remote_output(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, const std::shared_ptr<zmqHandler> zmq_handler);
+
 void emptyFrameQueue(std::shared_ptr<uvgvpcc_dec::ThreadQueue>& queue, std::shared_ptr<uvgvpcc_dec::Job>& last_out);
+void emptyFrameQueue();
 void stopDecoder();
 
 }  // namespace API

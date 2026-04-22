@@ -33,14 +33,26 @@ struct opts_t {
     bool version = false;
     /** \brief If dummyRun is true, config is verified but no encoding is done */
     bool dummyRun = false;    
-    /** \brief Destination address for rtp streams */
-    std::string dstAddress{};
-    /** \brief Destination port for rtp streams */
-    std::vector<uint16_t> dstPort{};
+    /** \brief Remote input data */
+    bool remoteInputData = false;
+    /** \brief Source address for rtp streams */
+    std::string srcAddress{};
+    /** \brief Source port for rtp streams */
+    std::vector<uint16_t> srcPort{};
     /** \brief Output directory for SDP files */
     std::string sdpOutdir{};
     /** \brief FPS limit for reading input frames */
     size_t inputFramePerSecondLimiter = 0; // 0 means no input frame limiter (maxConcurrentFrames can still be a limiter)
+
+    /** \brief Remote output data */
+    bool remoteOutputData = false;
+    /** \brief Position address for visualizer */
+    std::string positionAddress{};
+    /** \brief Color port for rtp streams */
+    std::string colorAddress{};
+
+    /** \brief in order output data */
+    bool in_order_output = false;
 };
 
 bool opts_parse(cli::opts_t& opts, const int argc, const char* const argv[]);

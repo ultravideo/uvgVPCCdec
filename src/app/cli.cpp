@@ -61,10 +61,27 @@ static const struct option long_options[] = {
     {"fastColorConversion", required_argument, NULL, 0},
     {"keepIntermediateFiles", required_argument, NULL, 0},
     {"uvgvpccParametersString", required_argument, NULL, 0},
+    {"read_gof", required_argument, NULL, 0},
     {"help", no_argument, NULL, 0},
     {"version", no_argument, NULL, 0},
+    {"src-address", required_argument, nullptr, 0},
+    {"src-port", required_argument, nullptr, 0},
+    {"remote-input", required_argument, nullptr, 0},
+    {"position-address", required_argument, nullptr, 0},
+    {"color-address", required_argument, nullptr, 0},
+    {"remote-output", required_argument, nullptr, 0},
+    {"in-order-output", required_argument, nullptr, 0},
     {0, 0, 0, 0}};
 
+size_t stringToInt(const std::string s) {
+    try {
+        return static_cast<size_t>(std::stoi(s));
+    } catch (const std::invalid_argument&) {
+        throw std::runtime_error("Input error: Invalid argument, expected a number but got: " + s);
+    } catch (const std::out_of_range&) {
+        throw std::runtime_error("Input error: Value out of range: " + s);
+    }
+}
 
 /**
  * \brief Parse command line arguments.
@@ -116,6 +133,34 @@ bool opts_parse(cli::opts_t& opts, const int argc, const char* const argv[]) {
         } else if (name == "help") {
             print_help();
             opts.help = true;
+        } else if (name == "remote-input") { // Temporary, still under test
+            opts.remoteInputData = static_cast<bool>(std::stoi(optarg));
+        } else if (name == "src-address") { // Temporary, still under test
+            opts.srcAddress = optarg;
+        } else if (name == "src-port") { // Temporary, still under test
+            std::stringstream port_list(optarg);
+            std::string tmp;
+            while (std::getline(port_list, tmp, ',')) {
+                try {
+                    const int port = stringToInt(tmp);
+                    if (port < 0 || port > 65535) {
+                        throw std::runtime_error("Input error: Given port number is out of range (0-65535).");
+                    }
+                    opts.srcPort.push_back(static_cast<uint16_t>(port));
+                } catch (const std::invalid_argument&) {
+                    throw std::runtime_error("Input error: Given port number is not a valid integer.");
+                } catch (const std::out_of_range&) {
+                    throw std::runtime_error("Input error: Given port number is out of range (0-65535).");
+                }
+            }
+        } else if (name == "remote-output") { // Temporary, still under test
+            opts.remoteOutputData = static_cast<bool>(std::stoi(optarg));
+        } else if (name == "position-address") {
+            opts.positionAddress = optarg;
+        } else if (name == "color-address") {
+            opts.colorAddress = optarg;
+        } else if (name == "in-order-output") {
+            opts.in_order_output = static_cast<bool>(std::stoi(optarg));
         }
     }
 
@@ -151,6 +196,7 @@ void print_help(void) {
             /* Word wrap to this width to stay under 80 characters (including ") *************/
             "Required:\n"
             "  -i, --input=<filename>                 : Input bitstream file\n"
+            " --read_gof=1|0                          : Read individual GoF files (default: 0)\n"
             "\n"
             /* Word wrap to this width to stay under 80 characters (including ") *************/
             "Optional:\n"

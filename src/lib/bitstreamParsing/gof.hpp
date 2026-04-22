@@ -60,6 +60,7 @@ class v3c_gof {
 
     /* Write the latest GOF to a single V3C unit stream buffer, with parsing information given separately */
     void read_v3c_chunk(uvgvpcc_dec::API::v3c_chunk& chunk, std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG);
+    void read_v3c_chunk_parallel(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG);
 
     /* Write the latest GOF in Low Delay (LD) mode to a single V3C unit stream buffer, with parsing information given separately */
     void read_v3c_ld_chunk(const std::vector<nal_info> &ovd_nals, const std::vector<nal_info> &gvd_nals,

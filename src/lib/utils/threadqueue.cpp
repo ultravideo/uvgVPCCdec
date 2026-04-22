@@ -60,26 +60,69 @@ std::string jobStateToStr(threadqueue_job_state s) {
 }
 
 void Job::addDependency(const std::shared_ptr<Job>& dependency) {
-    if (dependency == nullptr) {
-        Logger::log<LogLevel::WARNING>("JOB", getName() + "Dependency is null\n");
-        return;
-    }
-    Logger::log<LogLevel::DEBUG>("JOB", getName() + "Adding " + dependency->getName() + " as dependency\n");
-    dependency->mtx_.lock();
-    Logger::log<LogLevel::DEBUG>("JOB", getName() + "Dependency locked\n");
-    if (dependency->completed_) {
-        return;
-    }
-    Logger::log<LogLevel::DEBUG>("JOB", getName() + dependency->getName() + " state: " + jobStateToStr(dependency->getState()) + "\n");
-    dependencies_++;
-    Logger::log<LogLevel::DEBUG>("JOB", getName() + "Dependencies: " + std::to_string(dependencies_) + "\n");
+    // if (dependency == nullptr) {
+    //     Logger::log<LogLevel::WARNING>("JOB", getName() + "Dependency is null\n");
+    //     return;
+    // }
+    // Logger::log<LogLevel::DEBUG>("JOB", getName() + "Adding " + dependency->getName() + " as dependency\n");
+    // dependency->mtx_.lock();
+    // Logger::log<LogLevel::DEBUG>("JOB", getName() + "Dependency locked\n");
+    // if (dependency->completed_) {
+    //     return;
+    // }
+    // Logger::log<LogLevel::DEBUG>("JOB", getName() + dependency->getName() + " state: " + jobStateToStr(dependency->getState()) + "\n");
+    // dependencies_++;
+    // Logger::log<LogLevel::DEBUG>("JOB", getName() + "Dependencies: " + std::to_string(dependencies_) + "\n");
 
-    Logger::log<LogLevel::DEBUG>("JOB", getName() + dependency->getName() +
-                                            " Reverse dependencies: " + std::to_string(dependency->reverseDependencies_.size()) + "\n");
+    // Logger::log<LogLevel::DEBUG>("JOB", getName() + dependency->getName() +
+    //                                         " Reverse dependencies: " + std::to_string(dependency->reverseDependencies_.size()) + "\n");
+    // dependency->reverseDependencies_.emplace_back(this->shared_from_this());
+    // Logger::log<LogLevel::DEBUG>("JOB", getName() + dependency->getName() +
+    //                                         " Reverse dependencies: " + std::to_string(dependency->reverseDependencies_.size()) + "\n");
+    // dependency->mtx_.unlock();
+
+
+    if (dependency == nullptr) {
+        Logger::log<LogLevel::WARNING>("JOB", getName() + " Dependency is null\n");
+        return;
+    }
+
+    Logger::log<LogLevel::DEBUG>("JOB", getName() + " Adding " + dependency->getName() + " as dependency\n");
+
+    std::lock_guard<std::mutex> lockD(dependency->mtx_);
+
+    Logger::log<LogLevel::DEBUG>("JOB", getName() + " Dependency locked\n");
+
+    if (dependency->completed_) {
+        Logger::log<LogLevel::DEBUG>("JOB", getName() + " Dependency " + dependency->getName() + " already completed\n");
+        return;
+    }
+
+    Logger::log<LogLevel::DEBUG>(
+        "JOB",
+        getName() + dependency->getName() + " state: " + jobStateToStr(dependency->getState()) + "\n"
+    );
+
+    dependencies_++;
+
+    Logger::log<LogLevel::DEBUG>(
+        "JOB",
+        getName() + " Dependencies: " + std::to_string(dependencies_.load()) + "\n"
+    );
+
+    Logger::log<LogLevel::DEBUG>(
+        "JOB",
+        getName() + dependency->getName() +
+            " Reverse dependencies before: " + std::to_string(dependency->reverseDependencies_.size()) + "\n"
+    );
+
     dependency->reverseDependencies_.emplace_back(this->shared_from_this());
-    Logger::log<LogLevel::DEBUG>("JOB", getName() + dependency->getName() +
-                                            " Reverse dependencies: " + std::to_string(dependency->reverseDependencies_.size()) + "\n");
-    dependency->mtx_.unlock();
+
+    Logger::log<LogLevel::DEBUG>(
+        "JOB",
+        getName() + dependency->getName() +
+            " Reverse dependencies after: " + std::to_string(dependency->reverseDependencies_.size()) + "\n"
+    );
 }
 
 bool Job::isReady() const { return dependencies_.load() == 0; }
@@ -199,23 +242,55 @@ void ThreadQueue::workerThread() {
         // many threads to wake up.
         int readyJobs = 0;
         // for (auto &dep : job->reverseDependencies_) {
-        for (auto dep = job->reverseDependencies_.begin(); dep != job->reverseDependencies_.end();) {
-            const std::lock_guard lockD((*dep)->mtx_);
-            Logger::log<LogLevel::DEBUG>("JOB: " + job->getName(), (*dep)->getName() + "remove dependency\n");
-            assert((*dep)->getState() == threadqueue_job_state::THREADQUEUE_JOB_STATE_WAITING ||
-                   (*dep)->getState() == threadqueue_job_state::THREADQUEUE_JOB_STATE_PAUSED);
-            assert((*dep)->dependencies_ > 0);
-            (*dep)->dependencies_--;
+        // for (auto dep = job->reverseDependencies_.begin(); dep != job->reverseDependencies_.end();) {
+        //     const std::lock_guard lockD((*dep)->mtx_);
+        //     Logger::log<LogLevel::DEBUG>("JOB: " + job->getName(), (*dep)->getName() + "remove dependency\n");
+        //     assert((*dep)->getState() == threadqueue_job_state::THREADQUEUE_JOB_STATE_WAITING ||
+        //            (*dep)->getState() == threadqueue_job_state::THREADQUEUE_JOB_STATE_PAUSED);
+        //     assert((*dep)->dependencies_ > 0);
+        //     (*dep)->dependencies_--;
 
-            if ((*dep)->dependencies_ == 0 && (*dep)->getState() == threadqueue_job_state::THREADQUEUE_JOB_STATE_WAITING) {
-                pushJob(*dep);
-                readyJobs++;
+        //     if ((*dep)->dependencies_ == 0 && (*dep)->getState() == threadqueue_job_state::THREADQUEUE_JOB_STATE_WAITING) {
+        //         pushJob(*dep);
+        //         readyJobs++;
+        //     }
+        //     job->reverseDependencies_.erase(dep);
+        // }
+        // for (int i = 0; i < readyJobs - 1; ++i) {
+        //     jobAvailable_.notify_one();
+        // }
+
+        for (auto depIt = job->reverseDependencies_.begin(); depIt != job->reverseDependencies_.end();) {
+            auto dependentJob = *depIt;
+
+            {
+                const std::lock_guard<std::mutex> lockD(dependentJob->mtx_);
+
+                Logger::log<LogLevel::DEBUG>(
+                    "JOB: " + job->getName(),
+                    dependentJob->getName() + " remove dependency\n"
+                );
+
+                assert(dependentJob->getState() == threadqueue_job_state::THREADQUEUE_JOB_STATE_WAITING ||
+                    dependentJob->getState() == threadqueue_job_state::THREADQUEUE_JOB_STATE_PAUSED);
+                assert(dependentJob->dependencies_ > 0);
+
+                dependentJob->dependencies_--;
+
+                if (dependentJob->dependencies_ == 0 &&
+                    dependentJob->getState() == threadqueue_job_state::THREADQUEUE_JOB_STATE_WAITING) {
+                    pushJob(dependentJob);
+                    readyJobs++;
+                }
             }
-            job->reverseDependencies_.erase(dep);
+
+            depIt = job->reverseDependencies_.erase(depIt);
         }
-        for (int i = 0; i < readyJobs - 1; ++i) {
+
+        for (int i = 0; i < readyJobs; ++i) {
             jobAvailable_.notify_one();
         }
+
     }
 }
 

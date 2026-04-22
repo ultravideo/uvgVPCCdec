@@ -93,6 +93,183 @@ void setFFmpegConfig(const AVCodec* codec, AVCodecContext* codec_ctx, const DECO
 
 }
 
+void decodeVideoFFmpeg_old(std::vector<AVFrame*>& frames,
+                       AVCodecContext* codec_ctx,
+                       std::vector<uint8_t>& bitstream,
+                       const std::string& decoderName) {
+    AVPacket* pkt = av_packet_alloc();
+    if (!pkt) {
+        throw std::runtime_error(decoderName + ": Failed to allocate AVPacket.");
+    }
+
+    const uint8_t hevc_start_code[4] = {0x00, 0x00, 0x00, 0x01};
+
+    const size_t map_size = bitstream.size();
+    size_t ptr = 0;
+
+    std::vector<uint8_t> access_unit;
+    std::vector<uint8_t> parameter_sets;
+
+    auto append_annexb_nal = [&](std::vector<uint8_t>& dst,
+                                 const uint8_t* nal_ptr,
+                                 size_t nal_size) {
+        dst.insert(dst.end(), hevc_start_code, hevc_start_code + 4);
+        dst.insert(dst.end(), nal_ptr, nal_ptr + nal_size);
+    };
+
+    auto send_packet_and_receive_frames = [&](const std::vector<uint8_t>& packet_data) {
+        if (packet_data.empty()) {
+            return;
+        }
+
+        av_packet_unref(pkt);
+
+        int ret = av_new_packet(pkt, static_cast<int>(packet_data.size()));
+        if (ret < 0) {
+            throw std::runtime_error(decoderName + ": Failed to allocate AVPacket payload.");
+        }
+
+        std::memcpy(pkt->data, packet_data.data(), packet_data.size());
+
+        ret = avcodec_send_packet(codec_ctx, pkt);
+        av_packet_unref(pkt);
+        if (ret < 0) {
+            throw std::runtime_error(decoderName + ": Failed to send AVPacket.");
+        }
+
+        while (true) {
+            AVFrame* frame = av_frame_alloc();
+            if (!frame) {
+                throw std::runtime_error(decoderName + ": Failed to allocate AVFrame.");
+            }
+
+            ret = avcodec_receive_frame(codec_ctx, frame);
+            if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+                av_frame_free(&frame);
+                break;
+            }
+            if (ret < 0) {
+                av_frame_free(&frame);
+                throw std::runtime_error(decoderName + ": Failed to receive AVFrame.");
+            }
+
+            frames.push_back(frame);
+        }
+    };
+
+    auto flush_access_unit = [&]() {
+        if (access_unit.empty()) {
+            return;
+        }
+
+        std::vector<uint8_t> packet_data;
+        packet_data.reserve(parameter_sets.size() + access_unit.size());
+
+        if (!parameter_sets.empty()) {
+            packet_data.insert(packet_data.end(), parameter_sets.begin(), parameter_sets.end());
+        }
+        packet_data.insert(packet_data.end(), access_unit.begin(), access_unit.end());
+
+        send_packet_and_receive_frames(packet_data);
+        access_unit.clear();
+    };
+
+    auto is_vcl = [](uint8_t nal_type) -> bool {
+        return nal_type <= 31;
+    };
+
+    auto is_parameter_set = [](uint8_t nal_type) -> bool {
+        return nal_type == 32 || nal_type == 33 || nal_type == 34;
+    };
+
+    auto first_slice_segment_in_pic_flag = [](const uint8_t* nal_ptr, size_t nal_size) -> bool {
+        // HEVC NAL header is 2 bytes.
+        // The first bit of the slice segment header follows immediately after.
+        if (nal_size < 3) {
+            return false;
+        }
+        return (nal_ptr[2] & 0x80) != 0;
+    };
+
+    bool have_started_picture = false;
+
+    while (ptr + 4 <= map_size) {
+        const size_t nal_size = bitstream_read_size_from_poiter(&bitstream[ptr], 4);
+        ptr += 4;
+
+        if (nal_size == 0) {
+            continue;
+        }
+        if (ptr + nal_size > map_size) {
+            av_packet_free(&pkt);
+            throw std::runtime_error(decoderName + ": Corrupted HEVC bitstream (NAL exceeds buffer).");
+        }
+
+        const uint8_t* nal_ptr = &bitstream[ptr];
+        const uint8_t nal_type = (nal_ptr[0] >> 1) & 0x3F;
+
+        // Debug
+        // printf("%s NAL type=%u size=%zu first_slice=%d\n",
+        //        decoderName.c_str(), nal_type, nal_size,
+        //        is_vcl(nal_type) ? (int)first_slice_segment_in_pic_flag(nal_ptr, nal_size) : -1);
+
+        if (is_parameter_set(nal_type)) {
+            append_annexb_nal(parameter_sets, nal_ptr, nal_size);
+        }
+
+        if (is_vcl(nal_type)) {
+            const bool first_slice = first_slice_segment_in_pic_flag(nal_ptr, nal_size);
+
+            // If this NAL starts a new picture and we already accumulated one,
+            // flush the previous picture first.
+            if (first_slice && have_started_picture && !access_unit.empty()) {
+                flush_access_unit();
+            }
+
+            append_annexb_nal(access_unit, nal_ptr, nal_size);
+            have_started_picture = true;
+        } else {
+            // Non-VCL NALs associated with the current AU
+            append_annexb_nal(access_unit, nal_ptr, nal_size);
+        }
+
+        ptr += nal_size;
+    }
+
+    flush_access_unit();
+
+    int ret = avcodec_send_packet(codec_ctx, nullptr);
+    if (ret < 0) {
+        av_packet_free(&pkt);
+        throw std::runtime_error(decoderName + ": Failed to flush decoder.");
+    }
+
+    while (true) {
+        AVFrame* frame = av_frame_alloc();
+        if (!frame) {
+            av_packet_free(&pkt);
+            throw std::runtime_error(decoderName + ": Failed to allocate AVFrame during flush.");
+        }
+
+        ret = avcodec_receive_frame(codec_ctx, frame);
+        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+            av_frame_free(&frame);
+            break;
+        }
+        if (ret < 0) {
+            av_frame_free(&frame);
+            av_packet_free(&pkt);
+            throw std::runtime_error(decoderName + ": Failed to receive flushed AVFrame.");
+        }
+
+        frames.push_back(frame);
+    }
+
+    av_packet_free(&pkt);
+    bitstream.clear();
+}
+
+
 void decodeVideoFFmpeg( std::vector<AVFrame*> &frames, AVCodecContext* codec_ctx, std::vector<uint8_t>& bitstream, const std::string& decoderName ) {
 
     AVPacket* pkt = av_packet_alloc();
@@ -107,7 +284,7 @@ void decodeVideoFFmpeg( std::vector<AVFrame*> &frames, AVCodecContext* codec_ctx
 
     std::vector<uint8_t> data_buffer = {};
 
-    printf("%s\n", decoderName.c_str());
+    // printf("%s\n", decoderName.c_str());
     while (write_ptr < map_size) {
         size_t nalu_size = bitstream_read_size_from_poiter(&bitstream[write_ptr], 4);
 
@@ -266,6 +443,10 @@ void writeDecodedFramesToMapList(
     std::vector<AVFrame*> &frames,
     const DECODER_TYPE& decoderType
 ) {
+
+    if (frames.empty()) {
+        throw std::runtime_error("FFmpeg decoder produced no frames.");
+    }
 
     const int height = frames.front()->height;
     const int width  = frames.front()->width;

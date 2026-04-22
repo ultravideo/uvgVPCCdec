@@ -19,6 +19,7 @@ void atlas_context::write_atlas_tile_layer_rbsp_to_gof(const atlas_tile_layer_rb
     gofUVG->mapHeightGOF = asps_.asps_frame_height;
     gofUVG->gofId = gof_id_;
     std::shared_ptr<uvgvpcc_dec::Frame> frameUVG = std::make_shared<uvgvpcc_dec::Frame>();
+    frameUVG->gofId = gof_id_;
 
     //printf("Writing atlas tile layer rbsp to gofUVG, gofId: %zu\n", gof_id_);
 
@@ -399,7 +400,8 @@ void atlas_context::read_atlas_sub_bitstream(const size_t& v3c_unit_payload_size
 
     bitstream_advance(stream, 5); 
 
-    size_t frameId = gofUVG->gofId * (gofUVG->gofCount + (gofUVG->gofCount & 1));
+    // size_t frameId = gofUVG->gofId * (gofUVG->gofCount + (gofUVG->gofCount & 1));
+    size_t frameId = 0;
     while (true) {
         if (stream->len >= length) {
             break;

@@ -25,6 +25,8 @@ using namespace uvgvpcc_dec;
 
 void BitstreamParsing::parseV3CGOFBitstream(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, std::shared_ptr<v3c_gof> gof_, 
                                             const uvgvpcc_dec::Parameters& param, uvgvpcc_dec::API::v3c_chunk& chunk) {
+    printf("Start parsing GOF %zu bitstream.\n", gofUVG->gofId);
+
     uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::INFO>(
         "BITSTREAM PARSING", "GOF " + std::to_string(gofUVG->gofId) + " : Parse V3C GOF bitstream using uvgVPCC.\n"); 
     
@@ -52,6 +54,48 @@ void BitstreamParsing::parseV3CGOFBitstream(std::shared_ptr<uvgvpcc_dec::GOF>& g
     const uint32_t v3c_precision =
         static_cast<uint32_t>(std::min(std::max(static_cast<int>(ceil(static_cast<double>(ceilLog2(v3c_max_size)) / 8.0)), 1), 8));
     gof.set_v3c_unit_precision(v3c_precision);
+
+    printf("Parsing GOF %zu bitstream completed.\n", gofUVG->gofId);
+
+    // printf("OVD sub size: %d\n", (int)gofUVG->bitstreamOccupancy.size());
+    // printf("GVD sub size: %d\n", (int)gofUVG->bitstreamGeometry.size());
+    // printf("AVD sub size: %d\n", (int)gofUVG->bitstreamAttribute.size());
+    // printf("GOF %zu: Bitstream parsing completed.\n", gofUVG->gofId);
+}
+
+void BitstreamParsing::parseV3CGOFBitstream_parallel(std::shared_ptr<uvgvpcc_dec::GOF> gofUVG, std::shared_ptr<v3c_gof> gof_, 
+                                            const uvgvpcc_dec::Parameters& param, std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk) {
+    // printf("Start parsing GOF %zu bitstream.\n", gofUVG->gofId);
+
+    uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::INFO>(
+        "BITSTREAM PARSING", "GOF " + std::to_string(gofUVG->gofId) + " : Parse V3C GOF bitstream using uvgVPCC.\n"); 
+    
+    v3c_gof &gof = *gof_;
+    gof.read_v3c_chunk_parallel(chunk, gofUVG);
+
+    size_t v3c_max_size = gof.get_v3c_vps()->vps_length_bytes_;
+    size_t v3c_temp_size;
+    v3c_temp_size = gof.get_v3c_atlas_context()->get_atlas_sub_size() + 4;
+    if (v3c_temp_size > v3c_max_size) {
+        v3c_max_size = v3c_temp_size;
+    }
+    v3c_temp_size = gofUVG->bitstreamOccupancy.size() + 4;
+    if (v3c_temp_size > v3c_max_size) {
+        v3c_max_size = v3c_temp_size;
+    }
+    v3c_temp_size = gofUVG->bitstreamGeometry.size() + 4;
+    if (v3c_temp_size > v3c_max_size) {
+        v3c_max_size = v3c_temp_size;
+    }
+    v3c_temp_size = gofUVG->bitstreamAttribute.size() + 4;
+    if (v3c_temp_size > v3c_max_size) {
+        v3c_max_size = v3c_temp_size;
+    }
+    const uint32_t v3c_precision =
+        static_cast<uint32_t>(std::min(std::max(static_cast<int>(ceil(static_cast<double>(ceilLog2(v3c_max_size)) / 8.0)), 1), 8));
+    gof.set_v3c_unit_precision(v3c_precision);
+
+    // printf("Parsing GOF %zu bitstream completed.\n", gofUVG->gofId);
 
     // printf("OVD sub size: %d\n", (int)gofUVG->bitstreamOccupancy.size());
     // printf("GVD sub size: %d\n", (int)gofUVG->bitstreamGeometry.size());

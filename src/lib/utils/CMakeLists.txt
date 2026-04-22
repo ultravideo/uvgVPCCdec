@@ -4,6 +4,7 @@ message(DEBUG "./src/lib/utils/cmake")
 add_library(utilsLibrary STATIC
     threadqueue.cpp
     fileExport.cpp
+    jobManagement.cpp
 )
 
 add_library(logLibrary STATIC

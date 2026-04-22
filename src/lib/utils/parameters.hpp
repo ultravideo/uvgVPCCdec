@@ -24,6 +24,10 @@ struct Parameters {
 
     bool exportIntermediateFiles = false;
     std::string intermediateFilesDir;
+
+    size_t nbThreadPCPart = 40;       // 0 means the actual number of detected threads
+    size_t maxConcurrentFrames = 40;  // 0 means the actual value is set to 4 times sizeGOF
+    bool errorsAreFatal = true;
 };
 
 extern const Parameters* p_;  // Const pointer to a non-const Parameter struct instance in parameters.cpp

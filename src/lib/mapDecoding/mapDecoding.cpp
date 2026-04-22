@@ -37,9 +37,8 @@ void MapDecoding::initializeDecoderPointers() {
 
 void MapDecoding::decodeGOFMaps(const std::shared_ptr<GOF>& gof) {
     uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::TRACE>("MAP ENCODING", "Encode maps of GOF " + std::to_string(gof->gofId) + ".\n");
-
+    
     occupancyMapDSDecoder->decodeGOFMaps(gof);
     geometryMapDecoder->decodeGOFMaps(gof);
     attributeMapDecoder->decodeGOFMaps(gof);
-    
 }
