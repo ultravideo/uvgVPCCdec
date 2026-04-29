@@ -254,7 +254,8 @@ namespace API {
 /// @brief Bitstream reading miscellaneous
 struct v3c_chunk {
     size_t len = 0;                 // Length of data in buffer
-    std::unique_ptr<std::vector<uint8_t>> data;  
+    std::unique_ptr<std::vector<uint8_t>> data;
+    std::unique_ptr<std::vector<uint8_t>> data_v3crtp[5];
     std::vector<size_t> v3c_unit_sizes = {};
     size_t gof_id;
     size_t gof_count;
@@ -262,6 +263,17 @@ struct v3c_chunk {
     //std::shared_ptr<std::counting_semaphore<UINT16_MAX>> conccurentFrameSem;
 
     v3c_chunk() = default;
+
+    v3c_chunk(bool rtp) {
+        if (rtp) {
+            for (int i = 0; i < 5; i++) {
+                data_v3crtp[i] = std::make_unique<std::vector<uint8_t>>();
+                data_v3crtp[i]->reserve(1024*1024);
+            }
+        } else {
+            data = std::make_unique<std::vector<uint8_t>>();
+        }
+    };
 
     // ~v3c_chunk() {
     //     if (conccurentFrameSem) {
@@ -289,6 +301,7 @@ struct decodedGOF {
 struct point_cloud_frame_stream {
     std::queue<std::shared_ptr<Frame>> frames = {};
     std::vector<decodedGOF> available_gofs;
+    std::queue<std::shared_ptr<uvgvpcc_dec::GOF>> available_gofs_queue;
     std::counting_semaphore<> available_frames{0};
     int total_gof = -1;
     std::mutex io_mutex;  // Locks production and consumption in the v3c_chunks queue
@@ -302,6 +315,9 @@ void setParameter(const std::string& parameterName, const std::string& parameter
 
 void decodeFrame(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, uvgvpcc_dec::API::point_cloud_frame_stream* output, const bool in_order_output, const std::string& outputFilePath);
 void decodeFrame_parallel(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, uvgvpcc_dec::API::point_cloud_frame_stream* output, const bool in_order_output, const std::string& outputFilePath);
+
+void decodeFrame_delay(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, uvgvpcc_dec::API::point_cloud_frame_stream* output);
+void decodeFrame_parallel_delay(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, uvgvpcc_dec::API::point_cloud_frame_stream* output);
 
 void decodeFrame_in_order(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, uvgvpcc_dec::API::point_cloud_frame_stream* output);
 void decodeFrame_parallel_in_order(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, uvgvpcc_dec::API::point_cloud_frame_stream* output);

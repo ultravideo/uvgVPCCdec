@@ -367,6 +367,56 @@ void API::decodeFrame_parallel_in_order(std::shared_ptr<uvgvpcc_dec::API::v3c_ch
 }
 
 
+void API::decodeFrame_delay(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, uvgvpcc_dec::API::point_cloud_frame_stream* output) {
+    auto v3c_gof_ = std::make_shared<v3c_gof>();
+    auto currentGOF = std::make_shared<GOF>();
+
+    currentGOF->gofId = chunk->gof_id;
+    currentGOF->gofCount = chunk->gof_count;
+
+    BitstreamParsing::parseV3CGOFBitstream_v3crtp(currentGOF, v3c_gof_, *(p_), chunk);
+    try
+    {
+        MapDecoding::decodeGOFMaps(currentGOF);
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << e.what() << '\n';
+        std::cerr << "Decoding GOF " << currentGOF->gofId << "FAILED!" << '\n';
+        return; 
+    }
+    
+    Reconstruction::reconstructPointCloud(currentGOF, v3c_gof_);
+    Adaptation::adapt_delay(currentGOF, output);
+    uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::INFO>("API", "GOF " + std::to_string(currentGOF->gofId) + " decoded and adapted.\n");
+}
+
+void API::decodeFrame_parallel_delay(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, uvgvpcc_dec::API::point_cloud_frame_stream* output) {
+    auto chunk_copy = std::make_shared<uvgvpcc_dec::API::v3c_chunk>(std::move(*chunk));
+
+    JobManager::submitCurrentFrameJobs();
+
+    if (chunk == nullptr) {
+        Logger::log<LogLevel::ERROR>("API", "The chunk is null.\n");
+        if (p_->errorsAreFatal) {
+            throw std::runtime_error("The chunk is null.");
+        }
+        return;
+    }
+
+    const auto gofId = chunk_copy->gof_id;
+
+    auto currentGOF_job = JOBG(
+        gofId,
+        5,
+        API::decodeFrame_delay,
+        chunk_copy,
+        output
+    );
+
+    JobManager::submitCurrentGOFJobs();
+}
+
 void API::emptyFrameQueue() {
     if (!JobManager::threadQueue || !JobManager::previousGOFJobMap) {
         return;

@@ -310,6 +310,27 @@ void Adaptation::adapt_in_order(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, uvgvp
 //     }
 // }
 
+void Adaptation::adapt_delay(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, uvgvpcc_dec::API::point_cloud_frame_stream* output) {
+    for (int i = 0; i < gofUVG->frames.size(); i++) {
+        auto &frame = gofUVG->frames[i];
+
+        if (p_->useTMC2AttributeYUVConversion) {
+
+        } else {
+            if (p_->fast_color_conversion) {
+
+            } else {
+                convert_colors_slow(frame->pointsAttribute);
+            }
+        }
+    }
+
+    output->io_mutex.lock();
+    output->available_gofs_queue.push(gofUVG);
+    output->io_mutex.unlock();
+    output->available_frames.release();
+}
+
 void Adaptation::adapt(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, uvgvpcc_dec::API::point_cloud_frame_stream* output, const bool& in_order_output, const std::string& outputFilePath) {
     for (int i = 0; i < gofUVG->frames.size(); i++) {
         auto &frame = gofUVG->frames[i];

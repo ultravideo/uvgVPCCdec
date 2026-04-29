@@ -291,7 +291,7 @@ void decodeVideoFFmpeg( std::vector<AVFrame*> &frames, AVCodecContext* codec_ctx
         data_buffer.insert(data_buffer.end(), hevc_start_code, hevc_start_code + 4);
         write_ptr += 4;
 
-        size_t hevc_nal_type = bitstream[write_ptr] >> 1;
+        size_t hevc_nal_type = (bitstream[write_ptr] >> 1) & 0x3F;
         // printf("nalu_size: %d, hevc_nal_type: %d\n", (int)nalu_size, (int)hevc_nal_type);
 
         data_buffer.insert(data_buffer.end(), bitstream.begin()+write_ptr, bitstream.begin()+write_ptr+nalu_size);
