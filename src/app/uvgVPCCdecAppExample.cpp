@@ -347,106 +347,89 @@ bool output_thread(uvgvpcc_dec::API::point_cloud_frame_stream* output, const std
 // Assume the input frames have some delay
 bool output_thread_remote_delay(uvgvpcc_dec::API::point_cloud_frame_stream* output, const std::shared_ptr<zmqHandler> zmq_handler)
 {   
-    // constexpr int delay_gofs = 5;
-    // int current_gof_count = 0;
-
-    // constexpr int FPS = 25.0;
-
-    // double frameDuration_ = 1000.0 / static_cast<double>(FPS);
-    // using Clock = std::chrono::steady_clock;
-    // std::chrono::steady_clock::time_point frameStart = std::chrono::steady_clock::now();
-
-    // while (1) {
-    //     output->available_frames.acquire();
-
-    //     if (output->available_gofs_queue.front() == nullptr) {
-    //         break;
-    //     }
-
-    //     // output->io_mutex.lock();
-
-    //     current_gof_count++;
-
-    //     if (current_gof_count != delay_gofs) continue;
-
-    //     auto now = Clock::now(); 
-    //     auto elapsed = std::chrono::duration<double, std::milli>(now - frameStart);
-    //     bool timeForNextFrame = false;
-        
-    //     for (int i = 0; i < delay_gofs; i++) {
-    //         while (!timeForNextFrame) {
-    //             elapsed.count() >= frameDuration_;
-    //         }
-            
-    //         for (auto &frame : output->available_gofs_queue.front()->frames) {
-    //             {
-    //                 std::lock_guard<std::mutex> lock(zmq_handler->zmq_mutex);
-    //                 zmq_send(
-    //                     zmq_handler->positionSocket,
-    //                     frame->pointsGeometry.data(),
-    //                     frame->pointsGeometry.size() * sizeof(uvgvpcc_dec::Vector3<uint16_t>),
-    //                     0
-    //                 );
-
-    //                 zmq_send(
-    //                     zmq_handler->colorSocket,
-    //                     frame->pointsAttribute.data(),
-    //                     frame->pointsAttribute.size() * sizeof(uvgvpcc_dec::Vector3<uint8_t>),
-    //                     0
-    //                 );
-    //             }
-    //             frameStart = now;
-    //             timeForNextFrame = elapsed.count() >= frameDuration_;
-    //         }
-    //         output->available_gofs_queue.pop();
-    //     }
-
-    //     current_gof_count = 0;
-
-    //     // output->io_mutex.unlock();
-    // }
-    // uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::INFO>(
-    //             "APPLICATION",
-    //             "Empty frame\n");
-    // return true;
 
     constexpr int delay_gofs = 1;
-    constexpr int FPS = 30;
+    constexpr int FPS = 50;
 
     using Clock = std::chrono::steady_clock;
     const auto frame_period = std::chrono::milliseconds(1000 / FPS); // 40 ms
 
     int buffered_gofs = 0;
 
+    // while (true) {
+    //     output->available_frames.acquire();
+    //     // First frame will be sent after one full frame period
+    //     auto next_send_time = Clock::now() + frame_period;
+
+    //     // std::shared_ptr<uvgvpcc_dec::GOF> gof;
+
+    //     // {
+    //     //     std::lock_guard<std::mutex> lock(output->io_mutex);
+
+    //     //     if (output->available_gofs_queue.empty()) {
+    //     //         continue;
+    //     //     }
+
+    //     //     if (output->available_gofs_queue.front() == nullptr) {
+    //     //         break;
+    //     //     }
+
+    //     //     // buffered_gofs++;
+    //     //     // if (buffered_gofs < delay_gofs) {
+    //     //     //     continue;
+    //     //     // }
+
+    //     //     gof = output->available_gofs_queue.front();
+    //     //     output->available_gofs_queue.pop();
+    //     // }
+
+    //     if (output->available_gofs_queue.front() == nullptr) {
+    //         break;
+    //     }
+    //     output->io_mutex.lock();
+    //     std::shared_ptr<uvgvpcc_dec::GOF> gof = output->available_gofs_queue.front();
+    //     output->available_gofs_queue.pop();
+    //     output->io_mutex.unlock();
+
+    //     for (auto& frame : gof->frames) {
+    //         std::this_thread::sleep_until(next_send_time);
+
+    //         {
+    //             std::lock_guard<std::mutex> lock(zmq_handler->zmq_mutex);
+
+    //             zmq_send(
+    //                 zmq_handler->positionSocket,
+    //                 frame->pointsGeometry.data(),
+    //                 frame->pointsGeometry.size() * sizeof(uvgvpcc_dec::Vector3<uint16_t>),
+    //                 0
+    //             );
+
+    //             zmq_send(
+    //                 zmq_handler->colorSocket,
+    //                 frame->pointsAttribute.data(),
+    //                 frame->pointsAttribute.size() * sizeof(uvgvpcc_dec::Vector3<uint8_t>),
+    //                 0
+    //             );
+    //         }
+
+    //         next_send_time += frame_period;
+    //     }
+    // }
+
+
     while (true) {
         output->available_frames.acquire();
-        // First frame will be sent after one full frame period
-        auto next_send_time = Clock::now() + frame_period;
 
-        std::shared_ptr<uvgvpcc_dec::GOF> gof;
-
-        {
-            std::lock_guard<std::mutex> lock(output->io_mutex);
-
-            if (output->available_gofs_queue.empty()) {
-                continue;
-            }
-
-            if (output->available_gofs_queue.front() == nullptr) {
-                break;
-            }
-
-            // buffered_gofs++;
-            // if (buffered_gofs < delay_gofs) {
-            //     continue;
-            // }
-
-            gof = output->available_gofs_queue.front();
-            output->available_gofs_queue.pop();
+        if (output->available_gofs_queue.front() == nullptr) {
+            break;
         }
+        output->io_mutex.lock();
+        std::shared_ptr<uvgvpcc_dec::GOF> gof = output->available_gofs_queue.front();
+        output->available_gofs_queue.pop();
+        output->io_mutex.unlock();
 
         for (auto& frame : gof->frames) {
-            std::this_thread::sleep_until(next_send_time);
+            
 
             {
                 std::lock_guard<std::mutex> lock(zmq_handler->zmq_mutex);
@@ -466,7 +449,7 @@ bool output_thread_remote_delay(uvgvpcc_dec::API::point_cloud_frame_stream* outp
                 );
             }
 
-            next_send_time += frame_period;
+
         }
     }
 
@@ -543,6 +526,94 @@ size_t read_value(const uint8_t* src, size_t len) {
     return value;
 }
 
+struct v3c_remote_gof_ptr {
+    // const uint8_t* ptr;
+    char* ptr;
+    size_t gof_size;
+
+    v3c_remote_gof_ptr() = default;
+
+    // v3c_remote_gof_ptr(uint8_t* ptr, size_t gof_size): ptr(ptr), gof_size(gof_size){}
+};
+
+
+struct v3c_input_gof_handler_args {
+    // Parameters passed from main thread to input thread.
+
+    std::queue<v3c_remote_gof_ptr> gof_ptrs = {};
+
+    uint8_t V3C_SIZE_PRECISION;
+
+    std::counting_semaphore<> available_gof{0};
+
+
+    // Retval retval;
+    // input_handler_args(const cli::opts_t& opts, std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, Retval retval)
+    //     : opts(opts), chunk_in(std::move(chunk)), retval(retval) {}
+};
+
+void v3c_remote_input_thread(const std::shared_ptr<v3c_input_gof_handler_args>& v3c_args, const std::shared_ptr<input_handler_args>& args) {
+    size_t gof_id = 0;
+    int chunk_count = 0;
+    Retval returnValue = Retval::Running;
+
+    while (true) {
+        v3c_args->available_gof.acquire();
+
+        const auto gof_ptr = v3c_args->gof_ptrs.front();
+
+        if(gof_ptr.ptr == nullptr) {
+            break;
+        }
+
+        auto rec = std::unique_ptr<char, decltype(&free)>(gof_ptr.ptr, &free);
+
+        const uint8_t* ptr = reinterpret_cast<const uint8_t*>(rec.get());
+
+        const uint8_t* end = ptr + gof_ptr.gof_size;
+
+        std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk = std::make_shared<uvgvpcc_dec::API::v3c_chunk>();
+        chunk->data = std::make_unique<std::vector<uint8_t>>();
+        chunk->data->reserve(1024*1024);
+        chunk->gof_id = gof_id++;
+        //std::vector<uint8_t>* chunk_data = chunk->data.get();
+
+        for (int i = 0; i < 5; i++) {
+            size_t unit_size = read_value(ptr, v3c_args->V3C_SIZE_PRECISION);
+            ptr += v3c_args->V3C_SIZE_PRECISION;
+            chunk->v3c_unit_sizes.push_back(unit_size);
+            size_t old_size = chunk->data->size();
+            chunk->data->resize(old_size + unit_size);
+            std::memcpy(chunk->data->data() + old_size, ptr, unit_size);
+            ptr += unit_size;
+            // std::cerr << "Stream size for current unit type of GOF " << static_cast<int>(chunk->gof_id) << " : " << i << " : " << static_cast<int>(unit_size) << "\n" << std::flush;
+        }
+
+        // printf("GOF successfully recieved!\n");
+
+        v3c_args->gof_ptrs.pop();
+
+        available_input_slot.acquire();
+        args->chunk_in = chunk;
+        if (returnValue == Retval::Failure) {
+            args->retval = Retval::Failure;
+            // printf("Failed Break!\n");
+            break;
+        } else {
+            assert(returnValue == Retval::Running && args->retval == Retval::Running);
+        }
+        chunk_count++;
+        filled_input_slot.release();
+    }
+
+    available_input_slot.acquire();
+    args->chunk_in = nullptr;
+    args->retval = Retval::Eof;
+    filled_input_slot.release();
+    
+    printf("Chunks received: %d\n", chunk_count);
+}
+
 
 // constexpr int EXPECTED_NUM_GOFs = 16;
 // constexpr int EXPECTED_NUM_VPSs = 16;
@@ -550,10 +621,16 @@ constexpr int TOTAL_GOFS = 10000;
 constexpr int EXPECTED_NUM_GOFs = TOTAL_GOFS;
 constexpr int EXPECTED_NUM_VPSs = TOTAL_GOFS;
 
-constexpr int EXPECTED_NUM_AD_NALU = 19;
-constexpr int EXPECTED_NUM_OVD_NALU = 19;
-constexpr int EXPECTED_NUM_GVD_NALU = 35;
-constexpr int EXPECTED_NUM_AVD_NALU = 35;
+// constexpr int EXPECTED_NUM_AD_NALU = 19;
+// constexpr int EXPECTED_NUM_OVD_NALU = 19;
+// constexpr int EXPECTED_NUM_GVD_NALU = 35;
+// constexpr int EXPECTED_NUM_AVD_NALU = 35;
+
+constexpr int EXPECTED_NUM_AD_NALU = 4;
+constexpr int EXPECTED_NUM_OVD_NALU = 4;
+constexpr int EXPECTED_NUM_GVD_NALU = 5;
+constexpr int EXPECTED_NUM_AVD_NALU = 5;
+
 constexpr uint8_t V3C_SIZE_PRECISION = 5;
 constexpr uint8_t AtlasNAL_SIZE_PRECISION = 2;
 constexpr uint8_t Video_SIZE_PRECISION = 4;
@@ -561,7 +638,7 @@ constexpr uint8_t Video_SIZE_PRECISION = 4;
 constexpr int TIMEOUT = 300000;
 // Auto size precision may not match orig bitstream
 constexpr bool AUTO_PRECISION_MODE = false;
-constexpr bool AUTO_EXPECTED_NUM_MODE = false;
+constexpr bool AUTO_EXPECTED_NUM_MODE = true;
 
 // #include "src/app/dependencies/uvgV3CRTP/include/uvgv3crtp/version.h"
 // #include "src/app/dependencies/uvgV3CRTP/include/uvgv3crtp/v3c_api.h"
@@ -572,6 +649,176 @@ constexpr char address[] = "127.0.0.1";
 constexpr int port = 8890;
 
 void v3c_receiver(const std::shared_ptr<input_handler_args>& args) {
+#ifdef ENABLE_V3CRTP
+    uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::TRACE>(
+        "V3CRTP",
+        "Using uvgV3CRTP lib version " + uvgV3CRTP::get_version() + "\n");
+
+    std::cerr << "Initialize state...\n" << std::flush;
+    uvgV3CRTP::V3C_UNIT_TYPE expected_units[] = { uvgV3CRTP::V3C_VPS, uvgV3CRTP::V3C_AD, uvgV3CRTP::V3C_OVD, uvgV3CRTP::V3C_GVD, uvgV3CRTP::V3C_AVD };
+    
+    uint16_t ports[uvgV3CRTP::NUM_V3C_UNIT_TYPES] = {};
+
+    // Use lambda to pick correct constructor to get correct scope for state object
+    uvgV3CRTP::V3C_State<uvgV3CRTP::V3C_Receiver> state = ([&]() {
+        if (args->opts.srcPort.size() == 1) {
+            // Set ports to the same value
+            std::fill(std::begin(ports), std::end(ports), args->opts.srcPort.front());
+            return uvgV3CRTP::V3C_State<uvgV3CRTP::V3C_Receiver>(
+                uvgV3CRTP::INIT_FLAGS::AD | uvgV3CRTP::INIT_FLAGS::OVD | uvgV3CRTP::INIT_FLAGS::GVD | uvgV3CRTP::INIT_FLAGS::AVD |
+                    uvgV3CRTP::INIT_FLAGS::VPS,  
+                args->opts.srcAddress.c_str(), args->opts.srcPort.front()                                                    // Receiver address and port
+            );
+        } else {
+            std::copy(args->opts.srcPort.begin(), args->opts.srcPort.end(), ports);  // Use all given ports
+
+            return uvgV3CRTP::V3C_State<uvgV3CRTP::V3C_Receiver>(
+                uvgV3CRTP::INIT_FLAGS::AD | uvgV3CRTP::INIT_FLAGS::OVD | uvgV3CRTP::INIT_FLAGS::GVD | uvgV3CRTP::INIT_FLAGS::AVD |
+                    uvgV3CRTP::INIT_FLAGS::VPS,  
+                args->opts.srcAddress.c_str(), ports                                                               // Receiver address and ports
+            );
+        }
+    })();
+
+    // Define necessary information for receiving a v3c stream
+    // uint8_t v3c_size_precision   = AUTO_PRECISION_MODE ? static_cast<uint8_t>(-1) : V3C_SIZE_PRECISION;
+    // uint8_t atlas_size_precision = AUTO_PRECISION_MODE ? static_cast<uint8_t>(-1) : AtlasNAL_SIZE_PRECISION;
+    // uint8_t video_size_precision = AUTO_PRECISION_MODE ? static_cast<uint8_t>(-1) : Video_SIZE_PRECISION;
+    
+    // size_t expected_number_of_gof = AUTO_EXPECTED_NUM_MODE ? static_cast<size_t>(-1) : EXPECTED_NUM_GOFs;
+    // size_t num_vps                = AUTO_EXPECTED_NUM_MODE ? static_cast<size_t>(-1) : EXPECTED_NUM_VPSs;
+    // size_t num_ad_nalu            = AUTO_EXPECTED_NUM_MODE ? static_cast<size_t>(-1) : EXPECTED_NUM_AD_NALU;
+    // size_t num_ovd_nalu           = AUTO_EXPECTED_NUM_MODE ? static_cast<size_t>(-1) : EXPECTED_NUM_OVD_NALU;
+    // size_t num_gvd_nalu           = AUTO_EXPECTED_NUM_MODE ? static_cast<size_t>(-1) : EXPECTED_NUM_GVD_NALU;
+    // size_t num_avd_nalu           = AUTO_EXPECTED_NUM_MODE ? static_cast<size_t>(-1) : EXPECTED_NUM_AVD_NALU;
+    // size_t num_pvd_nalu           = 0;
+    // size_t num_cad_nalu           = 0;
+
+    uint8_t v3c_size_precision   = AUTO_PRECISION_MODE ? static_cast<uint8_t>(-1) : V3C_SIZE_PRECISION;
+    uint8_t atlas_size_precision = AUTO_PRECISION_MODE ? static_cast<uint8_t>(-1) : AtlasNAL_SIZE_PRECISION;
+    uint8_t video_size_precision = AUTO_PRECISION_MODE ? static_cast<uint8_t>(-1) : Video_SIZE_PRECISION;
+    
+    size_t expected_number_of_gof = AUTO_EXPECTED_NUM_MODE ? static_cast<size_t>(-1) : EXPECTED_NUM_GOFs;
+    size_t num_vps                = AUTO_EXPECTED_NUM_MODE ? static_cast<size_t>(-1) : EXPECTED_NUM_VPSs;
+    size_t num_ad_nalu            = EXPECTED_NUM_AD_NALU;
+    size_t num_ovd_nalu           = EXPECTED_NUM_OVD_NALU;
+    size_t num_gvd_nalu           = EXPECTED_NUM_GVD_NALU;
+    size_t num_avd_nalu           = EXPECTED_NUM_AVD_NALU;
+    size_t num_pvd_nalu           = 0;
+    size_t num_cad_nalu           = 0;
+
+    // Auto size precision if set to 0 (may not match orig bitstream)
+    uint8_t size_precisions[uvgV3CRTP::NUM_V3C_UNIT_TYPES] = {
+        0,
+        atlas_size_precision,
+        video_size_precision,
+        video_size_precision,
+        video_size_precision,
+        video_size_precision,
+        atlas_size_precision,
+    };
+    size_t num_nalus[uvgV3CRTP::NUM_V3C_UNIT_TYPES] = {
+        num_vps,
+        num_ad_nalu,
+        num_ovd_nalu,
+        num_gvd_nalu,
+        num_avd_nalu,
+        num_pvd_nalu,
+        num_cad_nalu,
+    };
+
+    uvgV3CRTP::HeaderStruct header_defs[uvgV3CRTP::NUM_V3C_UNIT_TYPES] = {
+        {uvgV3CRTP::V3C_VPS},
+        {uvgV3CRTP::V3C_AD, 0, 0},
+        {uvgV3CRTP::V3C_OVD, 0, 0},
+        {uvgV3CRTP::V3C_GVD, 0, 0, 0, 0, 0, false},
+        {uvgV3CRTP::V3C_AVD, 0, 0, 0, 0, 0, false},
+        {uvgV3CRTP::V3C_PVD, 0, 0},
+        {uvgV3CRTP::V3C_CAD, 0},
+    };
+
+    // ************************************************************************************
+    const std::shared_ptr<v3c_input_gof_handler_args> v3c_remote_gof_args = std::make_shared<v3c_input_gof_handler_args>();
+    v3c_remote_gof_args->V3C_SIZE_PRECISION = v3c_size_precision;
+
+    std::thread v3c_remote_inputTh = std::thread(&v3c_remote_input_thread, v3c_remote_gof_args, args);
+    
+    std::cerr << "Initialize state sample stream...\n" << std::flush;
+    uvgV3CRTP::ERROR_TYPE error_status = state.init_sample_stream(v3c_size_precision); //Init sample stream here since receive_gof() assumes data is initialized
+    std::cerr << "Done\n" << std::flush;
+
+    std::cerr << "Receiving bitstream...\n" << std::flush;
+    if (v3c_size_precision == 0) {
+        std::cerr << "Error: V3C_SIZE_PRECISION cannot be 0 since it is used to determine if size precision is included in the bitstream. Please set it to a value larger than 0 or set AUTO_PRECISION_MODE to true." << std::endl;
+        throw std::runtime_error("Invalid V3C_SIZE_PRECISION");
+    }
+    
+    size_t min_unit_size = 4*8 + v3c_size_precision; // 4 bytes for header + size precision
+
+    while (state.get_error_flag() == uvgV3CRTP::ERROR_TYPE::OK) {
+        // std::cerr << "  Receiving GoF...\n";
+
+        error_status = uvgV3CRTP::receive_gof(&state, size_precisions, num_nalus, header_defs, TIMEOUT);
+        state.last_gof();
+        if (state.cur_gof_has_unit(uvgV3CRTP::V3C_VPS) && num_nalus[uvgV3CRTP::V3C_VPS] > 0)
+        {
+            num_nalus[uvgV3CRTP::V3C_VPS] -= 1;
+            if (num_nalus[uvgV3CRTP::V3C_VPS] != 0)
+            {
+                for (auto& unit_header : header_defs)
+                {
+                    unit_header.vuh_v3c_parameter_set_id += 1;
+                }
+            }
+        } else {
+
+        }
+
+        if (state.get_error_flag() == uvgV3CRTP::ERROR_TYPE::TIMESTAMP) {
+            // std::cerr << " Timestamp error: " << state.get_error_msg() << std::endl;
+            state.reset_error_flag();
+        }
+
+        if (state.get_error_flag() == uvgV3CRTP::ERROR_TYPE::OK) {
+            state.last_gof();
+            size_t rec_len = 0;
+            auto rec = state.get_bitstream_cur_gof(&rec_len);
+            // auto rec = std::unique_ptr<char, decltype(&free)>(state.get_bitstream_cur_gof(&rec_len), &free);
+            if (!rec || rec_len < min_unit_size) { // Arbitrary minimum size check to ensure we have a valid bitstream (32 bytes for headers + size precision)
+                // std::cerr << "No reconstructed bitstream available for GoF\n";
+                continue;
+                // break;
+            }
+
+            // const uint8_t* ptr = reinterpret_cast<const uint8_t*>(rec);
+            // const uint8_t* ptr = reinterpret_cast<const uint8_t*>(rec.get());
+
+            v3c_remote_gof_ptr gof_ptr;
+            gof_ptr.ptr = rec;
+            gof_ptr.gof_size = rec_len;
+
+            v3c_remote_gof_args->gof_ptrs.push(std::move(gof_ptr));
+            // std::cerr << "Send GoF\n";
+
+            v3c_remote_gof_args->available_gof.release();
+        }
+
+    }
+
+
+    v3c_remote_gof_args->gof_ptrs.emplace();
+    v3c_remote_gof_args->available_gof.release();
+
+    if (v3c_remote_inputTh.joinable() ) v3c_remote_inputTh.join();
+
+    std::cerr << "Done Receiving GoFs\n" << std::flush;
+#else
+    throw std::runtime_error("V3C RTP not enabled, re-run cmake with '-DENABLE_V3CRTP=ON'.");
+#endif
+
+}
+
+void v3c_receiver_unit(const std::shared_ptr<input_handler_args>& args) {
 #ifdef ENABLE_V3CRTP
     uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::TRACE>(
         "V3CRTP",
@@ -697,7 +944,7 @@ void v3c_receiver(const std::shared_ptr<input_handler_args>& args) {
                 // std::cerr << " Received:\n" << std::flush;
 
                 size_t rec_len = 0;
-                auto rec = std::unique_ptr<char, decltype(&free)>(state.get_bitstream_cur_gof_unit(unit_type, &rec_len), &free);;
+                auto rec = std::unique_ptr<char, decltype(&free)>(state.get_bitstream_cur_gof_unit(unit_type, &rec_len), &free);
                 if (!rec || rec_len < min_unit_size) { // Arbitrary minimum size check to ensure we have a valid bitstream (32 bytes for headers + size precision)
                     std::cerr << "No reconstructed bitstream available for unit type " << unit_type << "\n" << std::flush;
                     receiving = false;
@@ -748,90 +995,6 @@ void v3c_receiver(const std::shared_ptr<input_handler_args>& args) {
     throw std::runtime_error("V3C RTP not enabled, re-run cmake with '-DENABLE_V3CRTP=ON'.");
 #endif
 
-}
-
-
-struct v3c_remote_gof_ptr {
-    const uint8_t* ptr;
-    size_t gof_size;
-
-    v3c_remote_gof_ptr() = default;
-
-    // v3c_remote_gof_ptr(uint8_t* ptr, size_t gof_size): ptr(ptr), gof_size(gof_size){}
-};
-
-
-struct v3c_input_gof_handler_args {
-    // Parameters passed from main thread to input thread.
-
-    std::queue<v3c_remote_gof_ptr> gof_ptrs = {};
-
-    uint8_t V3C_SIZE_PRECISION;
-
-    std::counting_semaphore<> available_gof{0};
-
-
-    // Retval retval;
-    // input_handler_args(const cli::opts_t& opts, std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, Retval retval)
-    //     : opts(opts), chunk_in(std::move(chunk)), retval(retval) {}
-};
-
-void v3c_remote_input_thread(const std::shared_ptr<v3c_input_gof_handler_args>& v3c_args, const std::shared_ptr<input_handler_args>& args) {
-    size_t gof_id = 0;
-    int chunk_count = 0;
-    Retval returnValue = Retval::Running;
-
-    while (true) {
-        v3c_args->available_gof.acquire();
-
-        const auto gof_ptr = v3c_args->gof_ptrs.front();
-
-        if(gof_ptr.ptr == nullptr) {
-            break;
-        }
-
-        const uint8_t* ptr = gof_ptr.ptr;
-        const uint8_t* end = ptr + gof_ptr.gof_size;
-
-        std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk = std::make_shared<uvgvpcc_dec::API::v3c_chunk>();
-        chunk->data = std::make_unique<std::vector<uint8_t>>();
-        chunk->gof_id = gof_id++;
-        //std::vector<uint8_t>* chunk_data = chunk->data.get();
-
-        for (int i = 0; i < 5; i++) {
-            size_t unit_size = read_value(ptr, v3c_args->V3C_SIZE_PRECISION);
-            ptr += v3c_args->V3C_SIZE_PRECISION;
-            chunk->v3c_unit_sizes.push_back(unit_size);
-            size_t old_size = chunk->data->size();
-            chunk->data->resize(old_size + unit_size);
-            std::memcpy(chunk->data->data() + old_size, ptr, unit_size);
-            ptr += unit_size;
-            std::cerr << "Stream size for current unit type of GOF " << static_cast<int>(chunk->gof_id) << " : " << i << " : " << static_cast<int>(unit_size) << "\n" << std::flush;
-        }
-
-        printf("GOF successfully recieved!\n");
-
-        v3c_args->gof_ptrs.pop();
-
-        available_input_slot.acquire();
-        args->chunk_in = chunk;
-        if (returnValue == Retval::Failure) {
-            args->retval = Retval::Failure;
-            printf("Failed Break!\n");
-            break;
-        } else {
-            assert(returnValue == Retval::Running && args->retval == Retval::Running);
-        }
-        chunk_count++;
-        filled_input_slot.release();
-    }
-
-    available_input_slot.acquire();
-    args->chunk_in = nullptr;
-    args->retval = Retval::Eof;
-    filled_input_slot.release();
-    
-    printf("Chunks received: %d\n", chunk_count);
 }
 
 void v3c_receiver_(const std::shared_ptr<input_handler_args>& args) {
@@ -929,52 +1092,52 @@ void v3c_receiver_(const std::shared_ptr<input_handler_args>& args) {
     size_t min_unit_size = 4*8 + v3c_size_precision; // 4 bytes for header + size precision
 
     while (state.get_error_flag() == uvgV3CRTP::ERROR_TYPE::OK) {
-        std::cerr << "  Receiving GoF...\n";
+        // std::cerr << "  Receiving GoF...\n";
 
-        error_status = uvgV3CRTP::receive_gof(&state, size_precisions, num_nalus, header_defs, TIMEOUT);
-        state.last_gof();
-        if (state.cur_gof_has_unit(uvgV3CRTP::V3C_VPS) && num_nalus[uvgV3CRTP::V3C_VPS] > 0)
-        {
-            num_nalus[uvgV3CRTP::V3C_VPS] -= 1;
-            if (num_nalus[uvgV3CRTP::V3C_VPS] != 0)
-            {
-                for (auto& unit_header : header_defs)
-                {
-                    unit_header.vuh_v3c_parameter_set_id += 1;
-                }
-            }
-        } else {
+        // error_status = uvgV3CRTP::receive_gof(&state, size_precisions, num_nalus, header_defs, TIMEOUT);
+        // state.last_gof();
+        // if (state.cur_gof_has_unit(uvgV3CRTP::V3C_VPS) && num_nalus[uvgV3CRTP::V3C_VPS] > 0)
+        // {
+        //     num_nalus[uvgV3CRTP::V3C_VPS] -= 1;
+        //     if (num_nalus[uvgV3CRTP::V3C_VPS] != 0)
+        //     {
+        //         for (auto& unit_header : header_defs)
+        //         {
+        //             unit_header.vuh_v3c_parameter_set_id += 1;
+        //         }
+        //     }
+        // } else {
 
-        }
+        // }
 
-        if (state.get_error_flag() == uvgV3CRTP::ERROR_TYPE::TIMESTAMP) {
-            // std::cerr << " Timestamp error: " << state.get_error_msg() << std::endl;
-            state.reset_error_flag();
-        }
+        // if (state.get_error_flag() == uvgV3CRTP::ERROR_TYPE::TIMESTAMP) {
+        //     // std::cerr << " Timestamp error: " << state.get_error_msg() << std::endl;
+        //     state.reset_error_flag();
+        // }
 
-        if (state.get_error_flag() == uvgV3CRTP::ERROR_TYPE::OK) {
-            state.last_gof();
-            size_t rec_len = 0;
-            auto rec = state.get_bitstream_cur_gof(&rec_len);
-            // auto rec = std::unique_ptr<char, decltype(&free)>(state.get_bitstream_cur_gof(&rec_len), &free);
-            if (!rec || rec_len < min_unit_size) { // Arbitrary minimum size check to ensure we have a valid bitstream (32 bytes for headers + size precision)
-                std::cerr << "No reconstructed bitstream available for GoF\n";
-                continue;
-                // break;
-            }
+        // if (state.get_error_flag() == uvgV3CRTP::ERROR_TYPE::OK) {
+        //     state.last_gof();
+        //     size_t rec_len = 0;
+        //     auto rec = state.get_bitstream_cur_gof(&rec_len);
+        //     // auto rec = std::unique_ptr<char, decltype(&free)>(state.get_bitstream_cur_gof(&rec_len), &free);
+        //     if (!rec || rec_len < min_unit_size) { // Arbitrary minimum size check to ensure we have a valid bitstream (32 bytes for headers + size precision)
+        //         std::cerr << "No reconstructed bitstream available for GoF\n";
+        //         continue;
+        //         // break;
+        //     }
 
-            const uint8_t* ptr = reinterpret_cast<const uint8_t*>(rec);
-            // const uint8_t* ptr = reinterpret_cast<const uint8_t*>(rec.get());
+        //     const uint8_t* ptr = reinterpret_cast<const uint8_t*>(rec);
+        //     // const uint8_t* ptr = reinterpret_cast<const uint8_t*>(rec.get());
 
-            v3c_remote_gof_ptr gof_ptr;
-            gof_ptr.ptr = ptr;
-            gof_ptr.gof_size = rec_len;
+        //     v3c_remote_gof_ptr gof_ptr;
+        //     gof_ptr.ptr = ptr;
+        //     gof_ptr.gof_size = rec_len;
 
-            v3c_remote_gof_args->gof_ptrs.push(std::move(gof_ptr));
-            std::cerr << "Send GoF\n";
+        //     v3c_remote_gof_args->gof_ptrs.push(std::move(gof_ptr));
+        //     std::cerr << "Send GoF\n";
 
-            v3c_remote_gof_args->available_gof.release();
-        }
+        //     v3c_remote_gof_args->available_gof.release();
+        // }
 
     }
 
@@ -1412,7 +1575,8 @@ int main(int argc, char* argv[]) {
 
         try {
             if (remote_input_output) {
-                uvgvpcc_dec::API::decodeFrame_parallel_delay(currChunk, &output);
+                // uvgvpcc_dec::API::decodeFrame_parallel_delay(currChunk, &output);
+                uvgvpcc_dec::API::decodeFrame_parallel_remote_output(currChunk, zmq_handler);
             } else {
                 if (appParameters.remoteOutputData) {
                     if (appParameters.in_order_output) {

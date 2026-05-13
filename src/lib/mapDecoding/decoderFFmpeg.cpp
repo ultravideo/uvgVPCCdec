@@ -330,7 +330,7 @@ void decodeVideoFFmpeg( std::vector<AVFrame*> &frames, AVCodecContext* codec_ctx
             data_buffer.clear();
         }
     }
-
+    
     // Flush decoder
     avcodec_send_packet(codec_ctx, nullptr);
     AVFrame* frame = av_frame_alloc();
@@ -339,10 +339,12 @@ void decodeVideoFFmpeg( std::vector<AVFrame*> &frames, AVCodecContext* codec_ctx
         frames.push_back(frame);
         frame = av_frame_alloc();
     }
-    av_frame_free(&frame);
 
+    av_frame_free(&frame);
     av_packet_free(&pkt);
+
     bitstream.clear();
+    bitstream.shrink_to_fit();
 }
 
 
@@ -546,6 +548,7 @@ void DecoderFFmpeg::decodeGOFMaps(const std::shared_ptr<uvgvpcc_dec::GOF>& gof) 
 
     std::vector<AVFrame*> frames = {};
     decodeVideoFFmpeg(frames, codec_ctx, bitstream, decoderName);
+    avcodec_free_context(&codec_ctx);
 
     writeDecodedFramesToMapList(gof, mapList, frames, decoderType_);
 

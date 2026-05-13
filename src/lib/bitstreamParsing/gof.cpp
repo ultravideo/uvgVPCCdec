@@ -230,7 +230,7 @@ void v3c_gof::read_v3c_chunk_parallel(std::shared_ptr<uvgvpcc_dec::API::v3c_chun
         gofUVG->doubleLayer = true;
     }
     
-    chunk->data.reset();
+    chunk->data->clear();
 
     uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::TRACE>("BITSTREAM GENERATION",
                              "New V3C chunk read, " + std::to_string(gofUVG->gofCount) + " chunk(s) in buffer. \n");

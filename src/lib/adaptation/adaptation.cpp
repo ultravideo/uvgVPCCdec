@@ -411,5 +411,10 @@ void Adaptation::adapt_remote_output(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, 
         // frame->pointsAttribute;
         // io_mutex.unlock();
     }
-    printf("GOF %d sent\n", (int)gofUVG->gofId);
+    
+    // gofUVG->bitstreamOccupancy.clear();
+    // gofUVG->bitstreamGeometry.clear();
+    // gofUVG->bitstreamAttribute.clear();
+    // gofUVG->frames.clear();
+    // printf("GOF %d sent\n", (int)gofUVG->gofId);
 }
