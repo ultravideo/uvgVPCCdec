@@ -247,6 +247,130 @@ void writeDecodedFramesToMapList_(
 
 }
 
+void YUV420ToYUV444_16bit_fast(
+    const uint8_t* yPlane,
+    const uint8_t* uPlane,
+    const uint8_t* vPlane,
+    int yStride,
+    int uvStride,
+    int width,
+    int height,
+    std::vector<uint16_t>& out
+) {
+    const int uvWidth  = width / 2;
+    const int uvHeight = height / 2;
+    const size_t sizeY = size_t(width) * height;
+
+    out.resize(sizeY * 3);
+
+    uint16_t* Y444 = out.data();
+    uint16_t* U444 = out.data() + sizeY;
+    uint16_t* V444 = out.data() + sizeY * 2;
+
+    // Y: 8-bit -> 16-bit
+    for (int y = 0; y < height; ++y) {
+        const uint8_t* srcY = yPlane + y * yStride;
+        uint16_t* dstY = Y444 + y * width;
+
+        for (int x = 0; x < width; ++x) {
+            dstY[x] = uint16_t(std::lround((srcY[x] / 255.0) * 65535.0));
+        }
+    }
+
+    auto getU = [&](int y, int x) -> double {
+        y = std::clamp(y, 0, uvHeight - 1);
+        x = std::clamp(x, 0, uvWidth - 1);
+        return (double(uPlane[y * uvStride + x]) - 128.0) / 255.0;
+    };
+
+    auto getV = [&](int y, int x) -> double {
+        y = std::clamp(y, 0, uvHeight - 1);
+        x = std::clamp(x, 0, uvWidth - 1);
+        return (double(vPlane[y * uvStride + x]) - 128.0) / 255.0;
+    };
+
+    auto toChroma16 = [](double v) -> uint16_t {
+        v = std::clamp(v, -0.5, 0.5);
+        return uint16_t(std::clamp(
+            std::lround(65535.0 * v + 32768.0),
+            0l,
+            65535l
+        ));
+    };
+
+    constexpr double s = 1.0 / 256.0;
+
+    for (int cy = 0; cy < uvHeight; ++cy) {
+        for (int cx = 0; cx < uvWidth; ++cx) {
+            double u_even_v = (-8.0  * getU(cy - 2, cx)
+                             + 64.0 * getU(cy - 1, cx)
+                             +216.0 * getU(cy,     cx)
+                             - 16.0 * getU(cy + 1, cx)) * s;
+
+            double u_odd_v = (-16.0 * getU(cy - 1, cx)
+                             +216.0 * getU(cy,     cx)
+                             + 64.0 * getU(cy + 1, cx)
+                             -  8.0 * getU(cy + 2, cx)) * s;
+
+            double v_even_v = (-8.0  * getV(cy - 2, cx)
+                             + 64.0 * getV(cy - 1, cx)
+                             +216.0 * getV(cy,     cx)
+                             - 16.0 * getV(cy + 1, cx)) * s;
+
+            double v_odd_v = (-16.0 * getV(cy - 1, cx)
+                             +216.0 * getV(cy,     cx)
+                             + 64.0 * getV(cy + 1, cx)
+                             -  8.0 * getV(cy + 2, cx)) * s;
+
+            for (int dy = 0; dy < 2; ++dy) {
+                const int outY = cy * 2 + dy;
+
+                const double uBase = dy == 0 ? u_even_v : u_odd_v;
+                const double vBase = dy == 0 ? v_even_v : v_odd_v;
+
+                // horizontal0
+                U444[outY * width + cx * 2] = toChroma16(uBase);
+                V444[outY * width + cx * 2] = toChroma16(vBase);
+
+                // horizontal1, correct TMC2 phase
+                auto getTempU = [&](int x) -> double {
+                    x = std::clamp(x, 0, uvWidth - 1);
+                    return dy == 0
+                        ? (-8.0 * getU(cy - 2, x) + 64.0 * getU(cy - 1, x) + 216.0 * getU(cy, x) - 16.0 * getU(cy + 1, x)) * s
+                        : (-16.0 * getU(cy - 1, x) + 216.0 * getU(cy, x) + 64.0 * getU(cy + 1, x) - 8.0 * getU(cy + 2, x)) * s;
+                };
+
+                auto getTempV = [&](int x) -> double {
+                    x = std::clamp(x, 0, uvWidth - 1);
+                    return dy == 0
+                        ? (-8.0 * getV(cy - 2, x) + 64.0 * getV(cy - 1, x) + 216.0 * getV(cy, x) - 16.0 * getV(cy + 1, x)) * s
+                        : (-16.0 * getV(cy - 1, x) + 216.0 * getV(cy, x) + 64.0 * getV(cy + 1, x) - 8.0 * getV(cy + 2, x)) * s;
+                };
+
+                double uOdd = (-16.0 * getTempU(cx - 1)
+                             +144.0 * getTempU(cx)
+                             +144.0 * getTempU(cx + 1)
+                             - 16.0 * getTempU(cx + 2)) * s;
+
+                double vOdd = (-16.0 * getTempV(cx - 1)
+                             +144.0 * getTempV(cx)
+                             +144.0 * getTempV(cx + 1)
+                             - 16.0 * getTempV(cx + 2)) * s;
+
+                U444[outY * width + cx * 2 + 1] = toChroma16(uOdd);
+                V444[outY * width + cx * 2 + 1] = toChroma16(vOdd);
+            }
+        }
+    }
+}
+
+int                 clamp( int v, int a, int b ) { return ( ( v < a ) ? a : ( ( v > b ) ? b : v ) ); }
+float               clamp( float v, float a, float b ) { return ( ( v < a ) ? a : ( ( v > b ) ? b : v ) ); }
+double              clamp( double v, double a, double b ) { return ( ( v < a ) ? a : ( ( v > b ) ? b : v ) ); }
+static inline float fMin( float a, float b ) { return ( ( a ) < ( b ) ) ? ( a ) : ( b ); }
+static inline float fMax( float a, float b ) { return ( ( a ) > ( b ) ) ? ( a ) : ( b ); }
+static inline float fClip( float x, float low, float high ) { return fMin( fMax( x, low ), high ); }
+
 inline double PCCClip( const double& n, const double& lower, const double& upper ) {
     return ( std::max )( lower, ( std::min )( n, upper ) );
 }
@@ -268,12 +392,35 @@ void YUVtoFloatYUV(const std::vector<uint8_t>& src, std::vector<float>& dst, uin
     }
 }
 
+void YUVtoFloatYUV_fromDecodedFrame(const uint8_t* src, int srcStride, int width, int height, float* dst, uint16_t offset, float minV, float maxV) {
+    double scale = 255.0;
+    double weight = 1.0 / scale;
+
+    for (int y = 0; y < height; ++y) {
+        const uint8_t* srcRow = src + y * srcStride;
+        float* dstRow = dst + y * width;
+
+        for (int x = 0; x < width; ++x) {
+            dstRow[x] = std::clamp((float)(weight * (double)(srcRow[x] - offset)), minV, maxV);
+            // dstRow[x] = clamp((float)(weight * (double)(srcRow[x] - offset)), minV, maxV );
+        }
+    }
+}
+
 void floatYUVtoYUV(const std::vector<float>& src, std::vector<uint16_t>& dst, double offset, double scale) {
     size_t count = src.size();
     dst.resize(count);
 
     for (size_t i = 0; i < count; i++) {
         dst[i] = static_cast<uint16_t>( PCCClip(std::round((float)(scale * (double)src[i] + offset)), 0.f, (float)scale) );
+    }
+}
+
+void floatYUVtoYUV(const std::vector<float>& src, uint16_t* dst, double offset, double scale) {
+    size_t count = src.size();
+
+    for (size_t i = 0; i < count; i++) {
+        dst[i] = static_cast<uint16_t>( fClip(std::round((float)(scale * (double)src[i] + offset)), 0.f, (float)scale) );
     }
 }
 
@@ -285,6 +432,7 @@ void upsampling(const std::vector<float>& chromaIn, std::vector<float>& chromaOu
     temp.resize(widthIn * heightOut);
 
     constexpr float scale = 1.0f / 256.0f;
+    //const float scale = 1.0f / ( (float)( 1 << ( (int)8 ) ) );
 
     // Vertical upsampling
     for (int i = 0; i < heightIn; i++) {
@@ -301,16 +449,16 @@ void upsampling(const std::vector<float>& chromaIn, std::vector<float>& chromaOu
 
         for (int j = 0; j < widthIn; j++) {
             temp[(2 * i) * widthIn + j] = (
-                -8.0*chromaIn[i0_m2_clamp+j] + 
-                64.0*chromaIn[i0_m1_clamp+j] + 
-                216.0*chromaIn[i0_clamp+j] - 
-                16.0*chromaIn[i0_p1_clamp+j]
+                -8.0f*chromaIn[i0_m2_clamp+j] + 
+                64.0f*chromaIn[i0_m1_clamp+j] + 
+                216.0f*chromaIn[i0_clamp+j] - 
+                16.0f*chromaIn[i0_p1_clamp+j]
             ) * scale;
             temp[(2 * i + 1) * widthIn + j] = (
-                -16.0*chromaIn[i0_m1_clamp+j] + 
-                216.0*chromaIn[i0_clamp+j] + 
-                64.0*chromaIn[i0_p1_clamp+j] - 
-                8.0*chromaIn[i0_p2_clamp+j]
+                -16.0f*chromaIn[i0_m1_clamp+j] + 
+                216.0f*chromaIn[i0_clamp+j] + 
+                64.0f*chromaIn[i0_p1_clamp+j] - 
+                8.0f*chromaIn[i0_p2_clamp+j]
             ) * scale;
         }
     }
@@ -322,16 +470,17 @@ void upsampling(const std::vector<float>& chromaIn, std::vector<float>& chromaOu
             chromaOut[i * widthOut + j * 2] = temp[step + std::clamp(j, 0, widthIn - 1)]; // ( 256*temp[step + std::clamp(j, 0, widthIn - 1)] ) * scale
             // chromaOut[i * widthOut + j * 2 + 1][1] = temp[0][step + std::clamp(j+1, 0, widthIn - 1)]; // ( 256*temp[step + std::clamp(j+1, 0, widthIn - 1)] ) * scale
             chromaOut[i * widthOut + j * 2 + 1] = (
-                -16.0*temp[step + std::clamp(j - 1, 0, widthIn - 1)] + 
-                144.0*temp[step + std::clamp(j, 0, widthIn - 1)] + 
-                144.0*temp[step + std::clamp(j + 1, 0, widthIn - 1)] - 
-                16.0*temp[step + std::clamp(j + 2, 0, widthIn - 1)]  
+                -16.0f*temp[step + std::clamp(j - 1, 0, widthIn - 1)] + 
+                144.0f*temp[step + std::clamp(j, 0, widthIn - 1)] + 
+                144.0f*temp[step + std::clamp(j + 1, 0, widthIn - 1)] - 
+                16.0f*temp[step + std::clamp(j + 2, 0, widthIn - 1)]  
             ) * scale;
         }
     }
 }
 
-void writeDecodedFramesToMapList_color_inversion(
+
+void writeDecodedFramesToMapList_tmc2_yuv420yuv444_conversion(
     const std::shared_ptr<uvgvpcc_dec::GOF>& gof, 
     std::vector<std::reference_wrapper<std::vector<uint16_t>>> &mapList, 
     std::vector<AVFrame*> &frames,
@@ -377,8 +526,6 @@ void writeDecodedFramesToMapList_color_inversion(
             yuv420[2].insert(yuv420[2].end(), frame->data[2] + y*frame->linesize[2], frame->data[2] + y*frame->linesize[2] + UV_width);
         }
 
-        av_frame_free(&frame);
-
         // Apply tmc2 color inversion
         YUVtoFloatYUV(yuv420[0], yuv420_f[0], 0, minV_y, maxV_y);
         YUVtoFloatYUV(yuv420[1], yuv420_f[1], 128, minV_uv, maxV_uv);
@@ -393,6 +540,69 @@ void writeDecodedFramesToMapList_color_inversion(
         map.insert(map.end(), yuv444[0].data(), yuv444[0].data() + yuv444[0].size());
         map.insert(map.end(), yuv444[1].data(), yuv444[1].data() + yuv444[1].size());
         map.insert(map.end(), yuv444[2].data(), yuv444[2].data() + yuv444[2].size());
+
+
+        av_frame_free(&frame);
+    }
+
+}
+
+
+void writeDecodedFramesToMapList_tmc2Yuv420yuv444Conversion_fast(
+    const std::shared_ptr<uvgvpcc_dec::GOF>& gof, 
+    std::vector<std::reference_wrapper<std::vector<uint16_t>>> &mapList, 
+    std::vector<AVFrame*> &frames,
+    const DECODER_TYPE& decoderType
+) {
+
+    if (frames.empty()) {
+        throw std::runtime_error("FFmpeg decoder produced no frames.");
+    }
+
+    const int height = frames.front()->height;
+    const int width  = frames.front()->width;
+
+    // Store the map size
+    gof->attribute_map_width  = (size_t)width;
+    gof->attribute_map_height = (size_t)height;
+    
+    const size_t sizeY  = size_t(width) * size_t(height);
+    const size_t sizeUV = sizeY >> 2U;
+    const size_t UV_width = width >> 1; // width / 2
+    const size_t UV_height = height >> 1;
+
+    float minV_uv = -0.5f; // Chroma
+    float maxV_uv = 0.5f; // Chroma
+    float minV_y =  0.f;
+    float maxV_y = 1.f;
+
+    for (size_t frame_index = 0; frame_index < frames.size(); ++frame_index) {
+        AVFrame* frame = frames[frame_index];
+        std::vector<uint16_t>& map = mapList[frame_index].get();
+
+        std::vector<float> yuv420_f[3];
+        std::vector<float> yuv444_f[3];
+
+        yuv420_f[0].resize(sizeY);
+        yuv420_f[1].resize(sizeUV);
+        yuv420_f[2].resize(sizeUV);
+
+        // Apply tmc2 color inversion
+        YUVtoFloatYUV_fromDecodedFrame(frame->data[0], frame->linesize[0], width,    height,    yuv420_f[0].data(), 0,   minV_y,  maxV_y);
+        YUVtoFloatYUV_fromDecodedFrame(frame->data[1], frame->linesize[1], UV_width, UV_height, yuv420_f[1].data(), 128, minV_uv, maxV_uv);
+        YUVtoFloatYUV_fromDecodedFrame(frame->data[2], frame->linesize[2], UV_width, UV_height, yuv420_f[2].data(), 128, minV_uv, maxV_uv);
+        upsampling(yuv420_f[1], yuv444_f[1], (int)UV_width, (int)UV_height);
+        upsampling(yuv420_f[2], yuv444_f[2], (int)UV_width, (int)UV_height);
+
+        map.resize(sizeY*3); // Y + U + V
+        uint16_t* dstY = map.data();
+        uint16_t* dstU = map.data() + sizeY;
+        uint16_t* dstV = map.data() + sizeY * 2;
+        floatYUVtoYUV(yuv420_f[0], dstY, 0, 65535.);
+        floatYUVtoYUV(yuv444_f[1], dstU, 32768., 65535.);
+        floatYUVtoYUV(yuv444_f[2], dstV, 32768., 65535.);
+
+        av_frame_free(&frame);
     }
 
 }
@@ -512,7 +722,8 @@ void DecoderFFmpeg::decodeGOFMaps(const std::shared_ptr<uvgvpcc_dec::GOF>& gof) 
     if (decoderType_ == ATTRIBUTE && p_->useTMC2AttributeYUVConversion) {
         std::vector<std::reference_wrapper<std::vector<uint16_t>>> mapList_16bit;
         setMapList_16bit(gof, mapList_16bit);
-        writeDecodedFramesToMapList_color_inversion(gof, mapList_16bit, frames, decoderType_);
+        writeDecodedFramesToMapList_tmc2Yuv420yuv444Conversion_fast(gof, mapList_16bit, frames, decoderType_);
+        //writeDecodedFramesToMapList_tmc2_yuv420yuv444_conversion(gof, mapList_16bit, frames, decoderType_);
     } else {
         writeDecodedFramesToMapList(gof, mapList, frames, decoderType_);
     }

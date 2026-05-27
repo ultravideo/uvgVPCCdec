@@ -111,7 +111,6 @@ void convertYUV16ToRGB8(std::vector<Vector3<uint16_t>>& colors_16bits, std::vect
         v = ( std::max )( v, -0.5 );
         v = ( std::min )( v, 0.5 );
 
-
         // convert normalized yuv444 to normalized rgb (fromat double)
         double r = y /*- 0.00000 * u1*/ + 1.57480 * v;
         double g = y - 0.18733 * u - 0.46813 * v;
@@ -346,6 +345,7 @@ void Adaptation::adapt(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, uvgvpcc_dec::A
                     frame->frameId);
 
         write_point_cloud(filename, frame.get(), false);
+        // write_point_cloud(filename, frame.get(), true);
     }
 
     if (in_order_output) {
