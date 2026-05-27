@@ -29,7 +29,6 @@ void atlas_context::write_atlas_tile_layer_rbsp_to_gof(const atlas_tile_layer_rb
     // printf("  Number of patches: %zu\n", pid_count);
     for (size_t patch_index = 0; patch_index < pid_count; ++patch_index) {
         uvgvpcc_dec::Patch patchUVG;
-        // const patch_data_unit& pdu = rbsp.atdu_.patch_information_data_.at(patch_index).patch_data_unit_;
         const patch_data_unit& pdu = rbsp.atdu_.patch_information_data_.at(patch_index).patch_data_unit_;
 
         patchUVG.occupancy_resolution = size_t(1) << asps_.asps_log2_patch_packing_block_size;
@@ -400,7 +399,6 @@ void atlas_context::read_atlas_sub_bitstream(const size_t& v3c_unit_payload_size
 
     bitstream_advance(stream, 5); 
 
-    // size_t frameId = gofUVG->gofId * (gofUVG->gofCount + (gofUVG->gofCount & 1));
     size_t frameId = 0;
     while (true) {
         if (stream->len >= length) {

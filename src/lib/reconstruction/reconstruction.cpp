@@ -95,6 +95,28 @@ Vector3<uint8_t> get_attribute(
 }
 
 
+// Vector3<uint16_t> get_attribute(
+//     const std::vector<uint16_t>& attributeMap, 
+//     const size_t& offsetU,
+//     const size_t& offsetV,
+//     const size_t& width, 
+//     const size_t u, const size_t v
+// ) {
+//     size_t corrected_u = u >> 1;
+//     size_t corrected_v = v >> 1;
+//     size_t corrected_width = width >> 1;
+
+//     Vector3<uint16_t> color;
+//     size_t indexUV =  corrected_v * corrected_width + corrected_u;
+//     // Y
+//     color[0] = attributeMap[v * width + u]; 
+//     // U
+//     color[1] = attributeMap[offsetU + indexUV]; 
+//     // V
+//     color[2] = attributeMap[offsetV + indexUV];
+//     return color;    
+// }
+
 Vector3<uint16_t> get_attribute(
     const std::vector<uint16_t>& attributeMap, 
     const size_t& offsetU,
@@ -102,18 +124,14 @@ Vector3<uint16_t> get_attribute(
     const size_t& width, 
     const size_t u, const size_t v
 ) {
-    size_t corrected_u = u >> 1;
-    size_t corrected_v = v >> 1;
-    size_t corrected_width = width >> 1;
-
+    const size_t index = v * width + u;
     Vector3<uint16_t> color;
-    size_t indexUV =  corrected_v * corrected_width + corrected_u;
     // Y
-    color[0] = attributeMap[v * width + u]; 
+    color[0] = attributeMap[index]; 
     // U
-    color[1] = attributeMap[offsetU + indexUV]; 
+    color[1] = attributeMap[offsetU + index]; 
     // V
-    color[2] = attributeMap[offsetV + indexUV];
+    color[2] = attributeMap[offsetV + index];
     return color;    
 }
 
@@ -504,7 +522,7 @@ void Reconstruction::reconstructPointCloud(std::shared_ptr<uvgvpcc_dec::GOF>& go
 
     const size_t& attribute_map_width = gofUVG->attribute_map_width;
     const size_t offsetU = attribute_map_width * gofUVG->attribute_map_height;
-    const size_t offsetV = offsetU + (offsetU >> 2U);
+    const size_t offsetV = p_->useTMC2AttributeYUVConversion? (offsetU << 1U) : offsetU + (offsetU >> 2U);
 
     //size_t frameId = gofUVG->gofId * gofUVG->gofCount;
     for (auto &frame : gofUVG->frames) {
@@ -531,9 +549,20 @@ void Reconstruction::reconstructPointCloud(std::shared_ptr<uvgvpcc_dec::GOF>& go
 
         // const auto& attributeMap1 = frame->attributeMapL1;
         // const auto& attributeMap2 = multipleStreams_ ? frame->attributeMapL1 : frame->attributeMapL2;
+        
+        // auto* attributeMaps = &frame->attributeMapL1;
+        // // if (layer_count > 1) attributeMaps[1] = (multipleStreams_ ? frame->attributeMapL1 : frame->attributeMapL2);
+        // if (layer_count > 1) {
+        //     attributeMaps[1] = (multipleStreams_ ? frame->attributeMapL1 : frame->attributeMapL2);
+        // } 
 
         auto* attributeMaps = &frame->attributeMapL1;
-        if (layer_count > 1) attributeMaps[1] = (multipleStreams_ ? frame->attributeMapL1 : frame->attributeMapL2);
+        auto* attributeMaps_16bits = &frame->attributeMapL1_16bits;
+        if (layer_count > 1) {
+            attributeMaps[1] = (multipleStreams_ ? frame->attributeMapL1 : frame->attributeMapL2);
+            attributeMaps_16bits[1] = (multipleStreams_ ? frame->attributeMapL1_16bits : frame->attributeMapL2_16bits);
+        } 
+
 
         for (size_t patch_index = 0; patch_index < patchList.size(); patch_index++) { // Patch
             const size_t patch_index_tmp = asps_patch_precedence_order_flag ? (patchList.size() - patch_index - 1) : patch_index;
@@ -570,10 +599,11 @@ void Reconstruction::reconstructPointCloud(std::shared_ptr<uvgvpcc_dec::GOF>& go
                                 }
                                 // Get pointsAttribute, color the points
                                 if (p_->useTMC2AttributeYUVConversion) {
-                                    
+                                    frame->pointsAttribute16bits.push_back(get_attribute(attributeMaps_16bits[i], offsetU, offsetV, attribute_map_width, x, y));
                                 } else {
                                     frame->pointsAttribute.push_back(get_attribute(attributeMaps[i], offsetU, offsetV, attribute_map_width, x, y));
                                 }
+                                // frame->pointsAttribute.push_back(get_attribute(attributeMaps[i], offsetU, offsetV, attribute_map_width, x, y));
                             } // get pointsGeometry and color the points
                         }
                     } // patch.occupancy_resolution

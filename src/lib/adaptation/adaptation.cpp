@@ -19,6 +19,10 @@ inline double PCCClip( const double& n, const double& lower, const double& upper
     return ( std::max )( lower, ( std::min )( n, upper ) );
 }
 
+inline float PCCClip( const float& n, const float& lower, const float& upper ) {
+    return ( std::max )( lower, ( std::min )( n, upper ) );
+}
+
 
 /*
 offset = 128.0 but for what ?
@@ -84,80 +88,49 @@ offset = 128.0 but for what ?
 // }
 
 
-void upsampleYUV420toYUV444(
-    const std::vector<Vector3<uint8_t>>& src_colors, 
-    const size_t& width, 
-    const size_t& height, 
-    std::vector<Vector3<uint16_t>>& dst, 
-    bool invertChroma = true
-) {
-    dst.resize(width * height);
 
-    // Copy Y and convert to 16-bit
-    for(size_t i = 0; i < width * height; ++i)
-        dst[i][0] = static_cast<uint16_t>(src_colors[i][0]) << 8;
+// TMC2 : convert yuv444 (16bit) to normalized yuv444 (format double)
+void convertYUV16ToRGB8(std::vector<Vector3<uint16_t>>& colors_16bits, std::vector<Vector3<uint8_t>>& colors) {
+    double offset = 32768.0;
+    double scale  = 65535.0;
+    double weight = 1.0 / scale;
+    colors.resize(colors_16bits.size());
 
-    size_t width2 = width >> 1;
+    for(size_t i = 0; i < colors_16bits.size(); ++i) {
+        double y = colors_16bits[i][0];
+        double u = colors_16bits[i][1];
+        double v = colors_16bits[i][2];
 
-    size_t idx = 0;
-    for(size_t y = 0; y < height; y += 2) {
-        for(size_t x2 = 0; x2 < width2; ++x2, ++idx) {
-            size_t x = x2 * 2;
-            uint16_t val_U = static_cast<uint16_t>(src_colors[idx][1]) << 8;
-            uint16_t val_V = static_cast<uint16_t>(src_colors[idx][2]) << 8;
-            if (invertChroma) {
-                val_U = 65535 - val_U; // TMC2 color inversion
-                val_V = 65535 - val_V; // TMC2 color inversion
-            } 
-            dst[y * width + x][1]     = val_U;
-            dst[y * width + x + 1][1] = val_U;
-            dst[(y+1) * width + x][1]     = val_U;
-            dst[(y+1) * width + x + 1][1] = val_U;
+        y = weight * y;
+        u = weight * ( u - offset );
+        v = weight * ( v - offset );
+        y = ( std::max )( y, 0.0 );
+        y = ( std::min )( y, 1.0 );
+        u = ( std::max )( u, -0.5 );
+        u = ( std::min )( u, 0.5 );
+        v = ( std::max )( v, -0.5 );
+        v = ( std::min )( v, 0.5 );
 
-            dst[y * width + x][2]     = val_V;
-            dst[y * width + x + 1][2] = val_V;
-            dst[(y+1) * width + x][2]     = val_V;
-            dst[(y+1) * width + x + 1][2] = val_V;
-        }
+
+        // convert normalized yuv444 to normalized rgb (fromat double)
+        double r = y /*- 0.00000 * u1*/ + 1.57480 * v;
+        double g = y - 0.18733 * u - 0.46813 * v;
+        double b = y + 1.85563 * u /*+ 0.00000 * v1*/;
+
+        // convert normalized rgb to 8-bit rgb
+        r = PCCClip( round( r * 255 ), 0.0, 255.0 );
+        g = PCCClip( round( g * 255 ), 0.0, 255.0 );
+        b = PCCClip( round( b * 255 ), 0.0, 255.0 );
+
+        colors[i][0] = static_cast<uint8_t>( r );
+        colors[i][1] = static_cast<uint8_t>( g );
+        colors[i][2] = static_cast<uint8_t>( b );
     }
+    
 }
 
 
-// void convertYUV16toRGB8(const std::vector<uint16_t>& Y16,
-//                         const std::vector<uint16_t>& U16,
-//                         const std::vector<uint16_t>& V16,
-//                         RGBFrame& rgb)
-// {
-//     size_t N = Y16.size();
-//     rgb.R.resize(N);
-//     rgb.G.resize(N);
-//     rgb.B.resize(N);
-
-//     for(size_t i = 0; i < N; ++i) {
-//         // Normalize
-//         double y = static_cast<double>(Y16[i]) / 65535.0;
-//         double u = (static_cast<double>(U16[i]) - 32768.0) / 65535.0;
-//         double v = (static_cast<double>(V16[i]) - 32768.0) / 65535.0;
-
-//         // Clamp
-//         y = std::clamp(y, 0.0, 1.0);
-//         u = std::clamp(u, -0.5, 0.5);
-//         v = std::clamp(v, -0.5, 0.5);
-
-//         // YUV -> RGB (TMC2 coefficients)
-//         double r = y + 1.57480 * v;
-//         double g = y - 0.18733 * u - 0.46813 * v;
-//         double b = y + 1.85563 * u;
-
-//         // Convert to 8-bit
-//         rgb.R[i] = static_cast<uint8_t>(std::clamp(std::round(r * 255.0), 0.0, 255.0));
-//         rgb.G[i] = static_cast<uint8_t>(std::clamp(std::round(g * 255.0), 0.0, 255.0));
-//         rgb.B[i] = static_cast<uint8_t>(std::clamp(std::round(b * 255.0), 0.0, 255.0));
-//     }
-// }
-
-
-
+// 
 void convert_colors_slow(std::vector<Vector3<uint8_t>>& colors) {
     const double& offset = 128.0;
     const double& scale = 255.0;
@@ -189,6 +162,24 @@ void convert_colors_slow(std::vector<Vector3<uint8_t>>& colors) {
     }
 
 }
+
+void convert_colors_fast(std::vector<Vector3<uint8_t>>& colors) {
+    for (auto& color : colors) {
+        const float y = color[0];
+        const float u = color[1] - 128;
+        const float v = color[2] - 128;
+
+        const float r = y + (v * 8 / 5);  // 1.57480 ≈ 8/5
+        const float g = y - (u * 3 / 16) - (v * 6 / 13);  // Approximation of combined factors
+        const float b = y + (u * 15 / 8);  // 1.85563 ≈ 15/8
+
+        // Directly clamp to 8-bit range using bitwise operations
+        color[0] = static_cast<uint8_t>(r < 0 ? 0 : r > 255 ? 255 : r);
+        color[1] = static_cast<uint8_t>(g < 0 ? 0 : g > 255 ? 255 : g);
+        color[2] = static_cast<uint8_t>(b < 0 ? 0 : b > 255 ? 255 : b);
+    }
+}
+
 
 enum PCCEndianness { PCC_BIG_ENDIAN = 0, PCC_LITTLE_ENDIAN = 1 };
 static inline PCCEndianness PCCSystemEndianness() {
@@ -239,7 +230,6 @@ bool write_point_cloud( const std::string fileName, uvgvpcc_dec::Frame* frame, c
                     << static_cast<int>( color[2] );
             }
 
-            //fout << std::endl;
             fout << '\n';
         }
     } else {
@@ -336,11 +326,12 @@ void Adaptation::adapt(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, uvgvpcc_dec::A
         auto &frame = gofUVG->frames[i];
 
         if (p_->useTMC2AttributeYUVConversion) {
-
+            convertYUV16ToRGB8(frame->pointsAttribute16bits, frame->pointsAttribute);
         } else {
             if (p_->fast_color_conversion) {
-
+                convert_colors_fast(frame->pointsAttribute);
             } else {
+                // printf("Using slow color conversion, color size: %zu\n", frame->pointsAttribute.size());
                 convert_colors_slow(frame->pointsAttribute);
             }
         }

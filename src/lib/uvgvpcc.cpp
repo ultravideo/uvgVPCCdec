@@ -65,7 +65,8 @@ void API::emptyFrameQueue(std::shared_ptr<uvgvpcc_dec::ThreadQueue>& queue, std:
 const Parameters* p_ = &param;
 
 void API::initializeDecoder() {
-    param.useTMC2AttributeYUVConversion = false;
+    // param.useTMC2AttributeYUVConversion = false;
+    param.useTMC2AttributeYUVConversion = true;
     param.fast_color_conversion = false;
 
     param.exportIntermediateFiles = false;
@@ -374,7 +375,7 @@ void API::decodeFrame_delay(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, 
     currentGOF->gofId = chunk->gof_id;
     currentGOF->gofCount = chunk->gof_count;
 
-    BitstreamParsing::parseV3CGOFBitstream_v3crtp(currentGOF, v3c_gof_, *(p_), chunk);
+    BitstreamParsing::parseV3CGOFBitstream_parallel(currentGOF, v3c_gof_, *(p_), chunk);
     try
     {
         MapDecoding::decodeGOFMaps(currentGOF);

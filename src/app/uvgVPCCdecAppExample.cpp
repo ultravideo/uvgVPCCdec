@@ -343,115 +343,263 @@ bool output_thread(uvgvpcc_dec::API::point_cloud_frame_stream* output, const std
     return true;
 }
 
+bool output_thread_remote_delay_old(
+    uvgvpcc_dec::API::point_cloud_frame_stream* output,
+    const std::shared_ptr<zmqHandler> zmq_handler)
+{
+    constexpr int delay_gofs = 4;
+    constexpr int FPS = 30;
+
+    using Clock = std::chrono::steady_clock;
+
+    const auto frame_period =
+        std::chrono::microseconds(1000000 / FPS); // ~33.333 ms
+
+    int buffered_gofs = 0;
+    bool timing_started = false;
+
+    Clock::time_point next_send_time;
+
+    while (true) {
+        output->available_frames.acquire();
+
+        // Wait until enough GOFs are buffered before sending
+        if (buffered_gofs < delay_gofs) {
+            buffered_gofs++;
+            continue;
+        }
+
+        // Start the output clock only once
+        if (!timing_started) {
+            next_send_time = Clock::now() + frame_period;
+            timing_started = true;
+        }
+
+        while (true) {
+            std::shared_ptr<uvgvpcc_dec::GOF> gof;
+
+            {
+                std::lock_guard<std::mutex> lock(output->io_mutex);
+
+                if (output->available_gofs_queue.empty()) {
+                    break;
+                }
+
+                gof = output->available_gofs_queue.front();
+                output->available_gofs_queue.pop();
+            }
+
+            for (auto& frame : gof->frames) {
+                std::this_thread::sleep_until(next_send_time);
+
+                {
+                    std::lock_guard<std::mutex> lock(zmq_handler->zmq_mutex);
+
+                    zmq_send(
+                        zmq_handler->positionSocket,
+                        frame->pointsGeometry.data(),
+                        frame->pointsGeometry.size() * sizeof(uvgvpcc_dec::Vector3<uint16_t>),
+                        0
+                    );
+
+                    zmq_send(
+                        zmq_handler->colorSocket,
+                        frame->pointsAttribute.data(),
+                        frame->pointsAttribute.size() * sizeof(uvgvpcc_dec::Vector3<uint8_t>),
+                        0
+                    );
+                }
+
+                next_send_time += frame_period;
+            }
+        }
+    }
+
+    return true;
+}
 
 // Assume the input frames have some delay
 bool output_thread_remote_delay(uvgvpcc_dec::API::point_cloud_frame_stream* output, const std::shared_ptr<zmqHandler> zmq_handler)
 {   
 
-    constexpr int delay_gofs = 1;
-    constexpr int FPS = 50;
+    // constexpr int delay_gofs = 1;
+    // constexpr int FPS = 30;
 
-    using Clock = std::chrono::steady_clock;
-    const auto frame_period = std::chrono::milliseconds(1000 / FPS); // 40 ms
+    // using Clock = std::chrono::steady_clock;
+    // const auto frame_period = std::chrono::milliseconds(1000 / FPS); // 30 ms
 
-    int buffered_gofs = 0;
+    // int buffered_gofs = 0;
 
     // while (true) {
     //     output->available_frames.acquire();
+    //     // printf("Available GOFs: %d\n", (int)output->available_gofs_queue.size());
+
+    //     if (buffered_gofs != delay_gofs) {
+    //         buffered_gofs++;
+    //         continue;
+    //     }
+
     //     // First frame will be sent after one full frame period
     //     auto next_send_time = Clock::now() + frame_period;
 
-    //     // std::shared_ptr<uvgvpcc_dec::GOF> gof;
+    //     while (!output->available_gofs_queue.empty()) {
+    //         output->io_mutex.lock();
+    //         std::shared_ptr<uvgvpcc_dec::GOF> gof = output->available_gofs_queue.front();
+    //         output->available_gofs_queue.pop();
+    //         output->io_mutex.unlock();
 
-    //     // {
-    //     //     std::lock_guard<std::mutex> lock(output->io_mutex);
+    //         for (auto& frame : gof->frames) {
+    //             std::this_thread::sleep_until(next_send_time);
 
-    //     //     if (output->available_gofs_queue.empty()) {
-    //     //         continue;
-    //     //     }
+    //             {
+    //                 std::lock_guard<std::mutex> lock(zmq_handler->zmq_mutex);
 
-    //     //     if (output->available_gofs_queue.front() == nullptr) {
-    //     //         break;
-    //     //     }
+    //                 zmq_send(
+    //                     zmq_handler->positionSocket,
+    //                     frame->pointsGeometry.data(),
+    //                     frame->pointsGeometry.size() * sizeof(uvgvpcc_dec::Vector3<uint16_t>),
+    //                     0
+    //                 );
 
-    //     //     // buffered_gofs++;
-    //     //     // if (buffered_gofs < delay_gofs) {
-    //     //     //     continue;
-    //     //     // }
+    //                 zmq_send(
+    //                     zmq_handler->colorSocket,
+    //                     frame->pointsAttribute.data(),
+    //                     frame->pointsAttribute.size() * sizeof(uvgvpcc_dec::Vector3<uint8_t>),
+    //                     0
+    //                 );
+    //             }
 
-    //     //     gof = output->available_gofs_queue.front();
-    //     //     output->available_gofs_queue.pop();
-    //     // }
-
-    //     if (output->available_gofs_queue.front() == nullptr) {
-    //         break;
-    //     }
-    //     output->io_mutex.lock();
-    //     std::shared_ptr<uvgvpcc_dec::GOF> gof = output->available_gofs_queue.front();
-    //     output->available_gofs_queue.pop();
-    //     output->io_mutex.unlock();
-
-    //     for (auto& frame : gof->frames) {
-    //         std::this_thread::sleep_until(next_send_time);
-
-    //         {
-    //             std::lock_guard<std::mutex> lock(zmq_handler->zmq_mutex);
-
-    //             zmq_send(
-    //                 zmq_handler->positionSocket,
-    //                 frame->pointsGeometry.data(),
-    //                 frame->pointsGeometry.size() * sizeof(uvgvpcc_dec::Vector3<uint16_t>),
-    //                 0
-    //             );
-
-    //             zmq_send(
-    //                 zmq_handler->colorSocket,
-    //                 frame->pointsAttribute.data(),
-    //                 frame->pointsAttribute.size() * sizeof(uvgvpcc_dec::Vector3<uint8_t>),
-    //                 0
-    //             );
+    //             next_send_time += frame_period;
     //         }
-
-    //         next_send_time += frame_period;
     //     }
+
     // }
 
 
+    constexpr int delay_gofs = 1;
+    constexpr int FPS = 30;
+
+    int frameDuration = 1000 / FPS;
+
+    using Clock = std::chrono::steady_clock;
+    const auto frame_period = std::chrono::milliseconds(1000 / FPS); // 30 ms
+
+    std::chrono::steady_clock::time_point frameStart = std::chrono::steady_clock::now();
+
+    int buffered_gofs = 0;
+
     while (true) {
         output->available_frames.acquire();
+        // printf("Available GOFs: %d\n", (int)output->available_gofs_queue.size());
 
-        if (output->available_gofs_queue.front() == nullptr) {
-            break;
+        if (buffered_gofs != delay_gofs) {
+            buffered_gofs++;
+            continue;
         }
-        output->io_mutex.lock();
-        std::shared_ptr<uvgvpcc_dec::GOF> gof = output->available_gofs_queue.front();
-        output->available_gofs_queue.pop();
-        output->io_mutex.unlock();
 
-        for (auto& frame : gof->frames) {
-            
+        // First frame will be sent after one full frame period
+        auto next_send_time = Clock::now() + frame_period;
 
-            {
-                std::lock_guard<std::mutex> lock(zmq_handler->zmq_mutex);
+        while (!output->available_gofs_queue.empty()) {
+            output->io_mutex.lock();
+            std::shared_ptr<uvgvpcc_dec::GOF> gof = output->available_gofs_queue.front();
+            output->available_gofs_queue.pop();
+            output->io_mutex.unlock();
 
-                zmq_send(
-                    zmq_handler->positionSocket,
-                    frame->pointsGeometry.data(),
-                    frame->pointsGeometry.size() * sizeof(uvgvpcc_dec::Vector3<uint16_t>),
-                    0
-                );
+            for (auto& frame : gof->frames) {
+                auto frameEnd = std::chrono::steady_clock::now();
+                std::chrono::duration<double, std::milli> elapsed = frameEnd - frameStart;
+                int remainingTime = frameDuration - static_cast<int>(elapsed.count());
 
-                zmq_send(
-                    zmq_handler->colorSocket,
-                    frame->pointsAttribute.data(),
-                    frame->pointsAttribute.size() * sizeof(uvgvpcc_dec::Vector3<uint8_t>),
-                    0
-                );
+                if (remainingTime > 0) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(remainingTime));
+                }
+
+                {
+                    std::lock_guard<std::mutex> lock(zmq_handler->zmq_mutex);
+
+                    zmq_send(
+                        zmq_handler->positionSocket,
+                        frame->pointsGeometry.data(),
+                        frame->pointsGeometry.size() * sizeof(uvgvpcc_dec::Vector3<uint16_t>),
+                        0
+                    );
+
+                    zmq_send(
+                        zmq_handler->colorSocket,
+                        frame->pointsAttribute.data(),
+                        frame->pointsAttribute.size() * sizeof(uvgvpcc_dec::Vector3<uint8_t>),
+                        0
+                    );
+                }
+
+                frameStart = std::chrono::steady_clock::now();
             }
-
-
         }
+
     }
+
+
+
+    // constexpr int FPS = 30;
+    // constexpr int delay_gofs = 2;
+
+    // int frameDuration = 1000 / FPS;
+
+    // using Clock = std::chrono::steady_clock;
+    // double frameDuration_ = 1000.0 / static_cast<double>(FPS);
+    // std::chrono::steady_clock::time_point frameStart = std::chrono::steady_clock::now();
+
+    // int buffered_gofs = 0;
+
+    // while (true) {
+    //     output->available_frames.acquire();
+
+    //     if (buffered_gofs != delay_gofs) {
+    //         buffered_gofs++;
+    //         continue;
+    //     }
+
+    //     output->io_mutex.lock();
+    //     bool empty_queue = output->available_gofs_queue.empty();
+    //     output->io_mutex.unlock();
+    //     while (!empty_queue) {
+    //          //output->io_mutex.lock();
+    //         std::shared_ptr<uvgvpcc_dec::GOF> gof = output->available_gofs_queue.front();
+    //         output->available_gofs_queue.pop();
+    //         //output->io_mutex.unlock();
+
+
+    //         for (auto& frame : gof->frames) {
+    //             // Use mutex to avoid race condition
+    //             auto now = Clock::now();
+    //             auto elapsed = std::chrono::duration<double, std::milli>(now - frameStart);
+    //             bool timeForNextFrame = elapsed.count() >= frameDuration_;
+
+    //             if (timeForNextFrame) {
+    //                 std::lock_guard<std::mutex> lock(zmq_handler->zmq_mutex);
+    //                 zmq_send(
+    //                     zmq_handler->positionSocket,
+    //                     frame->pointsGeometry.data(),
+    //                     frame->pointsGeometry.size() * sizeof(uvgvpcc_dec::Vector3<uint16_t>),
+    //                     0
+    //                 );
+
+    //                 zmq_send(
+    //                     zmq_handler->colorSocket,
+    //                     frame->pointsAttribute.data(),
+    //                     frame->pointsAttribute.size() * sizeof(uvgvpcc_dec::Vector3<uint8_t>),
+    //                     0
+    //                 );
+    //                 frameStart = now;
+    //             }
+
+    //         }
+
+    //         empty_queue = output->available_gofs_queue.empty();
+    //     }
+    // }
+
 
     return true;
 }
@@ -567,6 +715,7 @@ void v3c_remote_input_thread(const std::shared_ptr<v3c_input_gof_handler_args>& 
         }
 
         auto rec = std::unique_ptr<char, decltype(&free)>(gof_ptr.ptr, &free);
+        v3c_args->gof_ptrs.pop();
 
         const uint8_t* ptr = reinterpret_cast<const uint8_t*>(rec.get());
 
@@ -590,8 +739,6 @@ void v3c_remote_input_thread(const std::shared_ptr<v3c_input_gof_handler_args>& 
         }
 
         // printf("GOF successfully recieved!\n");
-
-        v3c_args->gof_ptrs.pop();
 
         available_input_slot.acquire();
         args->chunk_in = chunk;
@@ -626,10 +773,23 @@ constexpr int EXPECTED_NUM_VPSs = TOTAL_GOFS;
 // constexpr int EXPECTED_NUM_GVD_NALU = 35;
 // constexpr int EXPECTED_NUM_AVD_NALU = 35;
 
+// Low Delay
 constexpr int EXPECTED_NUM_AD_NALU = 4;
 constexpr int EXPECTED_NUM_OVD_NALU = 4;
 constexpr int EXPECTED_NUM_GVD_NALU = 5;
 constexpr int EXPECTED_NUM_AVD_NALU = 5;
+
+// Low Birate GOF8
+// constexpr int EXPECTED_NUM_AD_NALU = 11;
+// constexpr int EXPECTED_NUM_OVD_NALU = 11;
+// constexpr int EXPECTED_NUM_GVD_NALU = 19;
+// constexpr int EXPECTED_NUM_AVD_NALU = 19;
+
+// Low Birate GOF16
+// constexpr int EXPECTED_NUM_AD_NALU = 19;
+// constexpr int EXPECTED_NUM_OVD_NALU = 19;
+// constexpr int EXPECTED_NUM_GVD_NALU = 35;
+// constexpr int EXPECTED_NUM_AVD_NALU = 35;
 
 constexpr uint8_t V3C_SIZE_PRECISION = 5;
 constexpr uint8_t AtlasNAL_SIZE_PRECISION = 2;
@@ -1518,6 +1678,8 @@ int main(int argc, char* argv[]) {
 
     uvgvpcc_dec::API::initializeDecoder();
 
+    bool limit_frame_rate = false;
+
     uvgvpcc_dec::API::v3c_unit_stream input;
     std::string inputPath = appParameters.inputPath;
     std::string outputFilePath = appParameters.outputPath;
@@ -1541,7 +1703,9 @@ int main(int argc, char* argv[]) {
     bool remote_input_output = appParameters.remoteOutputData && appParameters.remoteInputData;
 
     if (remote_input_output) {
-        outputTh = std::thread(&output_thread_remote_delay, &output, zmq_handler);
+        if (limit_frame_rate) {
+            outputTh = std::thread(&output_thread_remote_delay, &output, zmq_handler);
+        }
     } else {
         if(appParameters.in_order_output) outputTh = appParameters.remoteOutputData ? std::thread(&output_thread_remote, &output, zmq_handler) : std::thread(&output_thread, &output, appParameters.outputPath);
     }
@@ -1575,8 +1739,11 @@ int main(int argc, char* argv[]) {
 
         try {
             if (remote_input_output) {
-                // uvgvpcc_dec::API::decodeFrame_parallel_delay(currChunk, &output);
-                uvgvpcc_dec::API::decodeFrame_parallel_remote_output(currChunk, zmq_handler);
+                if (limit_frame_rate) {
+                    uvgvpcc_dec::API::decodeFrame_parallel_delay(currChunk, &output);
+                } else {
+                    uvgvpcc_dec::API::decodeFrame_parallel_remote_output(currChunk, zmq_handler);
+                }
             } else {
                 if (appParameters.remoteOutputData) {
                     if (appParameters.in_order_output) {
