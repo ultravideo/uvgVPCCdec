@@ -1,6 +1,6 @@
 #pragma once
 
-/// \file Abstract class defining the behaviour of any 2D encoder to be used within the uvgVPCCenc library. 
+/// \file Abstract class defining the behaviour of any 2D encoder to be used within the uvgVPCCdec library. 
 
 #include "uvgvpcc/uvgvpcc.hpp"
 

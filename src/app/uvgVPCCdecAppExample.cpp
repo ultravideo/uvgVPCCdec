@@ -1118,9 +1118,9 @@ void v3c_receiver_unit(const std::shared_ptr<input_handler_args>& args) {
                 size_t unit_size = rec_len - v3c_size_precision;
                 ptr += v3c_size_precision;
                 chunk->v3c_unit_sizes.push_back(unit_size);
-                chunk->data_v3crtp[unit_id]->resize(unit_size);
-                std::memcpy(chunk->data_v3crtp[unit_id]->data(), ptr, unit_size);
-                std::cerr << "Stream size for current unit type of GOF " << static_cast<int>(chunk->gof_id) << " : " << unit_type << " : " << static_cast<int>(chunk->data_v3crtp[unit_id]->size()) << "\n" << std::flush;
+                chunk->vuh_units[unit_id]->resize(unit_size);
+                std::memcpy(chunk->vuh_units[unit_id]->data(), ptr, unit_size);
+                std::cerr << "Stream size for current unit type of GOF " << static_cast<int>(chunk->gof_id) << " : " << unit_type << " : " << static_cast<int>(chunk->vuh_units[unit_id]->size()) << "\n" << std::flush;
                 unit_id++;
             } else {
                 std::cerr << "Failed receiving GOF\n" << std::flush;
@@ -1577,7 +1577,7 @@ void inputReadThread_old(const std::shared_ptr<input_handler_args>& args) {
     
 }
 
-void inputReadThread(const std::shared_ptr<input_handler_args>& args, uvgvpcc_dec::API::point_cloud_frame_stream* output) {
+void inputReadThread_(const std::shared_ptr<input_handler_args>& args, uvgvpcc_dec::API::point_cloud_frame_stream* output) {
     Retval returnValue = Retval::Running;
     std::ifstream file (args->input_path);
     if (!file.is_open()) {
@@ -1607,6 +1607,63 @@ void inputReadThread(const std::shared_ptr<input_handler_args>& args, uvgvpcc_de
 
             chunk_data->resize(old_size + v3c_unit_size);
             file.read(reinterpret_cast<char*>(&(*chunk_data)[old_size]), v3c_unit_size);
+
+            printf("Read V3C unit of size %d\n", (int)v3c_unit_size);
+        }
+        chunk->gof_id = gof_id++;
+
+        // Signal that an item has been produced
+        available_input_slot.acquire();
+        args->chunk_in = chunk;
+        uvgvpcc_dec::API::decodedGOF decodedGOF = {};
+        output->available_gofs.push_back(decodedGOF);
+        if (returnValue == Retval::Failure) {
+            args->retval = Retval::Failure;
+            break;
+        } else {
+            assert(returnValue == Retval::Running && args->retval == Retval::Running);
+        }
+        filled_input_slot.release();
+        
+    }
+    file.close();
+
+    output->total_gof = static_cast<int>(gof_id);
+
+    // Signal that all input frames has been loaded
+    available_input_slot.acquire();
+    args->chunk_in = nullptr;
+    args->retval = Retval::Eof;
+    filled_input_slot.release();
+    
+}
+
+void inputReadThread(const std::shared_ptr<input_handler_args>& args, uvgvpcc_dec::API::point_cloud_frame_stream* output) {
+    Retval returnValue = Retval::Running;
+    std::ifstream file (args->input_path);
+    if (!file.is_open()) {
+        throw std::runtime_error("Bitstream writing : Could not open input file " + args->input_path);
+    }
+
+    uint8_t v3c_sample_stream_header = 0;
+    file.read(reinterpret_cast<char*> (&v3c_sample_stream_header), sizeof(uint8_t));
+    const size_t v3c_unit_size_precision = (v3c_sample_stream_header >> 5U) + 1U;
+
+    size_t gof_id = 0;
+
+    while (file.peek() != EOF)
+    {
+        std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk = std::make_shared<uvgvpcc_dec::API::v3c_chunk>(true);
+
+        for (size_t i = 0; i < 5; i++) { // 0:V3C_VPS, 1:V3C_AD, 2:V3C_OVD, 3:V3C_GVD, 4:V3C_AVD
+            uint8_t v3c_size_array[v3c_unit_size_precision];
+            file.read(reinterpret_cast<char*>(v3c_size_array), v3c_unit_size_precision);
+
+            size_t v3c_unit_size = read_value(v3c_size_array, v3c_unit_size_precision);;
+            chunk->v3c_unit_sizes.push_back(v3c_unit_size);
+
+            chunk->vuh_units[i]->resize(v3c_unit_size);
+            file.read(reinterpret_cast<char*>(&(*chunk->vuh_units[i]->data())), v3c_unit_size);
 
             printf("Read V3C unit of size %d\n", (int)v3c_unit_size);
         }
@@ -1676,6 +1733,20 @@ int main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    try {
+        uvgvpcc_dec::API::setParameter("nbThreadPCPart", std::to_string(appParameters.threads));
+        uvgvpcc_dec::API::setParameter("useTMC2AttributeYUVConversion", std::to_string(appParameters.tmc2Upscaling));
+        uvgvpcc_dec::API::setParameter("fastColorConversion", std::to_string(appParameters.fastColorConversion));
+        // uvgvpcc_dec::API::setParameter("occupancyEncodingNbThread", std::to_string(appParameters.threads));
+        // uvgvpcc_dec::API::setParameter("geometryEncodingNbThread", std::to_string(appParameters.threads));
+        // uvgvpcc_dec::API::setParameter("attributeEncodingNbThread", std::to_string(appParameters.threads));
+    } catch (const std::exception& e) {
+        uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::FATAL>("LIBRARY",
+                                                               "An exception was caught when setting parameters in the application.\n");
+        return EXIT_FAILURE;
+    }
+
+
     uvgvpcc_dec::API::initializeDecoder();
 
     bool limit_frame_rate = false;
@@ -1683,6 +1754,7 @@ int main(int argc, char* argv[]) {
     uvgvpcc_dec::API::v3c_unit_stream input;
     std::string inputPath = appParameters.inputPath;
     std::string outputFilePath = appParameters.outputPath;
+
 
     const std::shared_ptr<input_handler_args> in_args = std::make_shared<input_handler_args>(appParameters, nullptr, Retval::Running);
     in_args->input_path = inputPath;
@@ -1764,7 +1836,7 @@ int main(int argc, char* argv[]) {
     }
 
     printf("Total GOF count: %d\n", output.total_gof);
-
+    
     uvgvpcc_dec::API::emptyFrameQueue();
 
     inputTh.join();

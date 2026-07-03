@@ -1,6 +1,6 @@
 #pragma once
 
-/// \file Interface between uvgVPCCenc and the 2D encoder Kvazaar that implement the 'abstract2DMapEncoder'.
+/// \file Interface between uvgVPCCdec and the 2D encoder Kvazaar that implement the 'abstract2DMapEncoder'.
 
 extern "C" {
 #include <libavcodec/avcodec.h>

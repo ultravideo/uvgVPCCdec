@@ -36,7 +36,7 @@ SOFTWARE.
 #include <errno.h>
 #endif
 
-/// @brief The example application for uvgVPCCenc uses the external library miniply to parse the .ply files.
+/// @brief The example application for uvgVPCCdec uses the external library miniply to parse the .ply files.
 namespace miniply {
 
 //

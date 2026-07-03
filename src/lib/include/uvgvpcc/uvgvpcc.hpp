@@ -82,11 +82,19 @@ struct Patch
                             // blocks).  // TilePatch2dSizeX
     size_t heightInOccBlk_ = 1;  // sizeV0_     // height of the patch occupancy map within the down-scaled frame occupancy map (in DS occupancy
                              // map blocks). // TilePatch2dSizeY
+    size_t patchWidthCanvasBlock = 1;   // sizeU0_ = TilePatch2dSizeX
+    size_t patchHeightCanvasBlock = 1;  // sizeV0_ = TilePatch2dSizeY
+    size_t patchWidthCanvas;   // sizeU0_, patchWidthCanvasBlock  * occupancy_resolution = patch width in canvas
+    size_t patchHeightCanvas;  // sizeV0_, patchHeightCanvasBlock * occupancy_resolution = patch height in canvas
 
     size_t omDSPosX_;  // u0_    // location in down-scaled occupancy map  // lf  posBlkU TilePatch2dPosX
     size_t omDSPosY_;  // v0_    // location in down-scaled occupancy map                 TilePatch2dPosY
+    size_t patchPosXCanvasBlock;  // u0_    // TilePatch2dPosX // patch pos x in canvas block
+    size_t patchPosYCanvasBlock;  // v0_    // TilePatch2dPosY // patch pos y in canvas block
+    size_t patchPosXCanvas; // u0_, patchPosXCanvasBlock * occupancy_resolution = patch pos x in canvas
+    size_t patchPosYCanvas; // v0_, patchPosYCanvasBlock * occupancy_resolution = patch pos y in canvas 
 
-    uint32_t orientationIndex = 0;
+    uint32_t orientationIndex = 0; // patch orientation in canvas atlas
 
     std::vector<uint16_t> depthL1_;  // depth value First layer // TODO(lf): Using the geo type here might lead to issue?
     std::vector<uint16_t> depthL2_;  // depth value Second layer
@@ -96,6 +104,8 @@ struct Patch
     size_t levelOfDetailX_ = 1; // TMC2, for point generation
     size_t levelOfDetailY_ = 1; // TMC2, for point generation
 
+    int32_t bestMatchIdx_ = 0;
+    size_t refAtlasFrameIdx_ = 0;
 
     inline double generateNormalCoordinate( const uint16_t depth, const size_t projectionMode ) const {
         uint32_t d1_ = static_cast<uint32_t>(posD_);
@@ -208,11 +218,11 @@ struct Frame {
     // Frame(const size_t& frameId, const size_t& frameNumber, const std::string& pointCloudPath)
     //     : frameId(frameId), frameNumber(frameNumber), pointCloudPath(pointCloudPath), pointCount(0) {}
     Frame() {}
-    // ~Frame() {
-    //     if (conccurentFrameSem) {
-    //         conccurentFrameSem->release();
-    //     }
-    // };
+    ~Frame() {
+        // if (conccurentFrameSem) {
+        //     conccurentFrameSem->release();
+        // }
+    };
     void printInfo() const;
 };
 
@@ -255,7 +265,7 @@ namespace API {
 struct v3c_chunk {
     size_t len = 0;                 // Length of data in buffer
     std::unique_ptr<std::vector<uint8_t>> data;
-    std::unique_ptr<std::vector<uint8_t>> data_v3crtp[5];
+    std::unique_ptr<std::vector<uint8_t>> vuh_units[5]; // VPS, AD, OVD, GVD, AVD
     std::vector<size_t> v3c_unit_sizes = {};
     size_t gof_id;
     size_t gof_count;
@@ -264,11 +274,11 @@ struct v3c_chunk {
 
     v3c_chunk() = default;
 
-    v3c_chunk(bool rtp) {
-        if (rtp) {
+    v3c_chunk(bool sep) {
+        if (sep) {
             for (int i = 0; i < 5; i++) {
-                data_v3crtp[i] = std::make_unique<std::vector<uint8_t>>();
-                data_v3crtp[i]->reserve(1024*1024);
+                vuh_units[i] = std::make_unique<std::vector<uint8_t>>();
+                // vuh_units[i]->reserve(1024*1024);
             }
         } else {
             data = std::make_unique<std::vector<uint8_t>>();

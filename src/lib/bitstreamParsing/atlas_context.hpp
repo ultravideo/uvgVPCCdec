@@ -43,14 +43,24 @@ class atlas_context {
     void read_atlas_tile_data_unit(atlas_tile_data_unit& atdu, const atlas_tile_header& ath, bitstream_t* stream);
     void read_atlas_tile_layer_rbsp(atlas_tile_layer_rbsp& rbsp, NAL_UNIT_TYPE nalu_t, bitstream_t* stream);
 
+    void read_plr_data(plr_data& plrd, bitstream_t* stream);
+    void read_plr_information(bitstream_t* stream);
+
     void read_patch_information_data(patch_information_data& pid, const atlas_tile_header& ath, bitstream_t* stream);
     void read_patch_data_unit(patch_data_unit &pdu, const atlas_tile_header& ath, bitstream_t* stream);
+    void read_inter_patch_data_unit(inter_patch_data_unit &pdu, const atlas_tile_header& ath, bitstream_t* stream);
+
 
 
     /* -------------- Atlas data structures -------------- */
     atlas_sequence_parameter_set asps_;
     atlas_frame_parameter_set afps_;
     std::vector<atlas_tile_layer_rbsp> atlas_data_;
+
+    int32_t prev_patch_size_u_;
+    int32_t prev_patch_size_v_;
+    int32_t pred_patch_index_;
+    int32_t prev_frame_index_;
 
     /* -------------- Helper variables -------------- */
     size_t gof_id_;

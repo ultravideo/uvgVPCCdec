@@ -1,5 +1,5 @@
 /*****************************************************************************
- * This file is part of uvgVPCCenc V-PCC encoder.
+ * This file is part of uvgVPCCdec V-PCC encoder.
  *
  * Copyright (c) 2024-present, Tampere University, ITU/ISO/IEC, project contributors
  * All rights reserved.
@@ -35,6 +35,7 @@
 #include <memory>
 #include <optional>
 #include <unordered_map>
+#include <mutex>
 
 #include "threadqueue.hpp"
 #include "uvgvpcc/log.hpp"
@@ -78,6 +79,8 @@ struct hash<uvgvpcc_dec::jobKey> {
 namespace uvgvpcc_dec {
 
 struct JobManager {
+    static std::vector<std::shared_ptr<Job>> job_vec;
+    static std::mutex submittedFrameFinalJobsMutex;
     static std::unique_ptr<ThreadQueue> threadQueue;
     static std::unique_ptr<std::unordered_map<jobKey, std::shared_ptr<Job>>> previousGOFJobMap;
     static std::unique_ptr<std::unordered_map<jobKey, std::shared_ptr<Job>>> previousFrameJobMap;
@@ -99,6 +102,8 @@ struct JobManager {
     static void submitCurrentFrameJobs();
 
     static void submitCurrentGOFJobs();
+
+    static void submitJob_direct(std::shared_ptr<uvgvpcc_dec::Job> job);
 };
 }  // namespace uvgvpcc_dec
 

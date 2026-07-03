@@ -31,6 +31,7 @@ struct profile_tier_level {
     uint8_t ptl_level_idc = 0;
     uint8_t ptl_num_sub_profiles = 0;
     bool ptl_extended_sub_profile_flag = false;  // 0: use ptl_sub_profile_idc_32, 1: use ptl_sub_profile_idc_64
+    std::vector<uint8_t> ptl_sub_profile_idc = {};
     std::vector<uint32_t> ptl_sub_profile_idc_32 = {};
     std::vector<uint64_t> ptl_sub_profile_idc_64 = {};
     bool ptl_toolset_constraints_present_flag = false;
@@ -110,6 +111,7 @@ class vps {
     bool vps_packing_information_present_flag_;
     bool vps_miv_extension_present_flag_;
     uint8_t vps_extension_6bits_;
+    uint8_t vps_extension_8bits_;
     size_t vps_extension_length_minus1_;
-    uint8_t vps_extension_data_byte_;
+    std::vector<uint8_t> vps_extension_data_byte_;
 };

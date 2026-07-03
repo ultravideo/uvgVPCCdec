@@ -10,7 +10,7 @@ set(uvgVPCCdec_URL "https://github.com/ultravideo/uvgVPCCdec")
 
 option(BUILD_SHARED_LIBS "Build using shared uvgVPCCdec library" ON)
 
-# Control if uvgVPCCenc should be build with RTP support
+# Control if uvgVPCCdec should be build with RTP support
 option(ENABLE_V3CRTP "Enable RTP support" OFF)
 
 project(uvgVPCCdec VERSION ${uvgVPCCdec_VER})

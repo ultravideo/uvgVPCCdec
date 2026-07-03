@@ -1,5 +1,5 @@
 /*****************************************************************************
- * This file is part of uvgVPCCenc V-PCC encoder.
+ * This file is part of uvgVPCCdec V-PCC encoder.
  *
  * Copyright (c) 2024-present, Tampere University, ITU/ISO/IEC, project contributors
  * All rights reserved.
@@ -30,7 +30,7 @@
  * INCLUDING NEGLIGENCE OR OTHERWISE ARISING IN ANY WAY OUT OF THE USE OF THIS
  ****************************************************************************/
 
-/// \file Common tools used by the uvgVPCCenc library.
+/// \file Common tools used by the uvgVPCCdec library.
 
 
 #pragma once

@@ -1,5 +1,5 @@
 /*****************************************************************************
- * This file is part of uvgVPCCenc V-PCC encoder.
+ * This file is part of uvgVPCCdec V-PCC encoder.
  *
  * Copyright (c) 2024-present, Tampere University, ITU/ISO/IEC, project contributors
  * All rights reserved.
@@ -93,6 +93,7 @@ std::shared_ptr<uvgvpcc_dec::Job> getJob_impl(const uvgvpcc_dec::jobKey& key) {
 namespace uvgvpcc_dec {
 
 // Static member definitions
+std::vector<std::shared_ptr<Job>> JobManager::job_vec;
 std::unique_ptr<ThreadQueue> JobManager::threadQueue = nullptr;
 std::unique_ptr<std::unordered_map<jobKey, std::shared_ptr<Job>>> JobManager::previousGOFJobMap = nullptr;
 std::unique_ptr<std::unordered_map<jobKey, std::shared_ptr<Job>>> JobManager::previousFrameJobMap = nullptr;
@@ -160,6 +161,10 @@ void JobManager::submitCurrentGOFJobs() {
     }
     previousGOFJobMap = std::move(currentGOFJobMap);
     currentGOFJobMap = std::make_unique<std::unordered_map<jobKey, std::shared_ptr<Job>>>();
+}
+
+void JobManager::submitJob_direct(std::shared_ptr<uvgvpcc_dec::Job> job) {
+    threadQueue->submitJob(job);
 }
 
 }  // namespace uvgvpcc_dec

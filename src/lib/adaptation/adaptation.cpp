@@ -90,7 +90,7 @@ offset = 128.0 but for what ?
 
 
 // TMC2 : convert yuv444 (16bit) to normalized yuv444 (format double)
-void convertYUV16ToRGB8(std::vector<Vector3<uint16_t>>& colors_16bits, std::vector<Vector3<uint8_t>>& colors) {
+void convertYUV16ToRGB8_(std::vector<Vector3<uint16_t>>& colors_16bits, std::vector<Vector3<uint8_t>>& colors) {
     double offset = 32768.0;
     double scale  = 65535.0;
     double weight = 1.0 / scale;
@@ -128,12 +128,46 @@ void convertYUV16ToRGB8(std::vector<Vector3<uint16_t>>& colors_16bits, std::vect
     
 }
 
+void convertYUV16ToRGB8(std::vector<Vector3<uint16_t>>& colors_16bits, std::vector<Vector3<uint8_t>>& colors) {
+    constexpr double offset = 32768.0;
+    constexpr double weight = 1.0 / 65535.0;
+
+    colors.resize(colors_16bits.size());
+
+    for(size_t i = 0; i < colors_16bits.size(); ++i) {
+        double y = colors_16bits[i][0];
+        double u = colors_16bits[i][1];
+        double v = colors_16bits[i][2];
+
+        y = weight * y;
+        u = weight * ( u - offset );
+        v = weight * ( v - offset );
+        u = std::clamp(u, -0.5, 0.5);
+        v = std::clamp(v, -0.5, 0.5);
+
+        // convert normalized yuv444 to normalized rgb (fromat double)
+        double r = y /*- 0.00000 * u1*/ + 1.57480*v;
+        double g = y - 0.18733*u - 0.46813*v;
+        double b = y + 1.85563*u /*+ 0.00000 * v1*/;
+
+        // convert normalized rgb to 8-bit rgb
+        r = PCCClip( round( r * 255 ), 0.0, 255.0 );
+        g = PCCClip( round( g * 255 ), 0.0, 255.0 );
+        b = PCCClip( round( b * 255 ), 0.0, 255.0 );
+
+        colors[i][0] = static_cast<uint8_t>( r );
+        colors[i][1] = static_cast<uint8_t>( g );
+        colors[i][2] = static_cast<uint8_t>( b );
+    }
+    
+}
+
 
 // 
 void convert_colors_slow(std::vector<Vector3<uint8_t>>& colors) {
-    const double& offset = 128.0;
-    const double& scale = 255.0;
-    const double& weight = 1.0 / scale;
+    const double offset = 128.0;
+    const double scale = 255.0;
+    const double weight = 1.0 / scale;
 
     for (auto& color : colors) {
         double y1 = weight * color[0];
@@ -213,6 +247,7 @@ bool write_point_cloud( const std::string fileName, uvgvpcc_dec::Frame* frame, c
     const bool hasAttri = !frame->pointsAttribute.empty();
 
     if (hasAttri) {
+        printf("Has attribute\n");
         fout << "property uchar red\nproperty uchar green\nproperty uchar blue\n";
     }
     fout << "element face 0\nproperty list uint8 int32 vertex_index\nend_header\n";
@@ -246,6 +281,105 @@ bool write_point_cloud( const std::string fileName, uvgvpcc_dec::Frame* frame, c
     return true;
 }
 
+// struct PlyVertex {
+//     float x, y, z;
+//     uint8_t r, g, b;
+// } __attribute__((packed));
+#pragma pack(push, 1)
+struct PlyVertex {
+    float x, y, z;
+    uint8_t r, g, b;
+};
+#pragma pack(pop)
+
+bool write_point_cloud_with_attri( const std::string& fileName, uvgvpcc_dec::Frame* frame, const bool asAscii ) {
+
+    uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::TRACE>("Adaptation", "Write to file " + fileName + " \n");
+
+    // Open in the proper mode from the start
+    std::ofstream fout;
+    fout.open(fileName, asAscii ? std::ofstream::out : std::ofstream::binary | std::ofstream::out);
+    if (!fout.is_open()) return false;
+    
+    const size_t pointCount = frame->pointCount;
+
+    fout << "ply\n";
+    if ( asAscii ) {
+        fout << "format ascii 1.0\n";
+    } else {
+        if ( PCCSystemEndianness() == PCC_BIG_ENDIAN ) {
+        fout << "format binary_big_endian 1.0\n";
+        } else {
+        fout << "format binary_little_endian 1.0\n";
+        }
+    }
+    fout << "element vertex " << pointCount << '\n';
+    fout << "property float x\nproperty float y\nproperty float z\n";
+
+    fout << "property uchar red\nproperty uchar green\nproperty uchar blue\n";
+    fout << "element face 0\nproperty list uint8 int32 vertex_index\nend_header\n";
+
+    const auto& positions = frame->pointsGeometry;
+    const auto& colors    = frame->pointsAttribute;
+
+    if ( asAscii ) {
+        fout << std::setprecision( std::numeric_limits<double>::max_digits10 );
+        for ( size_t i = 0; i < pointCount; ++i ) {
+            const uvgvpcc_dec::Vector3<uvgvpcc_dec::typeGeometryInput>& position = frame->pointsGeometry[i];
+            fout << position[0] << " " << position[1] << " " << position[2];
+
+            const uvgvpcc_dec::Vector3<uint8_t>& color = frame->pointsAttribute[i];
+            fout << " " << static_cast<int>( color[0] ) << " " << static_cast<int>( color[1] ) << " "
+                << static_cast<int>( color[2] );
+
+            fout << '\n';
+        }
+    } else {
+        std::vector<uint8_t> buffer;
+        buffer.reserve(pointCount * (sizeof(float) * 3 + sizeof(uint8_t) * 3));
+
+        for (size_t i = 0; i < pointCount; ++i) {
+            const auto& p = positions[i];
+            const auto& c = colors[i];
+
+            const float xyz[3] = {
+                static_cast<float>(p[0]),
+                static_cast<float>(p[1]),
+                static_cast<float>(p[2])
+            };
+
+            const uint8_t* xyzBytes = reinterpret_cast<const uint8_t*>(xyz);
+            buffer.insert(buffer.end(), xyzBytes, xyzBytes + sizeof(xyz));
+
+            buffer.push_back(c[0]);
+            buffer.push_back(c[1]);
+            buffer.push_back(c[2]);
+        }
+
+        fout.write(reinterpret_cast<const char*>(buffer.data()), buffer.size());
+
+        // std::vector<PlyVertex> buffer;
+        // buffer.reserve(pointCount);
+
+        // for (size_t i = 0; i < pointCount; ++i) {
+        //     const auto& p = positions[i];
+        //     const auto& c = colors[i];
+
+        //     buffer.push_back(PlyVertex{
+        //         static_cast<float>(p[0]),
+        //         static_cast<float>(p[1]),
+        //         static_cast<float>(p[2]),
+        //         c[0], c[1], c[2]
+        //     });
+        // }
+
+        // fout.write(reinterpret_cast<const char*>(buffer.data()),
+        //         buffer.size() * sizeof(PlyVertex));
+    }
+    fout.close();
+    return true;
+}
+
 } // anonymous namespace
 
 void Adaptation::adapt_in_order(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, uvgvpcc_dec::API::point_cloud_frame_stream* output) {
@@ -255,7 +389,7 @@ void Adaptation::adapt_in_order(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, uvgvp
         if (p_->useTMC2AttributeYUVConversion) {
 
         } else {
-            if (p_->fast_color_conversion) {
+            if (p_->fastColorConversion) {
 
             } else {
                 convert_colors_slow(frame->pointsAttribute);
@@ -277,7 +411,7 @@ void Adaptation::adapt_in_order(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, uvgvp
 //         if (p_->useTMC2AttributeYUVConversion) {
 
 //         } else {
-//             if (p_->fast_color_conversion) {
+//             if (p_->fastColorConversion) {
 
 //             } else {
 //                 convert_colors_slow(frame->pointsAttribute);
@@ -306,7 +440,7 @@ void Adaptation::adapt_delay(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, uvgvpcc_
         if (p_->useTMC2AttributeYUVConversion) {
 
         } else {
-            if (p_->fast_color_conversion) {
+            if (p_->fastColorConversion) {
 
             } else {
                 convert_colors_slow(frame->pointsAttribute);
@@ -325,9 +459,11 @@ void Adaptation::adapt(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, uvgvpcc_dec::A
         auto &frame = gofUVG->frames[i];
 
         if (p_->useTMC2AttributeYUVConversion) {
+            // printf("---> useTMC2AttributeYUVConversion\n");
             convertYUV16ToRGB8(frame->pointsAttribute16bits, frame->pointsAttribute);
         } else {
-            if (p_->fast_color_conversion) {
+            if (p_->fastColorConversion) {
+                // printf("---> convert_colors_fast\n");
                 convert_colors_fast(frame->pointsAttribute);
             } else {
                 // printf("Using slow color conversion, color size: %zu\n", frame->pointsAttribute.size());
@@ -344,7 +480,7 @@ void Adaptation::adapt(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, uvgvpcc_dec::A
                     frame->gofId,
                     frame->frameId);
 
-        write_point_cloud(filename, frame.get(), false);
+        write_point_cloud_with_attri(filename, frame.get(), false);
         // write_point_cloud(filename, frame.get(), true);
     }
 
@@ -357,6 +493,31 @@ void Adaptation::adapt(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, uvgvpcc_dec::A
     }
 }
 
+void Adaptation::adaptPointCloudFrame(std::shared_ptr<uvgvpcc_dec::Frame> frame, uvgvpcc_dec::API::point_cloud_frame_stream* output, const bool& in_order_output, const std::string& outputFilePath) {
+    if (p_->useTMC2AttributeYUVConversion) {
+        convertYUV16ToRGB8(frame->pointsAttribute16bits, frame->pointsAttribute);
+    } else {
+        if (p_->fastColorConversion) {
+            convert_colors_fast(frame->pointsAttribute);
+        } else {
+            convert_colors_slow(frame->pointsAttribute);
+        }
+    }
+
+    if (in_order_output) return;
+
+    char filename[255];
+    std::snprintf(filename,
+                sizeof(filename),
+                outputFilePath.c_str(),
+                frame->gofId,
+                frame->frameId);
+
+    write_point_cloud_with_attri(filename, frame.get(), false);
+    
+    // write_point_cloud(filename, frame.get(), true);
+}
+
 void Adaptation::adapt_remote_output(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, const std::shared_ptr<zmqHandler> zmq_handler) {
     std::mutex io_mutex;
     for (int i = 0; i < gofUVG->frames.size(); i++) {
@@ -365,7 +526,7 @@ void Adaptation::adapt_remote_output(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, 
         if (p_->useTMC2AttributeYUVConversion) {
 
         } else {
-            if (p_->fast_color_conversion) {
+            if (p_->fastColorConversion) {
 
             } else {
                 convert_colors_slow(frame->pointsAttribute);

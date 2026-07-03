@@ -41,4 +41,37 @@ void MapDecoding::decodeGOFMaps(const std::shared_ptr<GOF>& gof) {
     occupancyMapDSDecoder->decodeGOFMaps(gof);
     geometryMapDecoder->decodeGOFMaps(gof);
     attributeMapDecoder->decodeGOFMaps(gof);
+
+    printf("--------------------> Map Decoding of GOF %zu Done!\n", gof->gofId);
 }
+
+
+// #include <future>
+// void MapDecoding::decodeGOFMaps(const std::shared_ptr<GOF>& gof) {
+//     uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::TRACE>(
+//         "MAP DECODING",
+//         "Decode maps of GOF " + std::to_string(gof->gofId) + ".\n"
+//     );
+
+//     auto occTask = std::async(std::launch::async, [&]() {
+//         // printf("Occupancy Map Decoding Starts, GOF:%d\n", (int)gof->gofId);
+//         occupancyMapDSDecoder->decodeGOFMaps(gof);
+//         // printf("Occupancy Map Decoding Done, GOF:%d\n", (int)gof->gofId);
+//     });
+
+//     auto attrTask = std::async(std::launch::async, [&]() {
+//         // printf("Attribute Map Decoding Starts, GOF:%d\n", (int)gof->gofId);
+//         attributeMapDecoder->decodeGOFMaps(gof);
+//         // printf("Attribute Map Decoding Done, GOF:%d\n", (int)gof->gofId);
+//     });
+
+//     auto geomTask = std::async(std::launch::async, [&]() {
+//         // printf("Geometry Map Decoding Starts, GOF:%d\n", (int)gof->gofId);
+//         geometryMapDecoder->decodeGOFMaps(gof);
+//         // printf("Geometry Map Decoding Done, GOF:%d\n", (int)gof->gofId);
+//     });
+
+//     occTask.get();
+//     attrTask.get();
+//     geomTask.get();
+// }

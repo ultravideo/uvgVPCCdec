@@ -1,5 +1,5 @@
 /*****************************************************************************
- * This file is part of uvgVPCCenc V-PCC encoder.
+ * This file is part of uvgVPCCdec V-PCC encoder.
  *
  * Copyright (c) 2024-present, Tampere University, ITU/ISO/IEC, project contributors
  * All rights reserved.

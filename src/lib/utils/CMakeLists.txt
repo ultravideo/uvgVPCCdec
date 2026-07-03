@@ -1,10 +1,13 @@
 message(DEBUG "./src/lib/utils/cmake")
 
+set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY_DEFAULT}")
+
 # Define the library
 add_library(utilsLibrary STATIC
     threadqueue.cpp
     fileExport.cpp
     jobManagement.cpp
+    parameters.cpp
 )
 
 add_library(logLibrary STATIC

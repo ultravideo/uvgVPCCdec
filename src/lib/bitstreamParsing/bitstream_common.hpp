@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 
 // From TMC2, floorLog2() and ceilLog2() are used for V3C and NAL unit size precision calculations
 static inline int floorLog2(uint32_t x) {
@@ -46,7 +47,8 @@ static inline int ceilLog2(uint32_t x) { return (x == 0) ? -1 : floorLog2(x - 1)
 enum ATH_TYPE {
     P_TILE = 0, // P_TILE (Inter atlas tile
     I_TILE,     // I_TILE (Intra atlas tile)
-    SKIP_TILE   // SKIP_TILE (SKIP atlas tile)
+    SKIP_TILE,   // SKIP_TILE (SKIP atlas tile)
+    RESERVED_3   // 3: 3 to N (N not defined?)
 };
 
 enum ATDU_PATCH_MODE_I_TILE {
@@ -91,7 +93,106 @@ enum V3C_UNIT_TYPE {
     V3C_OVD,           //  2: Occupancy Video Data
     V3C_GVD,           //  3: Geometry Video Data
     V3C_AVD,           //  4: Attribute Video Data
+    V3C_RSVD_05,       //  5: Reserved
+    V3C_RSVD_06,       //  6: Reserved
+    V3C_RSVD_07,       //  7: Reserved
+    V3C_RSVD_08,       //  8: Reserved
+    V3C_RSVD_09,       //  9: Reserved
+    V3C_RSVD_10,       // 10: Reserved
+    V3C_RSVD_11,       // 11: Reserved
+    V3C_RSVD_12,       // 12: Reserved
+    V3C_RSVD_13,       // 13: Reserved
+    V3C_RSVD_14,       // 14: Reserved
+    V3C_RSVD_15,       // 15: Reserved
+    V3C_RSVD_16,       // 16: Reserved
+    V3C_RSVD_17,       // 17: Reserved
+    V3C_RSVD_18,       // 18: Reserved
+    V3C_RSVD_19,       // 19: Reserved
+    V3C_RSVD_20,       // 20: Reserved
+    V3C_RSVD_21,       // 21: Reserved
+    V3C_RSVD_22,       // 22: Reserved
+    V3C_RSVD_23,       // 23: Reserved
+    V3C_RSVD_24,       // 24: Reserved
+    V3C_RSVD_25,       // 25: Reserved
+    V3C_RSVD_26,       // 26: Reserved
+    V3C_RSVD_27,       // 27: Reserved
+    V3C_RSVD_28,       // 28: Reserved
+    V3C_RSVD_29,       // 29: Reserved
+    V3C_RSVD_30,       // 30: Reserved
+    V3C_RSVD_31,       // 32: Reserved
+    NUM_V3C_UNIT_TYPE  // 33: undefined
 };
+
+enum PCC_PATCH_TYPE {
+  INTRA_PATCH = 0,  // 0: intra patch
+  INTER_PATCH,      // 1: inter patch
+  MERGE_PATCH,      // 2: merge patch
+  SKIP_PATCH,       // 3: skip patch
+  RAW_PATCH,        // 4: raw patch
+  EOM_PATCH,        // 5: eom patch
+  END_PATCH,        // 6: end patch
+  ERROR_PATCH       // 7: error patch
+};
+
+// 25 SEI payload types
+enum SEI_PAYLOAD_TYPE {
+    BUFFERING_PERIOD                 = 0,   //  0: buffering period
+    ATLAS_FRAME_TIMING               = 1,   //  1: atlas frame timing
+    FILLER_PAYLOAD                   = 2,   //  2: filler payload
+    USER_DATAREGISTERED_ITUTT35      = 3,   //  3: user data RegisteredItuTT35
+    USER_DATA_UNREGISTERED           = 4,   //  4: user data unregistered
+    RECOVERY_POINT                   = 5,   //  5: recovery point
+    NO_RECONSTRUCTION                = 6,   //  6: no reconstruction
+    TIME_CODE                        = 7,   //  7: time code
+    SEI_MANIFEST                     = 8,   //  8: sei manifest
+    SEI_PREFIX_INDICATION            = 9,   //  9: sei prefix indication
+    ACTIVE_SUB_BITSTREAMS            = 10,  // 10: active subBitstreams
+    COMPONENT_CODEC_MAPPING          = 11,  // 11: component Codec mapping
+    SCENE_OBJECT_INFORMATION         = 12,  // 12: scene object information m52705
+    OBJECT_LABEL_INFORMATION         = 13,  // 13: Object label information
+    PATCH_INFORMATION                = 14,  // 14: Patch information SEI message syntax
+    VOLUMETRIC_RECTANGLE_INFORMATION = 15,  // 15: Volumetric rectangle information
+    ATLAS_OBJECT_INFORMATION         = 16,  // 16: atlas information
+    VIEWPORT_CAMERA_PARAMETERS       = 17,  // 17: viewport camera parameters
+    VIEWPORT_POSITION                = 18,  // 18: viewport position
+    DECODED_ATLAS_INFORMATION_HASH   = 19,  // 19: decoded atlas information hash
+    ATTRIBUTE_TRANSFORMATION_PARAMS  = 64,  // 64: attribute transformation params
+    OCCUPANCY_SYNTHESIS              = 65,  // 65: occupancy synthesis
+    GEOMETRY_SMOOTHING               = 66,  // 66: geometry smoothing
+    ATTRIBUTE_SMOOTHING              = 67,  // 67: attribute smoothing
+    RESERVED_SEI_MESSAGE             = 68,  // 68: reserved sei message
+};
+
+static inline std::string toString( SEI_PAYLOAD_TYPE payloadType ) {
+  switch ( payloadType ) {
+    case BUFFERING_PERIOD: return std::string( "BUFFERING_PERIOD" ); break;
+    case ATLAS_FRAME_TIMING: return std::string( "ATLAS_FRAME_TIMING" ); break;
+    case FILLER_PAYLOAD: return std::string( "FILLER_PAYLOAD" ); break;
+    case USER_DATAREGISTERED_ITUTT35: return std::string( "USER_DATAREGISTERED_ITUTT35" ); break;
+    case USER_DATA_UNREGISTERED: return std::string( "USER_DATA_UNREGISTERED" ); break;
+    case RECOVERY_POINT: return std::string( "RECOVERY_POINT" ); break;
+    case NO_RECONSTRUCTION: return std::string( "NO_RECONSTRUCTION" ); break;
+    case TIME_CODE: return std::string( "TIME_CODE" ); break;
+    case SEI_MANIFEST: return std::string( "SEI_MANIFEST" ); break;
+    case SEI_PREFIX_INDICATION: return std::string( "SEI_PREFIX_INDICATION" ); break;
+    case ACTIVE_SUB_BITSTREAMS: return std::string( "ACTIVE_SUB_BITSTREAMS" ); break;
+    case COMPONENT_CODEC_MAPPING: return std::string( "COMPONENT_CODEC_MAPPING" ); break;
+    case SCENE_OBJECT_INFORMATION: return std::string( "SCENE_OBJECT_INFORMATION" ); break;
+    case OBJECT_LABEL_INFORMATION: return std::string( "OBJECT_LABEL_INFORMATION" ); break;
+    case PATCH_INFORMATION: return std::string( "PATCH_INFORMATION" ); break;
+    case VOLUMETRIC_RECTANGLE_INFORMATION: return std::string( "VOLUMETRIC_RECTANGLE_INFORMATION" ); break;
+    case ATLAS_OBJECT_INFORMATION: return std::string( "ATLAS_OBJECT_INFORMATION" ); break;
+    case VIEWPORT_CAMERA_PARAMETERS: return std::string( "VIEWPORT_CAMERA_PARAMETERS" ); break;
+    case VIEWPORT_POSITION: return std::string( "VIEWPORT_POSITION" ); break;
+    case DECODED_ATLAS_INFORMATION_HASH: return std::string( "DECODED_ATLAS_INFORMATION_HASH" ); break;
+    case ATTRIBUTE_TRANSFORMATION_PARAMS: return std::string( "ATTRIBUTE_TRANSFORMATION_PARAMS" ); break;
+    case OCCUPANCY_SYNTHESIS: return std::string( "OCCUPANCY_SYNTHESIS" ); break;
+    case GEOMETRY_SMOOTHING: return std::string( "GEOMETRY_SMOOTHING" ); break;
+    case ATTRIBUTE_SMOOTHING: return std::string( "ATTRIBUTE_SMOOTHING" ); break;
+    case RESERVED_SEI_MESSAGE: return std::string( "RESERVED_SEI_MESSAGE" ); break;
+    default: return std::string( "others" ); break;
+  }
+}
 
 enum NAL_UNIT_TYPE {
     NAL_TRAIL_N = 0,      //  0: Coded tile of a non-TSA, non STSA trailing atlas frame ACL

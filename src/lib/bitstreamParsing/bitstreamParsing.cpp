@@ -103,7 +103,7 @@ void BitstreamParsing::parseV3CGOFBitstream_parallel(std::shared_ptr<uvgvpcc_dec
     // printf("GOF %zu: Bitstream parsing completed.\n", gofUVG->gofId);
 }
 
-void BitstreamParsing::parseV3CGOFBitstream_v3crtp(std::shared_ptr<uvgvpcc_dec::GOF> gofUVG, std::shared_ptr<v3c_gof> gof_, 
+void BitstreamParsing::parseV3CGOFBitstream_separate_vuh_units(std::shared_ptr<uvgvpcc_dec::GOF> gofUVG, std::shared_ptr<v3c_gof> gof_, 
                                             const uvgvpcc_dec::Parameters& param, std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk) {
     // printf("Start parsing GOF %zu bitstream.\n", gofUVG->gofId);
 
@@ -111,7 +111,7 @@ void BitstreamParsing::parseV3CGOFBitstream_v3crtp(std::shared_ptr<uvgvpcc_dec::
         "BITSTREAM PARSING", "GOF " + std::to_string(gofUVG->gofId) + " : Parse V3C GOF bitstream using uvgVPCC.\n"); 
     
     v3c_gof &gof = *gof_;
-    gof.read_v3c_chunk_v3crtp(chunk, gofUVG);
+    gof.read_v3c_chunk_separate_vuh_units(chunk, gofUVG);
 
     size_t v3c_max_size = gof.get_v3c_vps()->vps_length_bytes_;
     size_t v3c_temp_size;

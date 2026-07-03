@@ -4,6 +4,7 @@
 #include <cstring>
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #define BITSTREAM_DEBUG false
 
@@ -34,7 +35,8 @@ typedef struct bitstream_t {
     uvg_data_chunk *last;
 
     /* The incomplete byte */
-    uint8_t* data;
+    //uint8_t* data;
+    std::vector<uint8_t> data;
 
     /* Number of bits in the incomplete byte */
     uint8_t cur_bit = 0;
@@ -59,11 +61,16 @@ size_t bitstream_read_size_from_poiter(const uint8_t* src, size_t len);
 // Read n-bits from the chosen position from the bitstream
 uint32_t bitstream_read(bitstream_t* stream, uint8_t bits);
 
-// Read ue from the chosen postion
+// Read ue from the stream
 uint32_t bitstream_read_ue(bitstream_t* stream);
+
+// Read se from the stream
+int32_t bitstream_read_se(bitstream_t* stream);
 
 // Copy bytes to dest
 void bitstream_copy_bytes(uint8_t* dest, const uint8_t* bytes, const size_t len);
+
+bool moreRbspData(bitstream_t* stream);
 
 /* In debug mode print out some extra info */
 // #if BITSTREAM_DEBUG
