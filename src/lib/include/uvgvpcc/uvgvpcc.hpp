@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <queue>
 #include <semaphore>
@@ -283,8 +284,8 @@ struct v3c_chunk {
     std::unique_ptr<std::vector<vuh_unit>> gvd_units; // geometry
     std::unique_ptr<std::vector<vuh_unit>> avd_units; // attribute
     std::vector<size_t> v3c_unit_sizes = {};
-    size_t gof_id;
-    size_t gof_count;
+    size_t gof_id = std::numeric_limits<size_t>::max();
+    size_t gof_count = std::numeric_limits<size_t>::max();
 
     //std::shared_ptr<std::counting_semaphore<UINT16_MAX>> conccurentFrameSem;
 

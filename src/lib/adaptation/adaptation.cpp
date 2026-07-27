@@ -477,9 +477,8 @@ void Adaptation::adapt(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, uvgvpcc_dec::A
         std::snprintf(filename,
                     sizeof(filename),
                     outputFilePath.c_str(),
-                    frame->gofId,
-                    frame->frameId);
-
+                    std::min(static_cast<int>(frame->gofId), 9999),
+                    std::min(static_cast<int>(frame->frameId), 9999));
         write_point_cloud_with_attri(filename, frame.get(), false);
         // write_point_cloud(filename, frame.get(), true);
     }

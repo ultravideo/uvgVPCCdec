@@ -274,6 +274,9 @@ void API::decodeFrame(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, uvgvpc
 }
 
 void API::decodeFrame_parallel(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, uvgvpcc_dec::API::point_cloud_frame_stream* output, const bool in_order_output, const std::string& outputFilePath) {
+    if (chunk->gof_id > 9999) {
+        std::cout << "Warning : chunk->gof_id is random data (it is not properly initialized) " << chunk->gof_id << std::endl;
+    }
 
     if (chunk == nullptr) {
         Logger::log<LogLevel::ERROR>("API", "The chunk is null.\n");
