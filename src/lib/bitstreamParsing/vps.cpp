@@ -15,10 +15,8 @@ bool vps::read_vps(bitstream_t* stream) {
     ptl_.ptl_profile_codec_group_idc          = readU(stream, 7, "ptl_profile_codec_group_idc",gofId);
     ptl_.ptl_profile_toolset_idc              = readU(stream, 8, "ptl_profile_toolset_idc",gofId);
     ptl_.ptl_profile_reconstruction_idc       = readU(stream, 8, "ptl_profile_reconstruction_idc",gofId);
-                                                // readU(stream, 16, "ptl_reserved_zero_16bits",gofId);
-                                                // readU(stream, 16, "ptl_reserved_zero_16bits",gofId);
-                                                bitstream_advance(stream, 16);
-                                                bitstream_advance(stream, 16);
+                                                bitstream_advance(stream, 16); // readU(stream, 16, "ptl_reserved_zero_16bits",gofId);
+                                                bitstream_advance(stream, 16); // readU(stream, 16, "ptl_reserved_zero_16bits",gofId);
     ptl_.ptl_level_idc                        = readU(stream, 8, "ptl_level_idc",gofId);
     ptl_.ptl_num_sub_profiles                 = readU(stream, 6, "ptl_num_sub_profiles",gofId);
     ptl_.ptl_extended_sub_profile_flag        = readU(stream, 1, "ptl_extended_sub_profile_flag",gofId);

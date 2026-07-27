@@ -35,6 +35,19 @@ struct common_reconstruction_parameters {
   size_t offsetV = 0;
 };
 
+struct other_reconstruction_parameters {
+  size_t surface_thickness           = 0;
+  size_t threshold_lossy_om          = 0;
+  bool enable_size_quantization      = false;
+  bool remove_duplicate_points       = false;
+  bool point_local_reconstruction    = false;
+  bool single_map_pixel_interleaving = false;
+  bool use_additional_points_patch   = false;
+  bool use_aux_seperate_video        = false;
+  bool enhanced_occupancy_map_code   = false;
+  bool EOM_fix_bit_count             = false;
+};
+
 struct sei_reconstruction_info {
   bool    geometry_smoothing_flag = false;
   bool    grid_smoothing          = false;
@@ -113,6 +126,7 @@ struct reconstruction_options {
 
 struct reconstruction_parameters {
   common_reconstruction_parameters common_rec_params;
+  other_reconstruction_parameters other_rec_params;
   sei_reconstruction_info rec_sei_info;
   reconstruction_options rec_opts;
 };

@@ -1,6 +1,8 @@
 #include "reconstruction.hpp"
 #include "bitstreamParsing/vps.hpp"
 
+#include "geometry_smoothing.hpp"
+
 using namespace uvgvpcc_dec;
 
 namespace { 
@@ -321,7 +323,7 @@ size_t patch_to_canvas_tmc2(
 
 static inline size_t patch_to_canvas(
     const size_t w, const size_t h, 
-    const size_t tile_width, const size_t tile_height,
+    const size_t tile_width,
     const uvgvpcc_dec::Patch& patch,
     size_t& x, size_t& y
 ) {
@@ -380,6 +382,67 @@ static inline size_t patch_to_canvas(
     }
     
     return(y*tile_width + x);
+}
+
+
+static inline void patch_to_canvas(
+    const size_t w, const size_t h, 
+    const uvgvpcc_dec::Patch& patch,
+    size_t& x, size_t& y
+) {
+    // const size_t u0_ = patch.patchPosXCanvasBlock; // patch pos x in canvas block
+    // const size_t v0_ = patch.patchPosYCanvasBlock; // patch pos y in canvas block
+    // const size_t occupancyResolution = patch.occupancy_resolution;
+
+    switch (patch.orientationIndex) {
+    case PATCH_ORIENTATION_DEFAULT:
+        x = w + patch.patchPosXCanvas; // w + u0_ * occupancyResolution;
+        y = h + patch.patchPosYCanvas; // h + v0_ * occupancyResolution;
+        break;
+    case PATCH_ORIENTATION_ROT90:
+        // x = ( patch.patchHeightCanvasBlock * occupancyResolution - 1 - h ) + u0_ * occupancyResolution;
+        x = patch.patchHeightCanvas + patch.patchPosXCanvas - 1 - h; // occupancyResolution*(patch.patchHeightCanvasBlock + u0_) - 1 - h;
+        y = w + patch.patchPosYCanvas; // w + v0_ * occupancyResolution;
+        break;
+    case PATCH_ORIENTATION_ROT180:
+        // x = ( patch.patchWidthCanvasBlock * occupancyResolution - 1 - w ) + u0_ * occupancyResolution;
+        // y = ( patch.patchHeightCanvasBlock * occupancyResolution - 1 - h ) + v0_ * occupancyResolution;
+        x = patch.patchWidthCanvas + patch.patchPosXCanvas - 1 - w; // occupancyResolution*(patch.patchWidthCanvasBlock + u0_) - 1 - w;
+        y = patch.patchHeightCanvas + patch.patchPosYCanvas - 1 - h; // occupancyResolution*(patch.patchHeightCanvasBlock + v0_) - 1 - h;
+        break;
+    case PATCH_ORIENTATION_ROT270:
+        x = h + patch.patchPosXCanvas; // h + u0_ * occupancyResolution;
+        // y = ( patch.patchWidthCanvasBlock * occupancyResolution - 1 - w ) + v0_ * occupancyResolution;
+        y = patch.patchWidthCanvas + patch.patchPosYCanvas - 1 - w; // occupancyResolution*(patch.patchWidthCanvasBlock + v0_) - 1 - w;
+        break;
+    case PATCH_ORIENTATION_MIRROR:
+        // x = ( patch.patchWidthCanvasBlock * occupancyResolution - 1 - w ) + u0_ * occupancyResolution;
+        x = patch.patchWidthCanvas + patch.patchPosXCanvas - 1 - w; // occupancyResolution*(patch.patchWidthCanvasBlock + u0_) - 1 - w;
+        y = h + patch.patchPosYCanvas; // h + v0_ * occupancyResolution;
+        break;
+    case PATCH_ORIENTATION_MROT90:
+        // x = ( patch.patchHeightCanvasBlock * occupancyResolution - 1 - h ) + u0_ * occupancyResolution;
+        // y = ( patch.patchWidthCanvasBlock * occupancyResolution - 1 - w ) + v0_ * occupancyResolution;
+        x = patch.patchHeightCanvas + patch.patchPosXCanvas - 1 - h; // occupancyResolution*(patch.patchHeightCanvasBlock + u0_) - 1 -h;
+        y = patch.patchWidthCanvas + patch.patchPosYCanvas - 1 - w; // occupancyResolution*(patch.patchWidthCanvasBlock + v0_) - 1 - w;
+        break;
+    case PATCH_ORIENTATION_MROT180:
+        x = w + patch.patchPosXCanvas; // w + u0_ * occupancyResolution;
+        // y = ( patch.patchHeightCanvasBlock * occupancyResolution - 1 - h ) + v0_ * occupancyResolution;
+        y = patch.patchHeightCanvas + patch.patchPosYCanvas - 1 - h; // occupancyResolution*(patch.patchHeightCanvasBlock + v0_) - 1 - h;
+        break;
+    case PATCH_ORIENTATION_MROT270:
+        x = h + patch.patchPosXCanvas; // h + u0_ * occupancyResolution;
+        y = w + patch.patchPosYCanvas; // w + v0_ * occupancyResolution;
+        break;
+    case PATCH_ORIENTATION_SWAP:
+        x = h + patch.patchPosXCanvas; // h + u0_ * occupancyResolution;
+        y = w + patch.patchPosYCanvas; // w + v0_ * occupancyResolution;
+        break;
+    default:
+        assert( 0 ); 
+        break;
+    }
 }
 
 
@@ -451,8 +514,43 @@ void generateBlockToPatchFromOccupancyMapVideo(
                     for (size_t u1 = 0; u1 < patch.occupancy_resolution; u1++) {
                         const size_t u = uBase + u1;
                         size_t x, y;
-                        patch_to_canvas(u, v, asps_frame_width, asps_frame_height, patch, x, y);
+                        patch_to_canvas_tmc2(u, v, asps_frame_width, asps_frame_height, patch, x, y);
                         nonZeroPixel += static_cast<unsigned long long>(occupancyMap[((y/occupancyPrecision) * occupancyMap_width) + (x/occupancyPrecision)] != 0U);
+                    }
+                }
+                if (nonZeroPixel > 0) {
+                    const size_t blockIndex = patchBlock_to_canvasBlock_tmc2(u0, v0, blockToPatchWidth, blockToPatchHeight, patch);
+                    block_to_patch[blockIndex] = patch_index + 1;
+                }
+            }
+        } // Block
+
+    } // Patch
+}
+
+void generateBlockToPatchFromOccupancyMapVideo(
+    const size_t& blockToPatchWidth, 
+    const size_t& blockToPatchHeight, 
+    const size_t& asps_frame_width, 
+    const std::vector<uint8_t>& occupancyMap,
+    const std::vector<uvgvpcc_dec::Patch>& patchList,
+    std::vector<size_t>& block_to_patch
+) {
+    for (size_t patch_index = 0; patch_index < patchList.size(); patch_index++) { // Patch
+        const uvgvpcc_dec::Patch& patch = patchList[patch_index];
+        for (size_t v0 = 0; v0 < patch.patchHeightCanvasBlock; v0++) { // Block
+            const size_t vBase = v0*patch.occupancy_resolution;
+            for (size_t u0 = 0; u0 < patch.patchWidthCanvasBlock; u0++) {
+                const size_t uBase = u0*patch.occupancy_resolution;
+                size_t nonZeroPixel = 0;
+                for (size_t v1 = 0; v1 < patch.occupancy_resolution; v1++) {
+                    const size_t v = vBase + v1;
+                    for (size_t u1 = 0; u1 < patch.occupancy_resolution; u1++) {
+                        const size_t u = uBase + u1;
+                        size_t x, y;
+                        size_t canvasIndex = patch_to_canvas(u, v, asps_frame_width, patch, x, y);
+                        // patch_to_canvas(u, v, patch, x, y);
+                        nonZeroPixel += static_cast<unsigned long long>(occupancyMap[canvasIndex] != 0U);
                     }
                 }
                 if (nonZeroPixel > 0) {
@@ -469,10 +567,7 @@ void generateBlockToPatchFromOccupancyMapVideo(
 //     const size_t& blockToPatchWidth, 
 //     const size_t& blockToPatchHeight, 
 //     const size_t& asps_frame_width, 
-//     const size_t& asps_frame_height,
 //     const std::vector<uint8_t>& occupancyMap,
-//     const size_t& occupancyMap_width,
-//     const size_t& occupancyPrecision,
 //     const std::vector<uvgvpcc_dec::Patch>& patchList,
 //     std::vector<size_t>& block_to_patch
 // ) {
@@ -482,25 +577,20 @@ void generateBlockToPatchFromOccupancyMapVideo(
 //             const size_t vBase = v0*patch.occupancy_resolution;
 //             for (size_t u0 = 0; u0 < patch.patchWidthCanvasBlock; u0++) {
 //                 const size_t uBase = u0*patch.occupancy_resolution;
-//                 size_t nonZeroPixel = 0;
 //                 for (size_t v1 = 0; v1 < patch.occupancy_resolution; v1++) {
 //                     const size_t v = vBase + v1;
 //                     for (size_t u1 = 0; u1 < patch.occupancy_resolution; u1++) {
 //                         const size_t u = uBase + u1;
 //                         size_t x, y;
-//                         patch_to_canvas(u, v, asps_frame_width, asps_frame_height, patch, x, y);
-
-//                         if (occupancyMap[(y / occupancyPrecision) * occupancyMap_width +
-//                                         (x / occupancyPrecision)] != 0U) {
-//                             nonZeroPixel = 1;
+//                         size_t canvasIndex = patch_to_canvas(u, v, asps_frame_width, patch, x, y);
+//                         size_t nonZeroPixel = static_cast<unsigned long long>(occupancyMap[canvasIndex] != 0U);
+//                         if (nonZeroPixel > 0) {
+//                             const size_t blockIndex = patchBlock_to_canvasBlock_tmc2(u0, v0, blockToPatchWidth, blockToPatchHeight, patch);
+//                             block_to_patch[blockIndex] = patch_index + 1;
+//                             v1 = patch.occupancy_resolution;
 //                             break;
 //                         }
-
 //                     }
-//                 }
-//                 if (nonZeroPixel > 0) {
-//                     const size_t blockIndex = patchBlock_to_canvasBlock_tmc2(u0, v0, blockToPatchWidth, blockToPatchHeight, patch);
-//                     block_to_patch[blockIndex] = patch_index + 1;
 //                 }
 //             }
 //         } // Block
@@ -539,7 +629,7 @@ void generateBlockToPatchFromOccupancyDSVideo(
 void set_reconstruction_parameters(
     std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, std::shared_ptr<v3c_gof>& gof_, 
     reconstruction_options& rec_opts, sei_reconstruction_info& sei_rec_info,
-    common_reconstruction_parameters& rec_params
+    common_reconstruction_parameters& rec_params, other_reconstruction_parameters& other_rec_params
 ) {
     
     const vps* vps = gof_->get_v3c_vps();
@@ -568,7 +658,19 @@ void set_reconstruction_parameters(
         }
     }
     if (rec_opts.applyOccupanySynthesisType_ != 0 && atlas_data.at(0).sei_.prefix_sei_is_present(OCCUPANCY_SYNTHESIS, sei_idx)) {
-
+        sei_occupancy_synthesis* sei_occ_synthesis = static_cast<sei_occupancy_synthesis*>(atlas_data.at(0).sei_.sei_prefix.at(sei_idx).get());
+        for (size_t i = 0; i < sei_occ_synthesis->instancesUpdated; i++) {
+            size_t k = sei_occ_synthesis->instanceIndices.at(i);
+            if (!sei_occ_synthesis->instanceCancelFlags.at(k)) {
+                sei_rec_info.geometry_smoothing_flag = true;
+                if (sei_occ_synthesis->methodTypes.at(k) == 1) {
+                    sei_rec_info.pbf_enable_flag    = true;
+                    sei_rec_info.pbf_passes_count   = sei_occ_synthesis->pbfPassesCountMinus1.at(k) + 1;
+                    sei_rec_info.pbf_filter_size    = sei_occ_synthesis->pbfFilterSizeMinus1.at(k) + 1;
+                    sei_rec_info.pbf_log2_threshold = sei_occ_synthesis->pbfLog2ThresholdMinus1.at(k) + 1;
+                }
+            }
+        }
     }
     if (rec_opts.applyAttrSmoothingType_ != 0 && atlas_data.at(0).sei_.prefix_sei_is_present(ATTRIBUTE_SMOOTHING, sei_idx)) {
 
@@ -576,27 +678,31 @@ void set_reconstruction_parameters(
     /*---------------------------------*/
 
     /* Specific reconstruction paramers */
-    const size_t surface_thickness           = asps.asps_vpcc_surface_thickness_minus1 + 1;
-    const size_t threshold_lossy_om          = static_cast<size_t>(vps->occupancy_info_.at(0).oi_lossy_occupancy_compression_threshold);
-    const bool enable_size_quantization      = asps.asps_patch_size_quantizer_present_flag; 
-    const bool remove_duplicate_points       = rec_opts.duplicatedPointRemovalType_ != 0 && asps.asps_vpcc_remove_duplicate_point_enabled_flag;
-    const bool point_local_reconstruction    = rec_opts.pointLocalReconstructionType_ != 0 && asps.asps_plr_enabled_flag;
-    const bool single_map_pixel_interleaving = rec_opts.pixelDeinterleavingType_ != 0 && asps.asps_pixel_deinterleaving_enabled_flag;
-    const bool use_additional_points_patch   =  rec_opts.reconstructRawType_ != 0 && asps.asps_raw_patch_enabled_flag;
-    const bool use_aux_seperate_video        = asps.asps_auxiliary_video_enabled_flag;
-    const bool enhanced_occupancy_map_code   = rec_opts.reconstructEomType_ != 0 && asps.asps_eom_patch_enabled_flag;
-    const bool EOM_fix_bit_count             = asps.asps_eom_fix_bit_count_minus1 + 1;
+    other_rec_params.surface_thickness             = asps.asps_vpcc_surface_thickness_minus1 + 1;
+    other_rec_params.threshold_lossy_om            = static_cast<size_t>(vps->occupancy_info_.at(0).oi_lossy_occupancy_compression_threshold);
+    other_rec_params.enable_size_quantization      = asps.asps_patch_size_quantizer_present_flag; 
+    other_rec_params.remove_duplicate_points       = rec_opts.duplicatedPointRemovalType_ != 0 && asps.asps_vpcc_remove_duplicate_point_enabled_flag;
+    other_rec_params.point_local_reconstruction    = rec_opts.pointLocalReconstructionType_ != 0 && asps.asps_plr_enabled_flag;
+    other_rec_params.single_map_pixel_interleaving = rec_opts.pixelDeinterleavingType_ != 0 && asps.asps_pixel_deinterleaving_enabled_flag;
+    other_rec_params.use_additional_points_patch   =  rec_opts.reconstructRawType_ != 0 && asps.asps_raw_patch_enabled_flag;
+    other_rec_params.use_aux_seperate_video        = asps.asps_auxiliary_video_enabled_flag;
+    other_rec_params.enhanced_occupancy_map_code   = rec_opts.reconstructEomType_ != 0 && asps.asps_eom_patch_enabled_flag;
+    other_rec_params.EOM_fix_bit_count             = asps.asps_eom_fix_bit_count_minus1 + 1;
     /*---------------------------------*/
 
 
     // Set common reconstruction paramers
+    const atlas_frame_tile_information& afti = gof_->get_v3c_atlas_context()->get_afps().afti;
     rec_params.num_tiles_in_atlas_frame         = gof_->get_v3c_atlas_context()->get_afps().afti.afti_num_tiles_in_atlas_frame_minus1 + 1;
     // Check number of tiles in Atlas frame
+    printf("---------------> numPartitionCols : %d, numPartitionRows : %d\n", 
+        afti.afti_num_partition_columns_minus1 + 1, afti.afti_num_partition_rows_minus1 + 1);
     if (gof_->get_v3c_atlas_context()->get_afps().afti.afti_single_tile_in_atlas_frame_flag) {
         rec_params.tile_width = asps.asps_frame_width;
         rec_params.tile_height = asps.asps_frame_height;
     } else { // Multiple-tiles within an Atlas frame
         throw std::runtime_error("Multiple-tiles within an Atlas frame -> Not Yet Implemented\n");
+
     }
     rec_params.occupancyPrecision               = vps->vps_frame_width_.at(0) / gofUVG->occupancy_map_width;
     rec_params.patch_packing_block_size         = size_t( 1 ) << asps.asps_log2_patch_packing_block_size;
@@ -754,14 +860,23 @@ void reconstruct_singleTile_noSei(
             num_occupied_points 
         );
 
+        // generateBlockToPatchFromOccupancyMapVideo(
+        //     rec_params.blockToPatchWidth, 
+        //     rec_params.blockToPatchHeight, 
+        //     rec_params.tile_width, 
+        //     rec_params.tile_height, 
+        //     occupancyMapDS,
+        //     gofUVG->occupancy_map_width,
+        //     rec_params.occupancyPrecision,
+        //     patchList, 
+        //     block_to_patch
+        // );
+
         generateBlockToPatchFromOccupancyMapVideo(
             rec_params.blockToPatchWidth, 
             rec_params.blockToPatchHeight, 
             rec_params.tile_width, 
-            rec_params.tile_height, 
-            occupancyMapDS,
-            gofUVG->occupancy_map_width,
-            rec_params.occupancyPrecision,
+            occupancyMap,
             patchList, 
             block_to_patch
         );
@@ -783,6 +898,11 @@ void reconstruct_singleTile_noSei(
             frame->pointsAttribute.reserve(num_occupied_points * rec_params.layer_count);
         }
 
+        size_t layer_count = rec_params.layer_count;
+        if (rec_params.layer_count == 2 && rec_params.multipleStreams_) {
+            layer_count = 1;
+        }
+        
         for (size_t patch_index = 0; patch_index < patchList.size(); patch_index++) { // Patch
             const size_t patch_index_tmp = rec_params.asps_patch_precedence_order_flag ? (patchList.size() - patch_index - 1) : patch_index;
             const uvgvpcc_dec::Patch& patch = patchList[patch_index_tmp];
@@ -801,6 +921,7 @@ void reconstruct_singleTile_noSei(
                     if (!(block_to_patch[blockIndex] == patch_index_plus_1)) { // Check if the block belongs to the patch
                         continue;
                     }
+
                     const size_t uBase = u0*patch.occupancy_resolution;
                     for ( size_t v1 = 0; v1 < patch.occupancy_resolution; ++v1 ) { // patch.occupancy_resolution
                         const size_t v = vBase + v1;
@@ -808,7 +929,134 @@ void reconstruct_singleTile_noSei(
                             const size_t u = uBase + u1;
                             size_t x;
                             size_t y;
-                            size_t canvasIndex = patch_to_canvas(u, v, rec_params.tile_width, rec_params.tile_height, patch, x, y);
+                            // size_t canvasIndex = patch_to_canvas_tmc2(u, v, rec_params.tile_width, rec_params.tile_height, patch, x, y);
+                            size_t canvasIndex = patch_to_canvas(u, v, rec_params.tile_width, patch, x, y);
+                            bool occupied = occupancyMap[canvasIndex] != 0;
+                            if (!occupied) {
+                                continue;
+                            }
+                            
+                            size_t num_geo_points = generate_points(
+                                patch, geoMap1, geoMap2, 
+                                u, v, x, y, 
+                                layer_count, rec_params.absoluteD1_, 
+                                rec_params.geo_map_width, pointsGeometry
+                            );
+                            /*
+                                Size of generated points is 2 for Double layer,
+                                Size of generated points is 1 for Single layer
+                            */
+                            for (size_t i = 0; i < num_geo_points; i++) { // get pointsGeometry and color the points
+                                if (patch.axisOfAdditionalPlane_ == 0) {
+                                    frame->pointsGeometry.push_back(pointsGeometry[i]);
+                                } else {
+                                    Vector3<typeGeometryInput> tmp;
+                                    inverseRotatePosition45DegreeOnAxis(patch.axisOfAdditionalPlane_, rec_params.geo_bit_depth_3d, pointsGeometry[i], tmp);
+                                    frame->pointsGeometry.push_back(tmp);
+                                }
+                                // Get pointsAttribute, color the points
+                                if (p_->useTMC2AttributeYUVConversion) {
+                                    frame->pointsAttribute16bits.push_back(get_attribute(attributeMaps_16bits[i], rec_params.offsetU, rec_params.offsetV, rec_params.attribute_map_width, x, y));
+                                } else {
+                                    frame->pointsAttribute.push_back(get_attribute(attributeMaps[i], rec_params.offsetU, rec_params.offsetV, rec_params.attribute_map_width, x, y));
+                                }
+                            } // get pointsGeometry and color the points
+                        }
+                    } // patch.occupancy_resolution
+                }
+            } // Block
+        } // Patch
+        frame->pointCount = frame->pointsGeometry.size();
+        // frameId++;
+        // printf("Reconstruct frame %d, size %d of GOF %d, geo_map size = %zu\n", frameId++, (int)frame->pointCount, (int)gofUVG->gofId, geoMap1.size());
+    }
+}
+
+void reconstruct_singleTile(
+    std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, std::shared_ptr<v3c_gof> gof_,
+    const reconstruction_options& rec_opts,
+    const common_reconstruction_parameters& rec_params,
+    const other_reconstruction_parameters& other_rec_params,
+    const sei_reconstruction_info& sei_params
+) {
+    (void)rec_opts;
+    int frameId = 0;
+    std::vector<size_t> block_to_patch(rec_params.blockCount);
+    std::vector<Vector3<typeGeometryInput>> pointsGeometry(2);
+    for (auto &frame : gofUVG->frames) {    
+        std::fill(block_to_patch.begin(), block_to_patch.end(), 0);
+
+
+        const std::vector<uint8_t>& occupancyMapDS = frame->occupancyMapDS;
+        std::vector<uint8_t>& occupancyMap = frame->occupancyMap;
+        const std::vector<Patch>& patchList = frame->patchList;
+        
+        size_t num_occupied_points = 0;
+
+        generateOccupancyMap(
+            occupancyMap, 
+            occupancyMapDS, 
+            gofUVG->occupancy_map_width, 
+            rec_params.occupancyPrecision, 
+            rec_params.tile_width, 
+            rec_params.tile_height,
+            num_occupied_points 
+        );
+
+        generateBlockToPatchFromOccupancyMapVideo(
+            rec_params.blockToPatchWidth, 
+            rec_params.blockToPatchHeight, 
+            rec_params.tile_width, 
+            occupancyMap,
+            patchList, 
+            block_to_patch
+        );
+
+        const auto& geoMap1 = frame->geometryMapL1;
+        const auto& geoMap2 = rec_params.multipleStreams_ ? frame->geometryMapL1 : frame->geometryMapL2;
+
+        auto* attributeMaps = &frame->attributeMapL1;
+        auto* attributeMaps_16bits = &frame->attributeMapL1_16bits;
+        if (rec_params.layer_count > 1) {
+            attributeMaps[1] = (rec_params.multipleStreams_ ? frame->attributeMapL1 : frame->attributeMapL2);
+            attributeMaps_16bits[1] = (rec_params.multipleStreams_ ? frame->attributeMapL1_16bits : frame->attributeMapL2_16bits);
+        } 
+
+        frame->pointsGeometry.reserve(num_occupied_points * rec_params.layer_count);        
+        std::vector<Vector3<size_t>> pointToPixel;
+        std::vector<uint32_t> partition;
+        partition.reserve(num_occupied_points * rec_params.layer_count);
+        pointToPixel.reserve(num_occupied_points * rec_params.layer_count);
+
+        if (p_->useTMC2AttributeYUVConversion) {
+            frame->pointsAttribute16bits.reserve(num_occupied_points * rec_params.layer_count);
+        } else {
+            frame->pointsAttribute.reserve(num_occupied_points * rec_params.layer_count);
+        }
+        
+        // Generate Point Cloud Geometry from Occupancy Map and Patch List
+        for (size_t patch_index = 0; patch_index < patchList.size(); patch_index++) { // Patch
+            const size_t patch_index_tmp = rec_params.asps_patch_precedence_order_flag ? (patchList.size() - patch_index - 1) : patch_index;
+            const uvgvpcc_dec::Patch& patch = patchList[patch_index_tmp];
+            const size_t patch_index_plus_1 = patch_index_tmp + 1;
+            
+            for (size_t v0 = 0; v0 < patch.patchHeightCanvasBlock; v0++) { // Block
+                const size_t vBase = v0*patch.occupancy_resolution;
+                for (size_t u0 = 0; u0 < patch.patchWidthCanvasBlock; u0++) {
+                    const size_t blockIndex = patchBlock_to_canvasBlock_tmc2(u0, v0, rec_params.blockToPatchWidth, rec_params.blockToPatchHeight, patch);
+                    if (!(block_to_patch[blockIndex] == patch_index_plus_1)) { // Check if the block belongs to the patch
+                        continue;
+                    }
+
+                    const size_t uBase = u0*patch.occupancy_resolution;
+                    for ( size_t v1 = 0; v1 < patch.occupancy_resolution; ++v1 ) { // patch.occupancy_resolution
+                        const size_t v = vBase + v1;
+                        for ( size_t u1 = 0; u1 < patch.occupancy_resolution; ++u1 ) {
+                            const size_t u = uBase + u1;
+                            size_t x;
+                            size_t y;
+                            // size_t canvasIndex = patch_to_canvas_tmc2(u, v, rec_params.tile_width, rec_params.tile_height, patch, x, y);
+                            size_t canvasIndex = patch_to_canvas(u, v, rec_params.tile_width, patch, x, y);
                             bool occupied = occupancyMap[canvasIndex] != 0;
                             if (!occupied) {
                                 continue;
@@ -838,18 +1086,76 @@ void reconstruct_singleTile_noSei(
                                 } else {
                                     frame->pointsAttribute.push_back(get_attribute(attributeMaps[i], rec_params.offsetU, rec_params.offsetV, rec_params.attribute_map_width, x, y));
                                 }
-                            } // get pointsGeometry and color the points
+                                
+                                // if ( params.singleMapPixelInterleaving_ ) {
+                                //     pointToPixel.emplace_back(
+                                //         x, y,
+                                //         i == 0 ? ( static_cast<size_t>( x + y ) % 2 )
+                                //             : i == 1 ? ( static_cast<size_t>( x + y + 1 ) % 2 ) : g_intermediateLayerIndex );
+                                // } else if ( params.pointLocalReconstruction_ ) {
+                                //     pointToPixel.emplace_back(
+                                //         x, y, i == 0 ? 0 : i == 1 ? g_intermediateLayerIndex : g_intermediateLayerIndex + 1 );
+                                // } else {
+                                //     printf("----------------------> pointToPixel.emplace_back( x, y, i < 2 ? i : g_intermediateLayerIndex + 1 );\n");
+                                //     pointToPixel.emplace_back( x, y, i < 2 ? i : g_intermediateLayerIndex + 1 );
+                                // }
 
+                                if (other_rec_params.single_map_pixel_interleaving) {
+
+                                } else if (other_rec_params.point_local_reconstruction) {
+
+                                } else {
+                                    pointToPixel.emplace_back(x, y, i < 2 ? i : 100 + 1);
+                                }
+                                partition.emplace_back(static_cast<uint32_t>(patch_index_tmp));
+                            } // get pointsGeometry and color the points
                         }
                     } // patch.occupancy_resolution
                 }
             } // Block
         } // Patch
         frame->pointCount = frame->pointsGeometry.size();
+
+        size_t raw_points_count = 0;
+        if (other_rec_params.enhanced_occupancy_map_code) {
+
+        } else {
+
+        }
+        if (other_rec_params.use_additional_points_patch) {
+
+        } // else -> raw_points_count = 0
+
+
+        const size_t num_points = frame->pointsGeometry.size() - raw_points_count;
+        std::vector<uint16_t> boundaryPointTypes;
+        boundaryPointTypes.resize(frame->pointsGeometry.size(), 0);
+
+        for (size_t i = 0; i < num_points; i++) {
+            auto point = pointToPixel[i];
+            identifyBoundaryPoints(occupancyMap, point[0], point[1], rec_params.tile_width, rec_params.tile_height, i, boundaryPointTypes);
+        }
+
+        if (sei_params.grid_smoothing) {
+            //smoothReconstructedGeometry(frame->pointsGeometry, sei_params, boundaryPointTypes, partition);
+            std::vector<smoothedGeoInfo> smoothed_geo_points;
+            smoothReconstructedGeometry(frame->pointsGeometry, smoothed_geo_points, sei_params, boundaryPointTypes, partition);
+            transferColors16bitBP_fast(frame, smoothed_geo_points);
+
+            // std::vector<Vector3<typeGeometryInput>> sourceGeos = frame->pointsGeometry;
+            // std::vector<Vector3<typeAttributeInput16bit>> sourceAttrs = frame->pointsAttribute16bits;
+            // std::vector<size_t> smoothed_point_indices;
+            // smoothReconstructedGeometry(frame->pointsGeometry, smoothed_point_indices, sei_params, boundaryPointTypes, partition);
+            // transferColors16bitBP_fast(frame, sourceGeos, sourceAttrs, smoothed_point_indices);
+        } else {
+            
+        }
+
         // frameId++;
         // printf("Reconstruct frame %d, size %d of GOF %d, geo_map size = %zu\n", frameId++, (int)frame->pointCount, (int)gofUVG->gofId, geoMap1.size());
     }
 }
+
 
 } // anonymous namespace
 
@@ -861,11 +1167,18 @@ void Reconstruction::reconstructPointCloud(std::shared_ptr<uvgvpcc_dec::GOF>& go
     reconstruction_options rec_opts;
     sei_reconstruction_info sei_params;
     common_reconstruction_parameters rec_params;
+    other_reconstruction_parameters other_rec_params;
 
-    set_reconstruction_parameters(gofUVG, gof_, rec_opts, sei_params, rec_params);
+    set_reconstruction_parameters(gofUVG, gof_, rec_opts, sei_params, rec_params, other_rec_params);
 
     if (!sei_params.pbf_enable_flag && rec_params.num_tiles_in_atlas_frame == 1) { // No patch block filtering and using single tile
-        reconstruct_singleTile_noSei(gofUVG, gof_, rec_opts, rec_params);
+        // reconstruct_singleTile_noSei(gofUVG, gof_, rec_opts, rec_params);
+        if (sei_params.geometry_smoothing_flag && rec_opts.applyGeoSmoothingType_ != 0) {
+            reconstruct_singleTile(gofUVG, gof_, rec_opts, rec_params, other_rec_params, sei_params);
+        } else {
+            printf("No geo Smoothing\n");
+            reconstruct_singleTile_noSei(gofUVG, gof_, rec_opts, rec_params);
+        }
     } else {
         throw std::runtime_error("Multiple-tiles within an Atlas frame -> Not Yet Implemented\n");
     }
@@ -873,7 +1186,7 @@ void Reconstruction::reconstructPointCloud(std::shared_ptr<uvgvpcc_dec::GOF>& go
 
 void Reconstruction::setReconstructionParameters(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, std::shared_ptr<v3c_gof>& gof_, std::shared_ptr<reconstruction_parameters>& rec_params) {
 
-    set_reconstruction_parameters(gofUVG, gof_, rec_params->rec_opts, rec_params->rec_sei_info, rec_params->common_rec_params);
+    set_reconstruction_parameters(gofUVG, gof_, rec_params->rec_opts, rec_params->rec_sei_info, rec_params->common_rec_params, rec_params->other_rec_params);
 }
 
 void Reconstruction::reconstructPointCloudFrame(std::shared_ptr<uvgvpcc_dec::Frame> frame, std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, common_reconstruction_parameters& rec_params) {
@@ -986,126 +1299,6 @@ void Reconstruction::reconstructPointCloudFrame(std::shared_ptr<uvgvpcc_dec::Fra
     } // Patch
     frame->pointCount = frame->pointsGeometry.size();
 }
-
-// void Reconstruction::reconstructPointCloud(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, std::shared_ptr<v3c_gof> gof_) {
-//     const vps* vps = gof_->get_v3c_vps();
-
-//     const size_t occupancyPrecision = vps->vps_frame_width_.at(0) / gofUVG->occupancy_map_width;
-//     const size_t step_height = gofUVG->occupancy_map_width / occupancyPrecision;    
-//     const size_t& asps_frame_width = gof_->get_v3c_atlas_context()->get_asps().asps_frame_width;
-//     const size_t& asps_frame_height = gof_->get_v3c_atlas_context()->get_asps().asps_frame_height;
-    
-//     const size_t patch_packing_block_size = size_t( 1 ) << gof_->get_v3c_atlas_context()->get_asps().asps_log2_patch_packing_block_size;
-//     const size_t blockToPatchWidth = asps_frame_width / patch_packing_block_size;
-//     const size_t blockToPatchHeight = asps_frame_height / patch_packing_block_size;
-//     const size_t blockCount = blockToPatchWidth * blockToPatchHeight;
-
-//     const bool& asps_patch_precedence_order_flag = gof_->get_v3c_atlas_context()->get_asps().asps_patch_precedence_order_flag;
-
-//     const size_t layer_count = vps->vps_map_count_minus1_.at(0) + 1;
-
-//     bool multipleStreams_ = vps->vps_multiple_map_streams_present_flag_.at(0);
-//     bool absoluteD1_ = layer_count == 1 || vps->vps_map_absolute_coding_enabled_flag_.at(0).at(1);
-
-//     const size_t& geometry_map_width = gofUVG->geometry_map_width;
-//     const size_t& geo_bit_depth_3d = vps->geometry_info_.at(0).gi_geometry_2d_bit_depth_minus1 + 1;
-
-//     const size_t& attribute_map_width = gofUVG->attribute_map_width;
-//     const size_t offsetU = attribute_map_width * gofUVG->attribute_map_height;
-//     const size_t offsetV = p_->useTMC2AttributeYUVConversion ? (offsetU << 1U) : offsetU + (offsetU >> 2U);
-
-//     //size_t frameId = gofUVG->gofId * gofUVG->gofCount;
-//     std::vector<size_t> block_to_patch(blockCount);
-
-//     int frameId = 0;
-//     for (auto &frame : gofUVG->frames) {
-//         std::fill(block_to_patch.begin(), block_to_patch.end(), 0);
-
-//         const std::vector<uint8_t>& occupancyMapDS = frame->occupancyMapDS;
-//         const std::vector<Patch>& patchList = frame->patchList;
-
-//         generateBlockToPatchFromOccupancyDSVideo(
-//             blockToPatchWidth, 
-//             blockToPatchHeight, 
-//             asps_frame_width, 
-//             asps_frame_height, 
-//             occupancyMapDS,
-//             occupancyPrecision,
-//             step_height,
-//             patchList, 
-//             block_to_patch
-//         );
-
-//         const auto& geoMap1 = frame->geometryMapL1;
-//         const auto& geoMap2 = multipleStreams_ ? frame->geometryMapL1 : frame->geometryMapL2;
-
-//         // const auto& attributeMap1 = frame->attributeMapL1;
-//         // const auto& attributeMap2 = multipleStreams_ ? frame->attributeMapL1 : frame->attributeMapL2;
-        
-//         // auto* attributeMaps = &frame->attributeMapL1;
-//         // // if (layer_count > 1) attributeMaps[1] = (multipleStreams_ ? frame->attributeMapL1 : frame->attributeMapL2);
-//         // if (layer_count > 1) {
-//         //     attributeMaps[1] = (multipleStreams_ ? frame->attributeMapL1 : frame->attributeMapL2);
-//         // } 
-
-//         auto* attributeMaps = &frame->attributeMapL1;
-//         auto* attributeMaps_16bits = &frame->attributeMapL1_16bits;
-//         if (layer_count > 1) {
-//             attributeMaps[1] = (multipleStreams_ ? frame->attributeMapL1 : frame->attributeMapL2);
-//             attributeMaps_16bits[1] = (multipleStreams_ ? frame->attributeMapL1_16bits : frame->attributeMapL2_16bits);
-//         } 
-
-
-//         for (size_t patch_index = 0; patch_index < patchList.size(); patch_index++) { // Patch
-//             const size_t patch_index_tmp = asps_patch_precedence_order_flag ? (patchList.size() - patch_index - 1) : patch_index;
-//             const uvgvpcc_dec::Patch& patch = patchList[patch_index_tmp];
-//             const size_t patch_index_plus_1 = patch_index_tmp + 1;
-
-//             for (size_t v0 = 0; v0 < patch.patchHeightCanvasBlock; v0++) { // Block
-//                 for (size_t u0 = 0; u0 < patch.patchWidthCanvasBlock; u0++) {
-//                     const size_t blockIndex = patchBlock_to_canvasBlock_tmc2(u0, v0, blockToPatchWidth, blockToPatchHeight, patch);
-//                     if (!(block_to_patch[blockIndex] == patch_index_plus_1)) { // Check if the block belongs to the patch
-//                         continue;
-//                     }
-                    
-//                     for ( size_t v1 = 0; v1 < patch.occupancy_resolution; ++v1 ) { // patch.occupancy_resolution
-//                         const size_t v = v0 * patch.occupancy_resolution + v1;
-//                         for ( size_t u1 = 0; u1 < patch.occupancy_resolution; ++u1 ) {
-//                             const size_t u = u0 * patch.occupancy_resolution + u1;
-//                             size_t x;
-//                             size_t y;
-//                             patch_to_canvas_tmc2(u, v, asps_frame_width, asps_frame_height, patch, x, y);
-//                             std::vector<Vector3<typeGeometryInput>> pointsGeometry;
-//                             generate_points(patch, geoMap1, geoMap2, u, v, x, y, layer_count, absoluteD1_, geometry_map_width, pointsGeometry);
-//                             /*
-//                                 Size of generated points is 2 for Double layer,
-//                                 Size of generated points is 1 for Single layer
-//                             */
-//                             for (size_t i = 0; i < pointsGeometry.size(); i++) { // get pointsGeometry and color the points
-//                                 if (patch.axisOfAdditionalPlane_ == 0) {
-//                                     frame->pointsGeometry.push_back(pointsGeometry[i]);
-//                                 } else {
-//                                     Vector3<typeGeometryInput> tmp;
-//                                     inverseRotatePosition45DegreeOnAxis(patch.axisOfAdditionalPlane_, geo_bit_depth_3d, pointsGeometry[i], tmp);
-//                                     frame->pointsGeometry.push_back(tmp);
-//                                 }
-//                                 // Get pointsAttribute, color the points
-//                                 if (p_->useTMC2AttributeYUVConversion) {
-//                                     frame->pointsAttribute16bits.push_back(get_attribute(attributeMaps_16bits[i], offsetU, offsetV, attribute_map_width, x, y));
-//                                 } else {
-//                                     frame->pointsAttribute.push_back(get_attribute(attributeMaps[i], offsetU, offsetV, attribute_map_width, x, y));
-//                                 }
-//                                 // frame->pointsAttribute.push_back(get_attribute(attributeMaps[i], offsetU, offsetV, attribute_map_width, x, y));
-//                             } // get pointsGeometry and color the points
-//                         }
-//                     } // patch.occupancy_resolution
-//                 }
-//             } // Block
-//         } // Patch
-//         frame->pointCount = frame->pointsGeometry.size();
-//         printf("Reconstruct frame %d, size %d of GOF %d\n", frameId++, (int)frame->pointCount, (int)gofUVG->gofId);
-//     } // Frame
-// }
 
 
 /* Case

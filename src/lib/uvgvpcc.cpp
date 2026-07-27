@@ -254,7 +254,8 @@ void API::decodeFrame(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, uvgvpc
     try
     {
         MapDecoding::decodeGOFMaps(currentGOF);
-        printf("--------------> Map Encodings Done, width: %d, height: %d\n", (int)currentGOF->attribute_map_width, (int)currentGOF->attribute_map_height);
+        printf("--------------> Map Decodings Done, Geometry map -> width: %d, height: %d\n", (int)currentGOF->geometry_map_width, (int)currentGOF->geometry_map_height);
+        printf("--------------> Map Decodings Done, Attribute map -> width: %d, height: %d\n", (int)currentGOF->attribute_map_width, (int)currentGOF->attribute_map_height);
     }
     catch(const std::exception& e)
     {

@@ -40,6 +40,12 @@ typedef struct bitstream_t {
 
     /* Number of bits in the incomplete byte */
     uint8_t cur_bit = 0;
+
+    void reset() {
+        len = 0;
+        cur_bit = 0;
+    }
+
 } bitstream_t;
 
 // Check if the byte is aligned in the bitstream
@@ -55,6 +61,8 @@ void bitstream_align_rbsp_trailing_bits(bitstream_t* stream);
 void bitstream_align(bitstream_t* stream);
 
 uint32_t bitstream_read_no_advance(bitstream_t* stream, uint8_t bits);
+
+uint32_t bitstream_read_unit_header(std::vector<uint8_t>& data, uint8_t bits);
 
 size_t bitstream_read_size_from_poiter(const uint8_t* src, size_t len);
 

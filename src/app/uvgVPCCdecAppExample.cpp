@@ -24,6 +24,8 @@
 #include <filesystem>
 #include <cstring>
 
+#include "../lib/bitstreamParsing/bitstream_common.hpp"
+#include "../lib/bitstreamParsing/bitstream_util.hpp"
 #include "../utils/utils.hpp"
 #include "cli.hpp"
 #include "extras/miniply.h"
@@ -1650,6 +1652,102 @@ void inputReadThread(const std::shared_ptr<input_handler_args>& args, uvgvpcc_de
     const size_t v3c_unit_size_precision = (v3c_sample_stream_header >> 5U) + 1U;
 
     size_t gof_id = 0;
+    bool gof_ready = false;
+    std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk;
+    while (file.peek() != EOF) {   
+        uint8_t v3c_size_array[v3c_unit_size_precision];
+        file.read(reinterpret_cast<char*>(v3c_size_array), v3c_unit_size_precision);
+
+        size_t v3c_unit_size = read_value(v3c_size_array, v3c_unit_size_precision);
+        
+        std::vector<uint8_t> data;
+        data.resize(v3c_unit_size);
+        file.read(reinterpret_cast<char*>(&(*data.data())), v3c_unit_size);
+
+        uint8_t vuh_unit_type = static_cast<V3C_UNIT_TYPE>(bitstream_read_unit_header(data, 5));
+        if (vuh_unit_type == V3C_VPS) {
+            if (gof_ready) {
+                chunk->gof_id = gof_id++;
+                // Signal that an item has been produced
+                available_input_slot.acquire();
+                args->chunk_in = chunk;
+                uvgvpcc_dec::API::decodedGOF decodedGOF = {};
+                output->available_gofs.push_back(decodedGOF);
+                if (returnValue == Retval::Failure) {
+                    args->retval = Retval::Failure;
+                    break;
+                } else {
+                    assert(returnValue == Retval::Running && args->retval == Retval::Running);
+                }
+                filled_input_slot.release();
+            } 
+            gof_ready = true;
+            printf(">>>>>>>>>>>>>>>>>>>>>>>>>>> Creating new VPS unit\n");
+            chunk = std::make_shared<uvgvpcc_dec::API::v3c_chunk>();
+            chunk->vps_unit->data.swap(data);
+            chunk->vps_unit->v3c_unit_size = v3c_unit_size;
+            printf("-------> V3C_VPS, size : %zu\n", chunk->vps_unit->data.size());
+        } else if (vuh_unit_type == V3C_AD) {
+            chunk->ad_unit->data.swap(data);
+            chunk->ad_unit->v3c_unit_size = v3c_unit_size;
+            printf("-------> V3C_AD, size = %zu\n", chunk->ad_unit->data.size());
+        } else if (vuh_unit_type == V3C_OVD) {
+            chunk->ovd_unit->data.swap(data);
+            chunk->ovd_unit->v3c_unit_size = v3c_unit_size;
+            printf("-------> V3C_OVD, size = %zu\n", chunk->ovd_unit->data.size());
+        } else if (vuh_unit_type == V3C_GVD) {
+            uvgvpcc_dec::API::vuh_unit gvd_unit;
+            gvd_unit.data.swap(data);
+            gvd_unit.v3c_unit_size = v3c_unit_size;
+            chunk->gvd_units->push_back(gvd_unit);
+            printf("-------> V3C_GVD, size = %zu\n", chunk->gvd_units->back().data.size());
+        } else if (vuh_unit_type == V3C_AVD) {
+            uvgvpcc_dec::API::vuh_unit avd_unit;
+            avd_unit.data.swap(data);
+            avd_unit.v3c_unit_size = v3c_unit_size;
+            chunk->avd_units->push_back(avd_unit);
+            printf("-------> V3C_AVD, size = %zu\n", chunk->avd_units->back().data.size());
+        }
+        printf("Read V3C unit of size %d, type %d\n", (int)v3c_unit_size, vuh_unit_type);
+    }
+    file.close();
+
+    if (gof_ready) {
+        // Signal that an item has been produced
+        available_input_slot.acquire();
+        args->chunk_in = chunk;
+        uvgvpcc_dec::API::decodedGOF decodedGOF = {};
+        output->available_gofs.push_back(decodedGOF);
+        if (returnValue == Retval::Failure) {
+            args->retval = Retval::Failure;
+        } else {
+            assert(returnValue == Retval::Running && args->retval == Retval::Running);
+        }
+        filled_input_slot.release();
+    }
+
+    output->total_gof = static_cast<int>(gof_id);
+
+    // Signal that all input frames has been loaded
+    available_input_slot.acquire();
+    args->chunk_in = nullptr;
+    args->retval = Retval::Eof;
+    filled_input_slot.release();
+    
+}
+
+void inputReadThread__(const std::shared_ptr<input_handler_args>& args, uvgvpcc_dec::API::point_cloud_frame_stream* output) {
+    Retval returnValue = Retval::Running;
+    std::ifstream file (args->input_path);
+    if (!file.is_open()) {
+        throw std::runtime_error("Bitstream writing : Could not open input file " + args->input_path);
+    }
+
+    uint8_t v3c_sample_stream_header = 0;
+    file.read(reinterpret_cast<char*> (&v3c_sample_stream_header), sizeof(uint8_t));
+    const size_t v3c_unit_size_precision = (v3c_sample_stream_header >> 5U) + 1U;
+
+    size_t gof_id = 0;
 
     while (file.peek() != EOF)
     {
@@ -1659,7 +1757,7 @@ void inputReadThread(const std::shared_ptr<input_handler_args>& args, uvgvpcc_de
             uint8_t v3c_size_array[v3c_unit_size_precision];
             file.read(reinterpret_cast<char*>(v3c_size_array), v3c_unit_size_precision);
 
-            size_t v3c_unit_size = read_value(v3c_size_array, v3c_unit_size_precision);;
+            size_t v3c_unit_size = read_value(v3c_size_array, v3c_unit_size_precision);
             chunk->v3c_unit_sizes.push_back(v3c_unit_size);
 
             chunk->vuh_units[i]->resize(v3c_unit_size);

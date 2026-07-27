@@ -97,6 +97,45 @@ struct sei_geometry_smoothing : sei {
     }
 };
 
+struct decode_atlas_information_hash : sei {
+    bool cancelFlag = false;
+    bool persistenceFlag = false;
+    uint8_t hashType = 1;
+    bool decodedHighLevelHashPresentFlag = true;
+    bool decodedAtlasHashPresentFlag = false;
+    bool decodedAtlasB2pHashPresentFlag = false;
+    bool decodedAtlasTilesHashPresentFlag = false;
+    bool decodedAtlasTilesB2pHashPresentFlag = false;
+    uint32_t numTilesMinus1 = 0;
+    uint32_t tileIdLenMinus1 = 0;
+    std::vector<uint32_t> tileIds;
+    
+    std::vector<uint8_t> highLevelMd5;
+    uint16_t highLevelCrc = 0;
+    uint32_t highLevelChecksum = 0;
+    std::vector<uint8_t> atlasMd5;
+    uint16_t atlasCrc = 0;
+    uint32_t atlasChecksum = 0;
+    std::vector<uint8_t> atlasB2pMd5;
+    uint16_t atlasB2pCrc = 0;
+    uint32_t atlasB2pChecksum = 0;
+    std::vector<uint16_t> atlasTilesCrc;
+    std::vector<uint32_t> atlasTilesChecksum;
+    std::vector<std::vector<uint32_t>> atlasTilesMd5;
+    std::vector<uint16_t> atlasTilesB2pCrc;
+    std::vector<uint32_t> atlasTilesB2pChecksum;
+    std::vector<std::vector<uint32_t>> atlasTilesB2pMd5;
+
+    decode_atlas_information_hash() {
+        payload_type = DECODED_ATLAS_INFORMATION_HASH;
+        highLevelMd5.resize(16);
+        atlasMd5.resize(16);
+        atlasB2pMd5.resize(16);
+    }
+
+};
+
+
 struct pccsei {
     std::vector<std::shared_ptr<sei>> sei_prefix;
     std::vector<std::shared_ptr<sei>> sei_suffix;
@@ -123,7 +162,7 @@ struct pccsei {
             // case ATLAS_OBJECT_INFORMATION: sharedPtr = std::make_shared<SEIAtlasInformation>(); break;
             // case VIEWPORT_CAMERA_PARAMETERS: sharedPtr = std::make_shared<SEIViewportCameraParameters>(); break;
             // case VIEWPORT_POSITION: sharedPtr = std::make_shared<SEIViewportPosition>(); break;
-            // case DECODED_ATLAS_INFORMATION_HASH: sharedPtr = std::make_shared<SEIDecodedAtlasInformationHash>(); break;
+            case DECODED_ATLAS_INFORMATION_HASH: sei_ = std::make_shared<decode_atlas_information_hash>(); break;
             // case ATTRIBUTE_TRANSFORMATION_PARAMS: sharedPtr = std::make_shared<SEIAttributeTransformationParams>(); break;
             case OCCUPANCY_SYNTHESIS: sei_ = std::make_shared<sei_occupancy_synthesis>(); break;
             case GEOMETRY_SMOOTHING: sei_ = std::make_shared<sei_geometry_smoothing>(); break;

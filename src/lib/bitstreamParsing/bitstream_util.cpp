@@ -100,6 +100,21 @@ uint32_t bitstream_read_no_advance(bitstream_t* stream, uint8_t bits) {
     return value;
 }
 
+uint32_t bitstream_read_unit_header(std::vector<uint8_t>& data, uint8_t bits) {
+    uint32_t value = 0;
+    uint64_t bytes = 0;
+    uint8_t  cur_bits = 0;
+    for (uint8_t i = 0; i < bits; i++) {
+        value = (value << 1) | ((data[bytes] >> (7 - cur_bits)) & 1);
+        cur_bits++;
+        if (cur_bits == 8) {
+            cur_bits = 0;
+            bytes++;
+        } 
+    }
+    return value;
+}
+
 size_t bitstream_read_size_from_poiter(const uint8_t* src, size_t len) {
     size_t value = 0;
     // for (size_t i = 0; i < len; ++i) {

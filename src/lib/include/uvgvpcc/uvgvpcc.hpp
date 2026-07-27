@@ -205,9 +205,11 @@ struct Frame {
     std::vector<uint8_t> occupancyMap = {};    // (boolean vector)
     std::vector<uint8_t> occupancyMapDS = {};  // Down-scaled occupancy map of the frame (boolean vector)
 
+    std::vector<uint8_t> geometryMaps[2];  // Multiple-streams
     std::vector<uint8_t> geometryMapL1 = {};  // first layer
     std::vector<uint8_t> geometryMapL2 = {};  // second layer
 
+    std::vector<uint8_t> attributeMaps[2];  // Multiple-streams
     std::vector<uint8_t> attributeMapL1 = {};  // Store the three channels continuously (all R, then all G, than all B)
     std::vector<uint8_t> attributeMapL2 = {};
 
@@ -249,6 +251,10 @@ struct GOF {
     std::vector<uint8_t> bitstreamGeometry;
     std::vector<uint8_t> bitstreamAttribute;
 
+    std::vector<std::vector<uint8_t>> streams_geometry;
+    std::vector<std::vector<uint8_t>> streams_attribute;
+
+
     // std::shared_ptr<std::counting_semaphore<UINT16_MAX>> conccurentFrameSem;
     // ~GOF() {
     //     if (conccurentFrameSem) {
@@ -261,18 +267,34 @@ struct GOF {
 /// @brief API of the uvgVPCCdec library
 namespace API {
 
+struct vuh_unit {
+    std::vector<uint8_t> data;
+    size_t v3c_unit_size = 0;
+};
+
 /// @brief Bitstream reading miscellaneous
 struct v3c_chunk {
     size_t len = 0;                 // Length of data in buffer
     std::unique_ptr<std::vector<uint8_t>> data;
     std::unique_ptr<std::vector<uint8_t>> vuh_units[5]; // VPS, AD, OVD, GVD, AVD
+    std::unique_ptr<vuh_unit> vps_unit; // vps
+    std::unique_ptr<vuh_unit> ad_unit;  // atlas data
+    std::unique_ptr<vuh_unit> ovd_unit; // occupancy
+    std::unique_ptr<std::vector<vuh_unit>> gvd_units; // geometry
+    std::unique_ptr<std::vector<vuh_unit>> avd_units; // attribute
     std::vector<size_t> v3c_unit_sizes = {};
     size_t gof_id;
     size_t gof_count;
 
     //std::shared_ptr<std::counting_semaphore<UINT16_MAX>> conccurentFrameSem;
 
-    v3c_chunk() = default;
+    v3c_chunk() {
+        vps_unit  = std::make_unique<vuh_unit>();
+        ad_unit   = std::make_unique<vuh_unit>();
+        ovd_unit  = std::make_unique<vuh_unit>();
+        gvd_units = std::make_unique<std::vector<vuh_unit>>();
+        avd_units = std::make_unique<std::vector<vuh_unit>>();
+    };
 
     v3c_chunk(bool sep) {
         if (sep) {

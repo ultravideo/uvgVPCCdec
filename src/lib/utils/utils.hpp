@@ -43,7 +43,9 @@
 
 namespace uvgvpcc_dec {
 
-using typeGeometryInput = uint16_t;
+using typeGeometryInput = int16_t;
+using typeAttributeInput = uint8_t;
+using typeAttributeInput16bit = uint16_t;
 
 const typeGeometryInput g_infiniteDepth = (std::numeric_limits<typeGeometryInput>::max)();  // TODO(lf)be sure it is well sync with type geo
 const size_t g_infinitenumber = (std::numeric_limits<size_t>::max)();
@@ -56,49 +58,330 @@ constexpr size_t UNDEFINED_PARENT_PPI = std::numeric_limits<size_t>::max() - 1; 
 // Projection Plan Index, 0-5 -> one of the six bounding box plan. 6+ -> used for slicing ppi attribution
 enum class PPI : uint8_t {ppi0,ppi1,ppi2,ppi3,ppi4,ppi5,ppiBlank,notAssigned};
 
+// template <typename T>
+// class Vector3 : public std::array<T, 3> {
+//    public:
+//     Vector3() : std::array<T, 3>() {}
+//     Vector3(T x, T y, T z) : std::array<T, 3>({x, y, z}) {}
+//     Vector3(std::array<T, 3>& arr) : std::array<T, 3>(arr) {}
+//     Vector3(std::array<T, 3>&& arr) : std::array<T, 3>(std::move(arr)) {} 
+//     Vector3(const std::array<T, 3>& arr) {
+//         std::copy(arr.begin(), arr.end(), this->begin());
+//     }   
+//     template <typename U>
+//     Vector3(const std::array<U, 3>& arr) {
+//         (*this)[0] = static_cast<T>(arr[0]);
+//         (*this)[1] = static_cast<T>(arr[1]);
+//         (*this)[2] = static_cast<T>(arr[2]);
+//     } 
+
+//     // template <typename U>
+//     // Vector3(const Vector3<U>& other)
+//     //     : std::array<T, 3>{
+//     //         static_cast<T>(other[0]),
+//     //         static_cast<T>(other[1]),
+//     //         static_cast<T>(other[2])
+//     //     }
+//     // {}
+    
+//     template <typename U>
+//     Vector3<T> operator+(const Vector3<U>& other) const {
+//         return {(*this)[0] + other[0], (*this)[1] + other[1], (*this)[2] + other[2]};
+//     }
+
+//     template <typename U>
+//     Vector3<T> operator+(const U other) const {
+//         return Vector3<T>((*this)[0] + (T)other, (*this)[1] + (T)other, (*this)[2] + (T)other);
+//     }
+
+//     template <typename U>
+//     Vector3<T> operator-(const Vector3<U>& other) const {
+//         return {(*this)[0] - (T)other[0], (*this)[1] - (T)other[1], (*this)[2] - (T)other[2]};
+//     }
+
+//     template <typename U>
+//     Vector3<T> operator-(const U other) const {
+//         return Vector3<T>((*this)[0] - (T)other, (*this)[1] - (T)other, (*this)[2] - (T)other);
+//     }
+
+//     Vector3<double> operator-(const Vector3<double>& other) const {
+//         return {(*this)[0] - other[0], (*this)[1] - other[1], (*this)[2] - other[2]};
+//     }
+
+//     Vector3<T> operator-() const { return {-(*this)[0], -(*this)[1], -(*this)[2]}; }
+
+//     template <typename U>
+//     Vector3<T> operator*(const U other) const {
+//         return Vector3<T>((*this)[0] * (T)other, (*this)[1] * (T)other, (*this)[2] * (T)other);
+//     }
+
+//     template <typename U>
+//     Vector3<T> operator/(const U other) const {
+//         return Vector3<T>((*this)[0] / (T)other, (*this)[1] / (T)other, (*this)[2] / (T)other);
+//     }
+
+//     template <typename U>
+//     Vector3<T>& operator+=(const Vector3<U>& other) {
+//         (*this)[0] += other[0];
+//         (*this)[1] += other[1];
+//         (*this)[2] += other[2];
+//         return *this;
+//     }
+
+//     template <typename U>
+//     Vector3<T>& operator/=(const U& val) {
+//         (*this)[0] /= val;
+//         (*this)[1] /= val;
+//         (*this)[2] /= val;
+//         return *this;
+//     }
+
+//     template <typename U>
+//     Vector3<T>& operator*=(const U& val) {
+//         (*this)[0] *= val;
+//         (*this)[1] *= val;
+//         (*this)[2] *= val;
+//         return *this;
+//     }
+
+//     T norm2() const {
+//         return (*this)[0] * (*this)[0] + (*this)[1] * (*this)[1] + (*this)[2] * (*this)[2];
+//     }
+// };
+
 template <typename T>
 class Vector3 : public std::array<T, 3> {
    public:
     Vector3() : std::array<T, 3>() {}
-    Vector3(T x, T y, T z) : std::array<T, 3>({x, y, z}) {}
-    Vector3(std::array<T, 3>& arr) : std::array<T, 3>(arr) {}
-    Vector3(std::array<T, 3>&& arr) : std::array<T, 3>(std::move(arr)) {} 
-    Vector3(const std::array<T, 3>& arr) {
-        std::copy(arr.begin(), arr.end(), this->begin());
-    }   
-    
+
+    Vector3(T v)
+        : std::array<T, 3>{v, v, v}
+    {}
+
+    Vector3(T x, T y, T z)
+        : std::array<T, 3>{x, y, z}
+    {}
+
+    Vector3(const std::array<T, 3>& arr)
+        : std::array<T, 3>(arr)
+    {}
+
+    Vector3(std::array<T, 3>&& arr)
+        : std::array<T, 3>(std::move(arr))
+    {}
+
+    template <typename U>
+    Vector3(const std::array<U, 3>& arr)
+        : std::array<T, 3>{
+              static_cast<T>(arr[0]),
+              static_cast<T>(arr[1]),
+              static_cast<T>(arr[2])
+          }
+    {}
+
     template <typename U>
     Vector3<T> operator+(const Vector3<U>& other) const {
-        return {(*this)[0] + other[0], (*this)[1] + other[1], (*this)[2] + other[2]};
+        return {
+            (*this)[0] + static_cast<T>(other[0]),
+            (*this)[1] + static_cast<T>(other[1]),
+            (*this)[2] + static_cast<T>(other[2])
+        };
+    }
+
+    template <typename U>
+    Vector3<T> operator+(const U other) const {
+        return {
+            (*this)[0] + static_cast<T>(other),
+            (*this)[1] + static_cast<T>(other),
+            (*this)[2] + static_cast<T>(other)
+        };
     }
 
     template <typename U>
     Vector3<T> operator-(const Vector3<U>& other) const {
-        return {(*this)[0] - other[0], (*this)[1] - other[1], (*this)[2] - other[2]};
+        return {
+            (*this)[0] - static_cast<T>(other[0]),
+            (*this)[1] - static_cast<T>(other[1]),
+            (*this)[2] - static_cast<T>(other[2])
+        };
     }
 
-    Vector3<double> operator-(const Vector3<double>& other) const {
-        return {(*this)[0] - other[0], (*this)[1] - other[1], (*this)[2] - other[2]};
+    template <typename U>
+    Vector3<T> operator-(const U other) const {
+        return {
+            (*this)[0] - static_cast<T>(other),
+            (*this)[1] - static_cast<T>(other),
+            (*this)[2] - static_cast<T>(other)
+        };
     }
 
-    Vector3<T> operator-() const { return {-(*this)[0], -(*this)[1], -(*this)[2]}; }
+    Vector3<T> operator-() const {
+        return {-(*this)[0], -(*this)[1], -(*this)[2]};
+    }
+
+    template <typename U>
+    Vector3<T> operator*(const U other) const {
+        return {
+            (*this)[0] * static_cast<T>(other),
+            (*this)[1] * static_cast<T>(other),
+            (*this)[2] * static_cast<T>(other)
+        };
+    }
+
+    template <typename U>
+    Vector3<T> operator/(const U other) const {
+        return {
+            (*this)[0] / static_cast<T>(other),
+            (*this)[1] / static_cast<T>(other),
+            (*this)[2] / static_cast<T>(other)
+        };
+    }
 
     template <typename U>
     Vector3<T>& operator+=(const Vector3<U>& other) {
-        (*this)[0] += other[0];
-        (*this)[1] += other[1];
-        (*this)[2] += other[2];
+        (*this)[0] += static_cast<T>(other[0]);
+        (*this)[1] += static_cast<T>(other[1]);
+        (*this)[2] += static_cast<T>(other[2]);
         return *this;
     }
 
     template <typename U>
-    Vector3<T>& operator/=(const U& val) {
+    Vector3<T>& operator/=(const U val) {
         (*this)[0] /= val;
         (*this)[1] /= val;
         (*this)[2] /= val;
         return *this;
     }
+
+    template <typename U>
+    Vector3<T>& operator*=(const U val) {
+        (*this)[0] *= val;
+        (*this)[1] *= val;
+        (*this)[2] *= val;
+        return *this;
+    }
+
+    T norm2() const {
+        return (*this)[0] * (*this)[0]
+             + (*this)[1] * (*this)[1]
+             + (*this)[2] * (*this)[2];
+    }
 };
+
+// template <typename T>
+// class Vector3 : public std::array<T, 3> {
+// public:
+//     Vector3() : std::array<T, 3>() {}
+
+//     Vector3(T x, T y, T z)
+//         : std::array<T, 3>{x, y, z}
+//     {}
+
+//     Vector3(const std::array<T, 3>& arr)
+//         : std::array<T, 3>(arr)
+//     {}
+
+//     Vector3(std::array<T, 3>&& arr)
+//         : std::array<T, 3>(std::move(arr))
+//     {}
+
+//     template <typename U>
+//     Vector3(const std::array<U, 3>& arr)
+//         : std::array<T, 3>{
+//               static_cast<T>(arr[0]),
+//               static_cast<T>(arr[1]),
+//               static_cast<T>(arr[2])
+//           }
+//     {}
+
+//     template <typename U>
+//     Vector3<T> operator+(const Vector3<U>& other) const {
+//         return {
+//             (*this)[0] + static_cast<T>(other[0]),
+//             (*this)[1] + static_cast<T>(other[1]),
+//             (*this)[2] + static_cast<T>(other[2])
+//         };
+//     }
+
+//     template <typename U>
+//     Vector3<T> operator+(const U other) const {
+//         return {
+//             (*this)[0] + static_cast<T>(other),
+//             (*this)[1] + static_cast<T>(other),
+//             (*this)[2] + static_cast<T>(other)
+//         };
+//     }
+
+//     template <typename U>
+//     Vector3<T> operator-(const Vector3<U>& other) const {
+//         return {
+//             (*this)[0] - static_cast<T>(other[0]),
+//             (*this)[1] - static_cast<T>(other[1]),
+//             (*this)[2] - static_cast<T>(other[2])
+//         };
+//     }
+
+//     template <typename U>
+//     Vector3<T> operator-(const U other) const {
+//         return {
+//             (*this)[0] - static_cast<T>(other),
+//             (*this)[1] - static_cast<T>(other),
+//             (*this)[2] - static_cast<T>(other)
+//         };
+//     }
+
+//     Vector3<T> operator-() const {
+//         return {-(*this)[0], -(*this)[1], -(*this)[2]};
+//     }
+
+//     template <typename U>
+//     Vector3<T> operator*(const U other) const {
+//         return {
+//             (*this)[0] * static_cast<T>(other),
+//             (*this)[1] * static_cast<T>(other),
+//             (*this)[2] * static_cast<T>(other)
+//         };
+//     }
+
+//     template <typename U>
+//     Vector3<T> operator/(const U other) const {
+//         return {
+//             (*this)[0] / static_cast<T>(other),
+//             (*this)[1] / static_cast<T>(other),
+//             (*this)[2] / static_cast<T>(other)
+//         };
+//     }
+
+//     template <typename U>
+//     Vector3<T>& operator+=(const Vector3<U>& other) {
+//         (*this)[0] += static_cast<T>(other[0]);
+//         (*this)[1] += static_cast<T>(other[1]);
+//         (*this)[2] += static_cast<T>(other[2]);
+//         return *this;
+//     }
+
+//     template <typename U>
+//     Vector3<T>& operator/=(const U& val) {
+//         (*this)[0] /= val;
+//         (*this)[1] /= val;
+//         (*this)[2] /= val;
+//         return *this;
+//     }
+
+//     template <typename U>
+//     Vector3<T>& operator*=(const U& val) {
+//         (*this)[0] *= val;
+//         (*this)[1] *= val;
+//         (*this)[2] *= val;
+//         return *this;
+//     }
+
+//     T norm2() const {
+//         return (*this)[0] * (*this)[0]
+//              + (*this)[1] * (*this)[1]
+//              + (*this)[2] * (*this)[2];
+//     }
+// };
 
 inline std::string zeroPad(size_t value, size_t width) {
     std::ostringstream oss;

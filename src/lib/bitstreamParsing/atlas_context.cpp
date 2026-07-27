@@ -15,6 +15,37 @@
 #include "utils/parameters.hpp"
 #include "uvgvpcc/uvgvpcc.hpp"
 
+
+namespace { // annonymous namespace
+
+    static inline std::string toString( NAL_UNIT_TYPE type ) {
+    switch ( type ) {
+        case NAL_ASPS: return std::string( "NAL_ASPS" ); break;
+        case NAL_AFPS: return std::string( "NAL_AFPS" ); break;
+        case NAL_AUD: return std::string( "NAL_AUD" ); break;
+        case NAL_TRAIL_N: return std::string( "NAL_TRAIL_N" ); break;
+        case NAL_TRAIL_R: return std::string( "NAL_TRAIL_R" ); break;
+        case NAL_TSA_N: return std::string( "NAL_TSA_N" ); break;
+        case NAL_TSA_R: return std::string( "NAL_TSA_R" ); break;
+        case NAL_STSA_N: return std::string( "NAL_STSA_N" ); break;
+        case NAL_STSA_R: return std::string( "NAL_STSA_R" ); break;
+        case NAL_RADL_N: return std::string( "NAL_RADL_N" ); break;
+        case NAL_RADL_R: return std::string( "NAL_RADL_R" ); break;
+        case NAL_RASL_N: return std::string( "NAL_RASL_N" ); break;
+        case NAL_RASL_R: return std::string( "NAL_RASL_R" ); break;
+        case NAL_SKIP_N: return std::string( "NAL_SKIP_N" ); break;
+        case NAL_SKIP_R: return std::string( "NAL_SKIP_R" ); break;
+        case NAL_IDR_N_LP: return std::string( "NAL_IDR_N_LP" ); break;
+        case NAL_PREFIX_ESEI: return std::string( "NAL_PREFIX_ESEI" ); break;
+        case NAL_PREFIX_NSEI: return std::string( "NAL_PREFIX_NSEI" ); break;
+        case NAL_SUFFIX_ESEI: return std::string( "NAL_SUFFIX_ESEI" ); break;
+        case NAL_SUFFIX_NSEI: return std::string( "NAL_SUFFIX_NSEI" ); break;
+        default: return std::string( "others" ); break;
+    }
+}
+
+} // annonymous namespace
+
 // PCCDecoder::createPatchFrameDataStructure
 void atlas_context::write_atlas_tile_layer_rbsp_to_gof(const atlas_tile_layer_rbsp& rbsp, std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG) {
     gofUVG->mapHeightGOF = asps_.asps_frame_height;
@@ -262,6 +293,7 @@ void atlas_context::read_atlas_seq_parameter_set(bitstream_t* stream) {
             }
         }
     }
+    printf("---> Parse asps_num_ref_atlas_frame_lists_in_asps done\n");
     asps_.asps_use_eight_orientations_flag = readU(stream, 1, "asps_use_eight_orientations_flag",get_gof_id());
     asps_.asps_extended_projection_enabled_flag = readU(stream, 1, "asps_extended_projection_enabled_flag",get_gof_id());
     if (asps_.asps_extended_projection_enabled_flag) { 
@@ -332,12 +364,14 @@ void atlas_context::read_atlas_frame_parameter_set(bitstream_t* stream) {
     if (!afps_.afti.afti_single_tile_in_atlas_frame_flag) {
         afps_.afti.afti_uniform_partition_spacing_flag                     = readU(stream, 1, "afti_uniform_partition_spacing_flag",get_gof_id()) != 0U;
         if (afps_.afti.afti_uniform_partition_spacing_flag) {
-            afps_.afti.afti_partition_column_width_minus1.at(0) 
-                                                                           = readUE(stream, "afti_partition_column_width_minus1.at(0)",get_gof_id());
-            afps_.afti.afti_partition_row_height_minus1.at(0) 
-                                                                           = readUE(stream, "afti_partition_row_height_minus1.at(0)",get_gof_id());
-            afps_.afti.afti_num_partition_columns_minus1  = ceil(asps_.asps_frame_width / ((afps_.afti.afti_partition_column_width_minus1.at(0)+1)*64.0)) - 1;
-            afps_.afti.afti_num_partition_rows_minus1     = ceil(asps_.asps_frame_width / ((afps_.afti.afti_partition_row_height_minus1.at(0)+1)*64.0)) - 1;
+            const auto afti_partition_column_width_minus1                  = readUE(stream, "afti_partition_column_width_minus1.at(0)",get_gof_id());
+            const auto afti_partition_row_height_minus1                    = readUE(stream, "afti_partition_row_height_minus1.at(0)",get_gof_id());
+            afps_.afti.afti_num_partition_columns_minus1                   = ceil(asps_.asps_frame_width / ((afti_partition_column_width_minus1+1)*64.0)) - 1;
+            afps_.afti.afti_num_partition_rows_minus1                      = ceil(asps_.asps_frame_width / ((afti_partition_row_height_minus1+1)*64.0)) - 1;
+            afps_.afti.afti_partition_column_width_minus1.resize(std::max((uint32_t)1, afps_.afti.afti_num_partition_columns_minus1), 0);
+            afps_.afti.afti_partition_row_height_minus1.resize(std::max((uint32_t)1, afps_.afti.afti_num_partition_rows_minus1), 0);
+            afps_.afti.afti_partition_column_width_minus1[0]               = afti_partition_column_width_minus1;
+            afps_.afti.afti_partition_row_height_minus1[0]                 = afti_partition_row_height_minus1;
         } else {
             afps_.afti.afti_num_partition_columns_minus1                   = readUE(stream, "afti_num_partition_columns_minus1",get_gof_id());
             afps_.afti.afti_num_partition_rows_minus1                      = readUE(stream, "afti_num_partition_rows_minus1",get_gof_id());
@@ -354,42 +388,46 @@ void atlas_context::read_atlas_frame_parameter_set(bitstream_t* stream) {
         if (afps_.afti.afti_single_partition_per_tile_flag == 0U) {
             uint32_t numPartitionsInAtlasFrame = (afps_.afti.afti_num_partition_columns_minus1 + 1) * (afps_.afti.afti_num_partition_rows_minus1 + 1);
             afps_.afti.afti_num_tiles_in_atlas_frame_minus1                = readUE(stream, "afti.afti_num_tiles_in_atlas_frame_minus1",get_gof_id());
-            afps_.afti.afti_top_left_partition_idx.resize(afps_.afti.afti_num_tiles_in_atlas_frame_minus1 == 0 ? 1 : afps_.afti.afti_num_tiles_in_atlas_frame_minus1);
-            afps_.afti.afti_bottom_right_partition_column_offset.resize(afps_.afti.afti_num_tiles_in_atlas_frame_minus1 == 0 ? 1 : afps_.afti.afti_num_tiles_in_atlas_frame_minus1);
-            afps_.afti.afti_bottom_right_partition_row_offset.resize(afps_.afti.afti_num_tiles_in_atlas_frame_minus1 == 0 ? 1 : afps_.afti.afti_num_tiles_in_atlas_frame_minus1);
-            for (size_t i = 0; i <= afps_.afti.afti_num_tiles_in_atlas_frame_minus1; i++) {
+            const auto afti_num_tiles_in_atlas_frame                       = afps_.afti.afti_num_tiles_in_atlas_frame_minus1 + 1;
+            afps_.afti.afti_top_left_partition_idx.resize(afti_num_tiles_in_atlas_frame);
+            afps_.afti.afti_bottom_right_partition_column_offset.resize(afti_num_tiles_in_atlas_frame);
+            afps_.afti.afti_bottom_right_partition_row_offset.resize(afti_num_tiles_in_atlas_frame);
+            for (size_t i = 0; i < afti_num_tiles_in_atlas_frame; i++) {
                 afps_.afti.afti_top_left_partition_idx.at(i)               = readU(stream, ceilLog2(numPartitionsInAtlasFrame), "afti_single_partition_per_tile_flag",get_gof_id());
                 afps_.afti.afti_bottom_right_partition_column_offset.at(i) = readUE(stream, "afti_bottom_right_partition_column_offset.at(i)",get_gof_id());
                 afps_.afti.afti_bottom_right_partition_row_offset.at(i)    = readUE(stream, "afti_bottom_right_partition_row_offset.at(i)",get_gof_id());
             }
         } else {
             afps_.afti.afti_num_tiles_in_atlas_frame_minus1 = (afps_.afti.afti_num_partition_columns_minus1 + 1) * (afps_.afti.afti_num_partition_rows_minus1 + 1) - 1;
-            afps_.afti.afti_top_left_partition_idx.resize(afps_.afti.afti_num_tiles_in_atlas_frame_minus1 == 0 ? 1 : afps_.afti.afti_num_tiles_in_atlas_frame_minus1);
-            afps_.afti.afti_bottom_right_partition_column_offset.resize(afps_.afti.afti_num_tiles_in_atlas_frame_minus1 == 0 ? 1 : afps_.afti.afti_num_tiles_in_atlas_frame_minus1);
-            afps_.afti.afti_bottom_right_partition_row_offset.resize(afps_.afti.afti_num_tiles_in_atlas_frame_minus1 == 0 ? 1 : afps_.afti.afti_num_tiles_in_atlas_frame_minus1);
-            for (size_t i = 0; i <= afps_.afti.afti_num_tiles_in_atlas_frame_minus1; i++) {
+            const auto afti_num_tiles_in_atlas_frame                       = afps_.afti.afti_num_tiles_in_atlas_frame_minus1 + 1;
+            afps_.afti.afti_top_left_partition_idx.resize(afti_num_tiles_in_atlas_frame);
+            afps_.afti.afti_bottom_right_partition_column_offset.resize(afti_num_tiles_in_atlas_frame);
+            afps_.afti.afti_bottom_right_partition_row_offset.resize(afti_num_tiles_in_atlas_frame);
+            for (size_t i = 0; i < afti_num_tiles_in_atlas_frame; i++) {
                 afps_.afti.afti_top_left_partition_idx.at(i)               = static_cast<uint32_t>(i); // afti.setTopLeftPartitionIdx( i, i );
                 afps_.afti.afti_bottom_right_partition_column_offset.at(i) = 0;
                 afps_.afti.afti_bottom_right_partition_row_offset.at(i)    = 0;
             }
         }
-    } // else afti_single_tile_in_atlas_frame_flag = false -> default
+    } // else afti_single_tile_in_atlas_frame_flag = false -> default, afti_num_tiles_in_atlas_frame_minus1 = 0
+    const auto afti_num_tiles_in_atlas_frame                               = afps_.afti.afti_num_tiles_in_atlas_frame_minus1 + 1;
     if (asps_.asps_auxiliary_video_enabled_flag) {
         afps_.afti.afti_auxiliary_video_tile_row_width_minus1              = readUE(stream, "afti_auxiliary_video_tile_row_width_minus1",get_gof_id());
-        afps_.afti.afti_auxiliary_video_tile_row_height.resize(afps_.afti.afti_num_tiles_in_atlas_frame_minus1);
-        for (size_t i = 0; i <= afps_.afti.afti_num_tiles_in_atlas_frame_minus1; i++) {
+        afps_.afti.afti_auxiliary_video_tile_row_height.resize(afti_num_tiles_in_atlas_frame);
+        for (size_t i = 0; i < afti_num_tiles_in_atlas_frame; i++) {
             afps_.afti.afti_auxiliary_video_tile_row_height.at(i)          = readUE(stream, "afti_auxiliary_video_tile_row_height.at(i)",get_gof_id());
         }
     }
     afps_.afti.afti_signalled_tile_id_flag                                 = readU(stream, 1, "afti_signalled_tile_id_flag",get_gof_id()) != 0U;
-    afps_.afti.afti_tile_id.resize(afps_.afti.afti_num_tiles_in_atlas_frame_minus1 == 0 ? 1 : afps_.afti.afti_num_tiles_in_atlas_frame_minus1);
+    afps_.afti.afti_tile_id.resize(afti_num_tiles_in_atlas_frame);
     if (afps_.afti.afti_signalled_tile_id_flag) {
         afps_.afti.afti_signalled_tile_id_length_minus1                    = readUE(stream, "afti_signalled_tile_id_length_minus1",get_gof_id());
-        for (size_t i = 0; i <= afps_.afti.afti_num_tiles_in_atlas_frame_minus1; i++) {
-            afps_.afti.afti_tile_id.at(i)                                  = readU(stream, afps_.afti.afti_signalled_tile_id_length_minus1, "afti_tile_id.at(i)",get_gof_id());
+        const uint8_t bitCount                                             = afps_.afti.afti_signalled_tile_id_length_minus1 + 1;
+        for (size_t i = 0; i < afti_num_tiles_in_atlas_frame; i++) {
+            afps_.afti.afti_tile_id.at(i)                                  = readU(stream, bitCount, "afti_tile_id.at(i)",get_gof_id());
         }
     } else {
-        for (size_t i = 0; i <= afps_.afti.afti_num_tiles_in_atlas_frame_minus1; i++) {
+        for (size_t i = 0; i < afti_num_tiles_in_atlas_frame; i++) {
             afps_.afti.afti_tile_id.at(i) = static_cast<uint32_t>(i);
         }
     }
@@ -633,12 +671,6 @@ void atlas_context::read_patch_information_data(patch_information_data& pid, con
             // eomPatchDataUnit(epdu, ath, syntax, bitstream);
         }
     }
-
-    // currently only use I_TILE types
-    // assert(ath.ath_type == I_TILE);
-    // assert(pid.patchMode_ == I_INTRA);
-    // auto& pdu = pid.patch_data_unit_;
-    // read_patch_data_unit(pdu, ath, stream);
 }
 
 // 8.3.7.6  Inter patch data unit syntax
@@ -777,6 +809,7 @@ void atlas_context::read_atlas_sub_bitstream(const size_t& v3c_unit_payload_size
         const uint8_t nal_layer_id = bitstream_read(&stream_tmp, 6);
         const uint8_t nal_temporal_id_plus1 = bitstream_read(&stream_tmp, 3);
 
+        printf(">>>>>>>>>>>>>>>>>>> Atlas type uni: %s\n",toString(nal_unit_type).c_str());
         // printf("main bitstream bytes = %d, bits = %d\n", stream->len, stream->cur_bit);
         // printf("Tmp bitstream  bytes = %d, bits = %d\n", stream_tmp.len, stream_tmp.cur_bit);
         switch (nal_unit_type) {
@@ -802,7 +835,6 @@ void atlas_context::read_atlas_sub_bitstream(const size_t& v3c_unit_payload_size
                 atlas_data_.push_back(rbsp);
                 write_atlas_tile_layer_rbsp_to_gof(rbsp, gofUVG);
                 gofUVG->frames.back()->frameId = frameId++;
-                // printf("Atlas Tile Layer NAL units\n");
             } break;
             case NAL_PREFIX_ESEI:
             case NAL_PREFIX_NSEI: read_prefix_sei_rbsp(&stream_tmp, nal_unit_type, sei); break;
