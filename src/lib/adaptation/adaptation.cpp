@@ -473,7 +473,7 @@ void Adaptation::adapt(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, uvgvpcc_dec::A
 
         if (in_order_output) continue;
 
-        char filename[255];
+        char filename[4096];
         std::snprintf(filename,
                     sizeof(filename),
                     outputFilePath.c_str(),
