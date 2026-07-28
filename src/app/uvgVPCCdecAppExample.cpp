@@ -1713,6 +1713,7 @@ void inputReadThread(const std::shared_ptr<input_handler_args>& args, uvgvpcc_de
     file.close();
 
     if (gof_ready) {
+        chunk->gof_id = gof_id++;
         // Signal that an item has been produced
         available_input_slot.acquire();
         args->chunk_in = chunk;
@@ -1720,6 +1721,7 @@ void inputReadThread(const std::shared_ptr<input_handler_args>& args, uvgvpcc_de
         output->available_gofs.push_back(decodedGOF);
         if (returnValue == Retval::Failure) {
             args->retval = Retval::Failure;
+            break;
         } else {
             assert(returnValue == Retval::Running && args->retval == Retval::Running);
         }
