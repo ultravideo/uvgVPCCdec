@@ -12,6 +12,9 @@ cmake -B _build/Release -S . -DBUILD_SHARED_LIBS=ON -DBUILD_TYPE=RelWithDebInfo 
 ```
 ---
 
+Currently Underconstruction:
+  Sample cmd: uvgvpccdec/_build/Release/src/app/uvgVPCCdec -i /home/nhan/nhan/uvgvpccdec_WORKSPACE/bitstreams/longdress_vox10_tmc2_geo_smoothing.vpcc -o decoded_plys/decoded_%03d_%04d.ply -t 0 --TMC2Upscaling=true --fastColorConversion=false
+
 ## Using uvgVPCCdec
 
 Run
