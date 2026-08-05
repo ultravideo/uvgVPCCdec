@@ -54,40 +54,42 @@ if(ENABLE_V3CRTP)
 	endif()
 endif()
 
-#include(FetchContent)
-find_package(Git REQUIRED)
+message(STATUS "uvgV3CRTP not found, building from source...")
+		
+		#include(FetchContent)
+		find_package(Git REQUIRED)
+		
+		option(GIT_SUBMODULE "Check submodules during build" ON)
+		if(GIT_SUBMODULE)
+			message(STATUS "Update submodule")
+			execute_process(COMMAND ${GIT_EXECUTABLE} submodule update --init --recursive
+							WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+							RESULT_VARIABLE GIT_SUBMOD_RESULT)
+			if(NOT GIT_SUBMOD_RESULT EQUAL "0")
+				message(FATAL_ERROR "git submodule update --init --recursive failed with ${GIT_SUBMOD_RESULT}, please checkout submodule")
+			endif()
+		endif()
+		
+		# Add subdir and specify relevant options
+		set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 
-option(GIT_SUBMODULE "Check submodules during build" ON)
-if(GIT_SUBMODULE)
-	message(STATUS "Update submodule")
-	execute_process(COMMAND ${GIT_EXECUTABLE} submodule update --init --recursive
-					WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-					RESULT_VARIABLE GIT_SUBMOD_RESULT)
-	if(NOT GIT_SUBMOD_RESULT EQUAL "0")
-		message(FATAL_ERROR "git submodule update --init --recursive failed with ${GIT_SUBMOD_RESULT}, please checkout submodule")
-	endif()
-endif()
-
-# Add subdir and specify relevant options
-set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
-
-set(UVGV3CRTP_DISABLE_TESTS ON CACHE BOOL "" FORCE)
-set(UVGV3CRTP_DISABLE_EXAMPLES  ON CACHE BOOL "" FORCE)
-set(UVGV3CRTP_DISABLE_INSTALL OFF CACHE BOOL "" FORCE)
-
-# Disable uvgRTP prints unless using a debug prints
-if(ENABLE_UVGRTP_PRINTS)
-	set(UVGRTP_DISABLE_PRINTS OFF CACHE BOOL "" FORCE)
-else()
-	set(UVGRTP_DISABLE_PRINTS ON CACHE BOOL "" FORCE)
-endif()
-
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/dependencies/uvgV3CRTP)
-
-#include_directories(${uvgv3crtp_SOURCE_DIR}/include)
-#link_directories(${uvgv3crtp_SOURCE_DIR})
-
-unset(BUILD_SHARED_LIBS)
+		set(UVGV3CRTP_DISABLE_TESTS ON CACHE BOOL "" FORCE)
+		set(UVGV3CRTP_DISABLE_EXAMPLES  ON CACHE BOOL "" FORCE)
+		set(UVGV3CRTP_DISABLE_INSTALL OFF CACHE BOOL "" FORCE)
+		
+		# Disable uvgRTP prints unless using a debug prints
+		if(ENABLE_UVGRTP_PRINTS)
+			set(UVGRTP_DISABLE_PRINTS OFF CACHE BOOL "" FORCE)
+		else()
+			set(UVGRTP_DISABLE_PRINTS ON CACHE BOOL "" FORCE)
+		endif()
+		
+		add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/dependencies/uvgV3CRTP)
+		
+		#include_directories(${uvgv3crtp_SOURCE_DIR}/include)
+		#link_directories(${uvgv3crtp_SOURCE_DIR})
+		
+		unset(BUILD_SHARED_LIBS)
 
 # include and link directories for dependencies. 
 # These are needed when the compilation happens a second time and the library 

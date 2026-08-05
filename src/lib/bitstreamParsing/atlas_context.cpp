@@ -809,7 +809,7 @@ void atlas_context::read_atlas_sub_bitstream(const size_t& v3c_unit_payload_size
         const uint8_t nal_layer_id = bitstream_read(&stream_tmp, 6);
         const uint8_t nal_temporal_id_plus1 = bitstream_read(&stream_tmp, 3);
 
-        printf(">>>>>>>>>>>>>>>>>>> Atlas type uni: %s\n",toString(nal_unit_type).c_str());
+        // printf(">>>>>>>>>>>>>>>>>>> Atlas type uni: %s\n",toString(nal_unit_type).c_str());
         // printf("main bitstream bytes = %d, bits = %d\n", stream->len, stream->cur_bit);
         // printf("Tmp bitstream  bytes = %d, bits = %d\n", stream_tmp.len, stream_tmp.cur_bit);
         switch (nal_unit_type) {

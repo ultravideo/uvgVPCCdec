@@ -1086,7 +1086,7 @@ void transferColors16bitBP_fast(
     }
 }
 
-void transferColors16bitBP_fast(
+void transferColors16bitBP_fast___(
     std::shared_ptr<uvgvpcc_dec::Frame> &frame,
     std::vector<smoothedGeoInfo>& smoothed_geo_points
 ) {
@@ -1193,7 +1193,7 @@ void transferColors16bitBP_fast(
     }
 }
 
-void transferColors16bitBP_fast____(
+void transferColors16bitBP_fast_correct2(
     std::shared_ptr<uvgvpcc_dec::Frame> &frame,
     std::vector<smoothedGeoInfo>& smoothed_geo_points
 ) {
@@ -1305,7 +1305,7 @@ void transferColors16bitBP_fast____(
     }
 }
 
-void transferColors16bitBP_fast___(
+void transferColors16bitBP_fast(
     std::shared_ptr<uvgvpcc_dec::Frame> &frame,
     std::vector<smoothedGeoInfo>& smoothed_geo_points
 ) {
@@ -1314,180 +1314,28 @@ void transferColors16bitBP_fast___(
     constexpr double distOffsetFwd = 4.0;
     constexpr double distOffsetBwd = 4.0;
 
-    std::vector<smoothedGeoPoint> partSource;
+    std::vector<Vector3<typeGeometryInput>> partSourceGeo;
+    std::vector<size_t> partSourceAttr_indices;
 
-    std::vector<uvgvpcc_dec::Vector3<uvgvpcc_dec::typeGeometryInput>>& sourceGeos = frame->pointsGeometry;
-    std::vector<uvgvpcc_dec::Vector3<uvgvpcc_dec::typeAttributeInput16bit>>& sourceAttrs = frame->pointsAttribute16bits;
-
-    pccNNResult nnResult;
-
-    // ==========================================================================================
-    //                                     Forward direction
-    // ==========================================================================================
-
-    std::vector<uint8_t> added(sourceGeos.size(), 0);
-    partSource.reserve(smoothed_geo_points.size() * 3);
-    // partSource.reserve(smoothed_geo_points.size() * numNeighborsColorTransferFwd);
-
-    pccKdTree kdTreeSource(sourceGeos);
-    for(auto& pointInfo : smoothed_geo_points) {
-        // pointInfo.color = sourceAttrs[pointInfo.pointIndex];
-        kdTreeSource.search(pointInfo.point, numNeighborsColorTransferFwd, nnResult);
-        
-        // for (size_t rI = 0; rI < 8; rI++) {
-        //     auto indexInSource = nnResult.indices(rI);
-        //     smoothedGeoInfo pointSource;
-        //     pointSource.pointIndex = indexInSource;
-        //     pointSource.point = sourceGeos[indexInSource];
-        //     partSource.emplace_back(pointSource);
-        // }
-
-        for (size_t i = 0; i < 8; ++i) {
-            const size_t sourceIndex = nnResult.indices(i);
-
-            if (added[sourceIndex]) {
-                continue;
-            }
-
-            added[sourceIndex] = 1;
-
-            smoothedGeoPoint sourcePoint;
-            sourcePoint.pointIndex = sourceIndex;
-            sourcePoint.point = sourceGeos[sourceIndex];
-            partSource.push_back(sourcePoint);
-        }
-        
-        if (nnResult.dist(0) < 0.0001) {
-            pointInfo.color = sourceAttrs[nnResult.indices(0)];
-            continue;
-        }
-
-        Vector3<double> refinedColor(0.0);
-        double sumWeights{0.0};
-        for (int i = 0; i < 8; i++) {
-            const double weight = 1 / (nnResult.dist(i) + distOffsetFwd);
-            for (int k = 0; k < 3; k++) {
-                refinedColor[k] += sourceAttrs[nnResult.indices(i)][k] * weight;
-            }
-            sumWeights += weight;
-        }   
-        refinedColor /= sumWeights;
-        for (int k = 0; k < 3; k++) {
-            pointInfo.color[k] = uint16_t(PCCClip(round(refinedColor[k]), 0.0, 65535.0));
-        }
-    }
-
-    // ==========================================================================================
-    //                                  Backward direction
-    // ==========================================================================================
-
-    // Replace points of source geometry with smoothed geometry points
-    for(const auto& pointInfo : smoothed_geo_points) {
-        sourceGeos[pointInfo.pointIndex] = pointInfo.point;
-    }
-
-    pccKdTree kdtreeTarget(sourceGeos);
-
-    std::vector<std::vector<DistColor>> refinedColorsDists2;
-    refinedColorsDists2.resize(sourceGeos.size());
-
-    for (const auto& pointSource : partSource) {
-        const Vector3<typeAttributeInput16bit>& color = sourceAttrs[pointSource.pointIndex];
-        kdtreeTarget.search(pointSource.point, numNeighborsColorTransferBwd, nnResult);
-        const size_t pointIndex = nnResult.indices(0);
-        // if (
-        //     std::abs(color[0] - sourceAttrs[pointIndex][0]) < 40 &&
-        //     std::abs(color[1] - sourceAttrs[pointIndex][1]) < 40 &&
-        //     std::abs(color[2] - sourceAttrs[pointIndex][2]) < 40 
-        // ) {
-        //     refinedColorsDists2[pointIndex].push_back( 
-        //         DistColor{nnResult.dist(0), color}
-        //     );
-        // }
-        if (std::abs(color[0] - sourceAttrs[pointIndex][0]) >= 40) continue;
-        if (std::abs(color[1] - sourceAttrs[pointIndex][1]) >= 40) continue;
-        if (std::abs(color[2] - sourceAttrs[pointIndex][2]) >= 40) continue;
-        refinedColorsDists2[pointIndex].push_back(DistColor{nnResult.dist(0), color});
-    }
-
-    // printf("---------> partSource.size() = %zu, smoothed_geo_points.size() = %zu\n", partSource.size(), smoothed_geo_points.size());
-
-    for (const auto& pointInfo : smoothed_geo_points) {
-        auto& colorsDists2 = refinedColorsDists2[pointInfo.pointIndex];
-
-        if (colorsDists2.empty() /* || losslessAttribute */) {
-            sourceAttrs[pointInfo.pointIndex] = pointInfo.color;
-            continue;
-        }
-        // Vector3<double> centroid2(0.0);
-        // int nNN = static_cast<int>(colorsDists2.size());
-        // if (nNN == 1) {
-        //     centroid2 = colorsDists2[0].color;
-        // } else {
-        //     double sumWeights{0.0};
-        //     for (auto& colorDist2 : colorsDists2) {
-        //         const double weight = 1 / (sqrt(colorDist2.dist) + distOffsetBwd);
-        //         for (size_t k = 0; k < 3; k++) {
-        //             centroid2[k] += (colorDist2.color[k] * weight);
-        //         }
-        //         sumWeights += weight;
-        //     }
-        //     centroid2 /= sumWeights;
-        // }
-        // for (size_t k = 0; k < 3; k++) {
-        //     sourceAttrs[pointInfo.pointIndex][k] = uint16_t(PCCClip(round(centroid2[k]), 0.0, 65535.0));
-        // }
-
-        if (colorsDists2.size() == 1) {
-            sourceAttrs[pointInfo.pointIndex] = colorsDists2[0].color;
-            continue;
-        } 
-        Vector3<double> centroid2(0.0);
-        double sumWeights{0.0};
-        for (auto& colorDist2 : colorsDists2) {
-            const double weight = 1 / (sqrt(colorDist2.dist) + distOffsetBwd);
-            for (size_t k = 0; k < 3; k++) {
-                centroid2[k] += (colorDist2.color[k] * weight);
-            }
-            sumWeights += weight;
-        }
-        centroid2 /= sumWeights;
-        for (size_t k = 0; k < 3; k++) {
-            sourceAttrs[pointInfo.pointIndex][k] = uint16_t(PCCClip(round(centroid2[k]), 0.0, 65535.0));
-        }
-
-    }
-}
-
-void transferColors16bitBP_fast_(
-    std::shared_ptr<uvgvpcc_dec::Frame> &frame,
-    std::vector<smoothedGeoInfo>& smoothed_geo_points
-) {
-    constexpr int numNeighborsColorTransferFwd = 8;
-    constexpr int numNeighborsColorTransferBwd = 1;
-    constexpr double distOffsetFwd = 4.0;
-    constexpr double distOffsetBwd = 4.0;
-
-    std::vector<uvgvpcc_dec::Vector3<uvgvpcc_dec::typeGeometryInput>> partSourceGeo;
-    std::vector<uvgvpcc_dec::Vector3<uvgvpcc_dec::typeAttributeInput16bit>> partSourceAttr;
-
-    std::vector<uvgvpcc_dec::Vector3<uvgvpcc_dec::typeGeometryInput>>& sourceGeos = frame->pointsGeometry;
-    std::vector<uvgvpcc_dec::Vector3<uvgvpcc_dec::typeAttributeInput16bit>>& sourceAttrs = frame->pointsAttribute16bits;
+    std::vector<Vector3<typeGeometryInput>>& sourceGeos = frame->pointsGeometry;
+    std::vector<Vector3<typeAttributeInput16bit>>& sourceAttrs = frame->pointsAttribute16bits;
 
     pccNNResult nnResult;
 
     // ==========================================================================================
     //                                     Forward direction
     // ==========================================================================================
+    partSourceGeo.reserve(smoothed_geo_points.size() * numNeighborsColorTransferFwd);
+    partSourceAttr_indices.reserve(smoothed_geo_points.size() * numNeighborsColorTransferFwd);
+
     pccKdTree kdTreeSource(sourceGeos);
     for(auto& pointInfo : smoothed_geo_points) {
-        pointInfo.color = sourceAttrs[pointInfo.pointIndex];
         kdTreeSource.search(pointInfo.point, numNeighborsColorTransferFwd, nnResult);
 
-        for (size_t rI = 0; rI < nnResult.size(); rI++) {
+        for (size_t rI = 0; rI < numNeighborsColorTransferFwd; rI++) {
             auto indexInSource = nnResult.indices(rI);
             partSourceGeo.push_back(sourceGeos[indexInSource]);
-            partSourceAttr.push_back(sourceAttrs[indexInSource]);
+            partSourceAttr_indices.push_back(indexInSource);
         }
         
         if (nnResult.dist(0) < 0.0001) {
@@ -1495,16 +1343,9 @@ void transferColors16bitBP_fast_(
             continue;
         }
 
-        // If !isDone
-        int nNN = static_cast<int>(nnResult.count());
-        if (nNN == 1) {
-            pointInfo.color = sourceAttrs[nnResult.indices(0)];
-            continue;
-        }
-        // If !isDone
         Vector3<double> refinedColor(0.0);
         double sumWeights{0.0};
-        for (int i = 0; i < nNN; i++) {
+        for (int i = 0; i < numNeighborsColorTransferFwd; i++) {
             const double weight = 1 / (nnResult.dist(i) + distOffsetFwd);
             for (int k = 0; k < 3; k++) {
                 refinedColor[k] += sourceAttrs[nnResult.indices(i)][k] * weight;
@@ -1531,31 +1372,23 @@ void transferColors16bitBP_fast_(
     std::vector<std::vector<DistColor>> refinedColorsDists2;
     refinedColorsDists2.resize(sourceGeos.size());
     for (size_t index = 0; index < partSourceGeo.size(); index++) {
-        const Vector3<typeAttributeInput16bit> color = partSourceAttr[index];
+        const Vector3<typeAttributeInput16bit> color = sourceAttrs[partSourceAttr_indices[index]];
         kdtreeTarget.search(partSourceGeo[index], numNeighborsColorTransferBwd, nnResult);
-        // for (int i = 0; i < nnResult.size(); i++) {
-        //     const size_t pointIndex = nnResult.indices(i);
-        //     if (
-        //         std::abs(color[0] - sourceAttrs[pointIndex][0]) < 40 &&
-        //         std::abs(color[1] - sourceAttrs[pointIndex][1]) < 40 &&
-        //         std::abs(color[2] - sourceAttrs[pointIndex][2]) < 40 
-        //     ) {
-        //         refinedColorsDists2[pointIndex].push_back( 
-        //             DistColor{nnResult.dist(i), color, sourceGeos[pointIndex]}
-        //         );
-        //         refinedColorsDists2_count++;
-        //     }
-        // }
         const size_t pointIndex = nnResult.indices(0);
-        if (
-            std::abs(color[0] - sourceAttrs[pointIndex][0]) < 40 &&
-            std::abs(color[1] - sourceAttrs[pointIndex][1]) < 40 &&
-            std::abs(color[2] - sourceAttrs[pointIndex][2]) < 40 
-        ) {
-            refinedColorsDists2[pointIndex].push_back( 
-                DistColor{nnResult.dist(0), color}
-            );
-        }
+        if (std::abs(color[0] - sourceAttrs[pointIndex][0]) >= 40) continue;
+        if (std::abs(color[1] - sourceAttrs[pointIndex][1]) >= 40) continue;
+        if (std::abs(color[2] - sourceAttrs[pointIndex][2]) >= 40) continue;
+        refinedColorsDists2[pointIndex].push_back(DistColor{nnResult.dist(0), color});
+        
+        // if (
+        //     std::abs(color[0] - sourceAttrs[pointIndex][0]) < 40 &&
+        //     std::abs(color[1] - sourceAttrs[pointIndex][1]) < 40 &&
+        //     std::abs(color[2] - sourceAttrs[pointIndex][2]) < 40 
+        // ) {
+        //     refinedColorsDists2[pointIndex].push_back( 
+        //         DistColor{nnResult.dist(0), color}
+        //     );
+        // }
     }
     
     for (const auto& pointInfo : smoothed_geo_points) {
@@ -1565,11 +1398,10 @@ void transferColors16bitBP_fast_(
             sourceAttrs[pointInfo.pointIndex] = pointInfo.color;
             continue;
         }
-        Vector3<double> centroid2(0.0);
-        int nNN = static_cast<int>(colorsDists2.size());
-        if (nNN == 1) {
-            centroid2 = colorsDists2[0].color;
+        if (colorsDists2.size() == 1) {
+            sourceAttrs[pointInfo.pointIndex] = colorsDists2[0].color;
         } else {
+            Vector3<double> centroid2(0.0);
             double sumWeights{0.0};
             for (auto& colorDist2 : colorsDists2) {
                 const double weight = 1 / (sqrt(colorDist2.dist) + distOffsetBwd);
@@ -1579,9 +1411,9 @@ void transferColors16bitBP_fast_(
                 sumWeights += weight;
             }
             centroid2 /= sumWeights;
-        }
-        for (size_t k = 0; k < 3; k++) {
-            sourceAttrs[pointInfo.pointIndex][k] = uint16_t(PCCClip(round(centroid2[k]), 0.0, 65535.0));
+            for (size_t k = 0; k < 3; k++) {
+                sourceAttrs[pointInfo.pointIndex][k] = uint16_t(PCCClip(round(centroid2[k]), 0.0, 65535.0));
+            }
         }
     }
 }

@@ -972,6 +972,7 @@ void reconstruct_singleTile_noSei(
     }
 }
 
+// With geometry smoothing applied
 void reconstruct_singleTile(
     std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, std::shared_ptr<v3c_gof> gof_,
     const reconstruction_options& rec_opts,
@@ -1015,10 +1016,8 @@ void reconstruct_singleTile(
         const auto& geoMap1 = frame->geometryMapL1;
         const auto& geoMap2 = rec_params.multipleStreams_ ? frame->geometryMapL1 : frame->geometryMapL2;
 
-        auto* attributeMaps = &frame->attributeMapL1;
         auto* attributeMaps_16bits = &frame->attributeMapL1_16bits;
         if (rec_params.layer_count > 1) {
-            attributeMaps[1] = (rec_params.multipleStreams_ ? frame->attributeMapL1 : frame->attributeMapL2);
             attributeMaps_16bits[1] = (rec_params.multipleStreams_ ? frame->attributeMapL1_16bits : frame->attributeMapL2_16bits);
         } 
 
@@ -1028,11 +1027,7 @@ void reconstruct_singleTile(
         partition.reserve(num_occupied_points * rec_params.layer_count);
         pointToPixel.reserve(num_occupied_points * rec_params.layer_count);
 
-        if (p_->useTMC2AttributeYUVConversion) {
-            frame->pointsAttribute16bits.reserve(num_occupied_points * rec_params.layer_count);
-        } else {
-            frame->pointsAttribute.reserve(num_occupied_points * rec_params.layer_count);
-        }
+        frame->pointsAttribute16bits.reserve(num_occupied_points * rec_params.layer_count);
         
         // Generate Point Cloud Geometry from Occupancy Map and Patch List
         for (size_t patch_index = 0; patch_index < patchList.size(); patch_index++) { // Patch
@@ -1081,11 +1076,7 @@ void reconstruct_singleTile(
                                     frame->pointsGeometry.push_back(tmp);
                                 }
                                 // Get pointsAttribute, color the points
-                                if (p_->useTMC2AttributeYUVConversion) {
-                                    frame->pointsAttribute16bits.push_back(get_attribute(attributeMaps_16bits[i], rec_params.offsetU, rec_params.offsetV, rec_params.attribute_map_width, x, y));
-                                } else {
-                                    frame->pointsAttribute.push_back(get_attribute(attributeMaps[i], rec_params.offsetU, rec_params.offsetV, rec_params.attribute_map_width, x, y));
-                                }
+                                frame->pointsAttribute16bits.push_back(get_attribute(attributeMaps_16bits[i], rec_params.offsetU, rec_params.offsetV, rec_params.attribute_map_width, x, y));
                                 
                                 // if ( params.singleMapPixelInterleaving_ ) {
                                 //     pointToPixel.emplace_back(

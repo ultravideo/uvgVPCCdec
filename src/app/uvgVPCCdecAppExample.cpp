@@ -1682,15 +1682,15 @@ void inputReadThread(const std::shared_ptr<input_handler_args>& args, uvgvpcc_de
                 filled_input_slot.release();
             } 
             gof_ready = true;
-            printf(">>>>>>>>>>>>>>>>>>>>>>>>>>> Creating new VPS unit\n");
+            // printf(">>>>>>>>>>>>>>>>>>>>>>>>>>> Creating new VPS unit\n");
             chunk = std::make_shared<uvgvpcc_dec::API::v3c_chunk>();
             chunk->vps_unit->data.swap(data);
             chunk->vps_unit->v3c_unit_size = v3c_unit_size;
-            printf("-------> V3C_VPS, size : %zu\n", chunk->vps_unit->data.size());
+            printf("-------> V3C_VPS, size = %zu\n", chunk->vps_unit->data.size());
         } else if (vuh_unit_type == V3C_AD) {
             chunk->ad_unit->data.swap(data);
             chunk->ad_unit->v3c_unit_size = v3c_unit_size;
-            printf("-------> V3C_AD, size = %zu\n", chunk->ad_unit->data.size());
+            printf("-------> V3C_AD,  size = %zu\n", chunk->ad_unit->data.size());
         } else if (vuh_unit_type == V3C_OVD) {
             chunk->ovd_unit->data.swap(data);
             chunk->ovd_unit->v3c_unit_size = v3c_unit_size;
@@ -1708,7 +1708,7 @@ void inputReadThread(const std::shared_ptr<input_handler_args>& args, uvgvpcc_de
             chunk->avd_units->push_back(avd_unit);
             printf("-------> V3C_AVD, size = %zu\n", chunk->avd_units->back().data.size());
         }
-        printf("Read V3C unit of size %d, type %d\n", (int)v3c_unit_size, vuh_unit_type);
+        // printf("Read V3C unit of size %d, type %d\n", (int)v3c_unit_size, vuh_unit_type);
     }
     file.close();
 
