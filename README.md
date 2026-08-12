@@ -41,3 +41,20 @@ Other options:
       --help                             : Print this help message
       --version                          : Print version information
 ```
+
+
+## Dependencies
+
+The following steps can help resolve build issues (especially with Venctester):
+
+```
+sudo apt install libzmq3-dev
+```
+
+Somewhere on the computer:
+```
+git clone https://github.com/zeromq/cppzmq.git
+cd cppzmq
+cmake -B build -DCPPZMQ_BUILD_TESTS=OFF
+sudo cmake --build build --target install
+```
