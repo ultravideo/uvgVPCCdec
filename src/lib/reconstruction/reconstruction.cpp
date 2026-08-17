@@ -563,41 +563,6 @@ void generateBlockToPatchFromOccupancyMapVideo(
     } // Patch
 }
 
-// void generateBlockToPatchFromOccupancyMapVideo(
-//     const size_t& blockToPatchWidth, 
-//     const size_t& blockToPatchHeight, 
-//     const size_t& asps_frame_width, 
-//     const std::vector<uint8_t>& occupancyMap,
-//     const std::vector<uvgvpcc_dec::Patch>& patchList,
-//     std::vector<size_t>& block_to_patch
-// ) {
-//     for (size_t patch_index = 0; patch_index < patchList.size(); patch_index++) { // Patch
-//         const uvgvpcc_dec::Patch& patch = patchList[patch_index];
-//         for (size_t v0 = 0; v0 < patch.patchHeightCanvasBlock; v0++) { // Block
-//             const size_t vBase = v0*patch.occupancy_resolution;
-//             for (size_t u0 = 0; u0 < patch.patchWidthCanvasBlock; u0++) {
-//                 const size_t uBase = u0*patch.occupancy_resolution;
-//                 for (size_t v1 = 0; v1 < patch.occupancy_resolution; v1++) {
-//                     const size_t v = vBase + v1;
-//                     for (size_t u1 = 0; u1 < patch.occupancy_resolution; u1++) {
-//                         const size_t u = uBase + u1;
-//                         size_t x, y;
-//                         size_t canvasIndex = patch_to_canvas(u, v, asps_frame_width, patch, x, y);
-//                         size_t nonZeroPixel = static_cast<unsigned long long>(occupancyMap[canvasIndex] != 0U);
-//                         if (nonZeroPixel > 0) {
-//                             const size_t blockIndex = patchBlock_to_canvasBlock_tmc2(u0, v0, blockToPatchWidth, blockToPatchHeight, patch);
-//                             block_to_patch[blockIndex] = patch_index + 1;
-//                             v1 = patch.occupancy_resolution;
-//                             break;
-//                         }
-//                     }
-//                 }
-//             }
-//         } // Block
-
-//     } // Patch
-// }
-
 void generateBlockToPatchFromOccupancyDSVideo(
     const size_t& blockToPatchWidth, 
     const size_t& blockToPatchHeight, 

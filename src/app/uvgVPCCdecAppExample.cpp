@@ -862,10 +862,14 @@ void v3c_receiver(const std::shared_ptr<input_handler_args>& args) {
     
     size_t expected_number_of_gof = AUTO_EXPECTED_NUM_MODE ? static_cast<size_t>(-1) : EXPECTED_NUM_GOFs;
     size_t num_vps                = AUTO_EXPECTED_NUM_MODE ? static_cast<size_t>(-1) : EXPECTED_NUM_VPSs;
-    size_t num_ad_nalu            = EXPECTED_NUM_AD_NALU;
-    size_t num_ovd_nalu           = EXPECTED_NUM_OVD_NALU;
-    size_t num_gvd_nalu           = EXPECTED_NUM_GVD_NALU;
-    size_t num_avd_nalu           = EXPECTED_NUM_AVD_NALU;
+    // size_t num_ad_nalu            = EXPECTED_NUM_AD_NALU;
+    // size_t num_ovd_nalu           = EXPECTED_NUM_OVD_NALU;
+    // size_t num_gvd_nalu           = EXPECTED_NUM_GVD_NALU;
+    // size_t num_avd_nalu           = EXPECTED_NUM_AVD_NALU;
+    size_t num_ad_nalu            = args->opts.expected_num_ad_nalu_v3crtp;
+    size_t num_ovd_nalu           = args->opts.expected_num_ovd_nalu_v3crtp;
+    size_t num_gvd_nalu           = args->opts.expected_num_gvd_nalu_v3crtp;
+    size_t num_avd_nalu           = args->opts.expected_num_avd_nalu_v3crtp;
     size_t num_pvd_nalu           = 0;
     size_t num_cad_nalu           = 0;
 
@@ -1902,6 +1906,7 @@ int main(int argc, char* argv[]) {
         in_args->chunk_in = nullptr;
         if (in_args->retval == Retval::Eof) {
             break;
+
         }
         if (in_args->retval == Retval::Failure) {
             return EXIT_FAILURE;
@@ -1936,7 +1941,11 @@ int main(int argc, char* argv[]) {
 
     printf("Total GOF count: %d\n", output.total_gof);
     
-    uvgvpcc_dec::API::emptyFrameQueue();
+    if (remote_input_output) {
+        uvgvpcc_dec::API::emptyFrameQueue_v3crtp(limit_frame_rate);
+    } else {
+        uvgvpcc_dec::API::emptyFrameQueue();
+    }
 
     inputTh.join();
 

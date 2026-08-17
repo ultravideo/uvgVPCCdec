@@ -409,6 +409,24 @@ void API::decodeFrame_parallel_delay(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk
     JobManager::submitCurrentGOFJobs();
 }
 
+void API::emptyFrameQueue_v3crtp(bool limit_frame_rate) {
+    if (!JobManager::threadQueue || !JobManager::previousGOFJobMap) {
+        return;
+    }
+
+    for (const auto& [key, job] : *JobManager::previousGOFJobMap) {
+        if (limit_frame_rate) {
+            if (key.getFuncName() == TO_STRING(API::decodeFrame_delay)) {
+                JobManager::threadQueue->waitForJob(job);
+            }
+        } else {
+            if (key.getFuncName() == TO_STRING(API::decodeFrame_remote_output)) {
+                JobManager::threadQueue->waitForJob(job);
+            }
+        }
+    }
+}
+
 void API::emptyFrameQueue() {
     if (!JobManager::threadQueue || !JobManager::previousGOFJobMap) {
         return;

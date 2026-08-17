@@ -360,6 +360,7 @@ void decodeFrame_parallel_remote_output(std::shared_ptr<uvgvpcc_dec::API::v3c_ch
 
 void emptyFrameQueue(std::shared_ptr<uvgvpcc_dec::ThreadQueue>& queue, std::shared_ptr<uvgvpcc_dec::Job>& last_out);
 void emptyFrameQueue();
+void emptyFrameQueue_v3crtp(bool limit_frame_rate);
 void stopDecoder();
 
 }  // namespace API

@@ -71,7 +71,12 @@ static const struct option long_options[] = {
     {"color-address", required_argument, nullptr, 0},
     {"remote-output", required_argument, nullptr, 0},
     {"in-order-output", required_argument, nullptr, 0},
-    {0, 0, 0, 0}};
+    {"v3crpt_num_ad", required_argument, NULL, 4},
+    {"v3crpt_num_ovd", required_argument, NULL, 4},
+    {"v3crpt_num_gvd", required_argument, NULL, 5},
+    {"v3crpt_num_avd", required_argument, NULL, 5},
+    {0, 0, 0, 0}
+};
 
 size_t stringToInt(const std::string s) {
     try {
@@ -161,6 +166,14 @@ bool opts_parse(cli::opts_t& opts, const int argc, const char* const argv[]) {
             opts.colorAddress = optarg;
         } else if (name == "in-order-output") {
             opts.in_order_output = static_cast<bool>(std::stoi(optarg));
+        } else if (name == "v3crpt_num_ad") {
+            opts.expected_num_ad_nalu_v3crtp = std::stoi(optarg);
+        } else if (name == "v3crpt_num_ovd") {
+            opts.expected_num_ovd_nalu_v3crtp = std::stoi(optarg);
+        } else if (name == "v3crpt_num_gvd") {
+            opts.expected_num_gvd_nalu_v3crtp = std::stoi(optarg);
+        } else if (name == "v3crpt_num_avd") {
+            opts.expected_num_avd_nalu_v3crtp = std::stoi(optarg);
         }
     }
 

@@ -441,7 +441,7 @@ void Adaptation::adapt_delay(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, uvgvpcc_
 
         } else {
             if (p_->fastColorConversion) {
-
+                convert_colors_fast(frame->pointsAttribute);
             } else {
                 convert_colors_slow(frame->pointsAttribute);
             }
@@ -526,7 +526,7 @@ void Adaptation::adapt_remote_output(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, 
 
         } else {
             if (p_->fastColorConversion) {
-
+                convert_colors_fast(frame->pointsAttribute);
             } else {
                 convert_colors_slow(frame->pointsAttribute);
             }

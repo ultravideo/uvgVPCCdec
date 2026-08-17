@@ -51,6 +51,12 @@ struct opts_t {
     /** \brief Color port for rtp streams */
     std::string colorAddress{};
 
+    /** \brief ad, ovd, gvd, avd info for rtp streams */
+    uint32_t expected_num_ad_nalu_v3crtp{4};
+    uint32_t expected_num_ovd_nalu_v3crtp{4};
+    uint32_t expected_num_gvd_nalu_v3crtp{5};
+    uint32_t expected_num_avd_nalu_v3crtp{5};
+
     /** \brief in order output data */
     bool in_order_output = false;
 };

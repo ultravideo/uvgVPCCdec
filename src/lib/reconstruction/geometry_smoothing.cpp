@@ -1390,6 +1390,17 @@ void transferColors16bitBP_fast(
         //     );
         // }
     }
+
+    // Sort refinedColorsDists2 according to distance
+    for (auto& refinedColorsDist2: refinedColorsDists2) {
+        std::sort(
+            refinedColorsDist2.begin(), 
+            refinedColorsDist2.end(), 
+            [](DistColor& dc1, DistColor& dc2) {
+                return dc1.dist < dc2.dist;
+            }
+        );
+    }
     
     for (const auto& pointInfo : smoothed_geo_points) {
         auto& colorsDists2 = refinedColorsDists2[pointInfo.pointIndex];
