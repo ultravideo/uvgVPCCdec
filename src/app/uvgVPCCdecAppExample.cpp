@@ -1820,7 +1820,7 @@ int main(int argc, char* argv[]) {
     }
 
     if(!std::filesystem::exists(appParameters.inputPath)) {
-        std::cerr << "\n!!! Error : The specified input bitstream does not exist :" << appParameters.inputPath << "\n" << std::endl;
+        std::cerr << "\n!!! Error : The specified input bitstream does not exist: '" << appParameters.inputPath << "'\n" << std::endl;
         exit(EXIT_FAILURE);
     }
 
