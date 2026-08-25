@@ -301,7 +301,6 @@ bool output_func(uvgvpcc_dec::API::point_cloud_frame_stream* output, const std::
     return true;
 }
 
-
 bool output_thread(uvgvpcc_dec::API::point_cloud_frame_stream* output, const std::string& outputFilePath)
 {   
     int output_gof_count = 0;
@@ -345,139 +344,9 @@ bool output_thread(uvgvpcc_dec::API::point_cloud_frame_stream* output, const std
     return true;
 }
 
-bool output_thread_remote_delay_old(
-    uvgvpcc_dec::API::point_cloud_frame_stream* output,
-    const std::shared_ptr<zmqHandler> zmq_handler)
-{
-    constexpr int delay_gofs = 4;
-    constexpr int FPS = 30;
-
-    using Clock = std::chrono::steady_clock;
-
-    const auto frame_period =
-        std::chrono::microseconds(1000000 / FPS); // ~33.333 ms
-
-    int buffered_gofs = 0;
-    bool timing_started = false;
-
-    Clock::time_point next_send_time;
-
-    while (true) {
-        output->available_frames.acquire();
-
-        // Wait until enough GOFs are buffered before sending
-        if (buffered_gofs < delay_gofs) {
-            buffered_gofs++;
-            continue;
-        }
-
-        // Start the output clock only once
-        if (!timing_started) {
-            next_send_time = Clock::now() + frame_period;
-            timing_started = true;
-        }
-
-        while (true) {
-            std::shared_ptr<uvgvpcc_dec::GOF> gof;
-
-            {
-                std::lock_guard<std::mutex> lock(output->io_mutex);
-
-                if (output->available_gofs_queue.empty()) {
-                    break;
-                }
-
-                gof = output->available_gofs_queue.front();
-                output->available_gofs_queue.pop();
-            }
-
-            for (auto& frame : gof->frames) {
-                std::this_thread::sleep_until(next_send_time);
-
-                {
-                    std::lock_guard<std::mutex> lock(zmq_handler->zmq_mutex);
-
-                    zmq_send(
-                        zmq_handler->positionSocket,
-                        frame->pointsGeometry.data(),
-                        frame->pointsGeometry.size() * sizeof(uvgvpcc_dec::Vector3<uint16_t>),
-                        0
-                    );
-
-                    zmq_send(
-                        zmq_handler->colorSocket,
-                        frame->pointsAttribute.data(),
-                        frame->pointsAttribute.size() * sizeof(uvgvpcc_dec::Vector3<uint8_t>),
-                        0
-                    );
-                }
-
-                next_send_time += frame_period;
-            }
-        }
-    }
-
-    return true;
-}
-
 // Assume the input frames have some delay
 bool output_thread_remote_delay(uvgvpcc_dec::API::point_cloud_frame_stream* output, const std::shared_ptr<zmqHandler> zmq_handler)
 {   
-
-    // constexpr int delay_gofs = 1;
-    // constexpr int FPS = 30;
-
-    // using Clock = std::chrono::steady_clock;
-    // const auto frame_period = std::chrono::milliseconds(1000 / FPS); // 30 ms
-
-    // int buffered_gofs = 0;
-
-    // while (true) {
-    //     output->available_frames.acquire();
-    //     // printf("Available GOFs: %d\n", (int)output->available_gofs_queue.size());
-
-    //     if (buffered_gofs != delay_gofs) {
-    //         buffered_gofs++;
-    //         continue;
-    //     }
-
-    //     // First frame will be sent after one full frame period
-    //     auto next_send_time = Clock::now() + frame_period;
-
-    //     while (!output->available_gofs_queue.empty()) {
-    //         output->io_mutex.lock();
-    //         std::shared_ptr<uvgvpcc_dec::GOF> gof = output->available_gofs_queue.front();
-    //         output->available_gofs_queue.pop();
-    //         output->io_mutex.unlock();
-
-    //         for (auto& frame : gof->frames) {
-    //             std::this_thread::sleep_until(next_send_time);
-
-    //             {
-    //                 std::lock_guard<std::mutex> lock(zmq_handler->zmq_mutex);
-
-    //                 zmq_send(
-    //                     zmq_handler->positionSocket,
-    //                     frame->pointsGeometry.data(),
-    //                     frame->pointsGeometry.size() * sizeof(uvgvpcc_dec::Vector3<uint16_t>),
-    //                     0
-    //                 );
-
-    //                 zmq_send(
-    //                     zmq_handler->colorSocket,
-    //                     frame->pointsAttribute.data(),
-    //                     frame->pointsAttribute.size() * sizeof(uvgvpcc_dec::Vector3<uint8_t>),
-    //                     0
-    //                 );
-    //             }
-
-    //             next_send_time += frame_period;
-    //         }
-    //     }
-
-    // }
-
-
     constexpr int delay_gofs = 1;
     constexpr int FPS = 30;
 
@@ -686,7 +555,6 @@ struct v3c_remote_gof_ptr {
     // v3c_remote_gof_ptr(uint8_t* ptr, size_t gof_size): ptr(ptr), gof_size(gof_size){}
 };
 
-
 struct v3c_input_gof_handler_args {
     // Parameters passed from main thread to input thread.
 
@@ -724,29 +592,59 @@ void v3c_remote_input_thread(const std::shared_ptr<v3c_input_gof_handler_args>& 
         const uint8_t* end = ptr + gof_ptr.gof_size;
 
         std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk = std::make_shared<uvgvpcc_dec::API::v3c_chunk>();
-        chunk->data = std::make_unique<std::vector<uint8_t>>();
-        chunk->data->reserve(1024*1024);
         chunk->gof_id = gof_id++;
-        //std::vector<uint8_t>* chunk_data = chunk->data.get();
+        std::vector<uint8_t> data;
+        size_t v3c_unit_size;
 
-        for (int i = 0; i < 5; i++) {
-            size_t unit_size = read_value(ptr, v3c_args->V3C_SIZE_PRECISION);
-            ptr += v3c_args->V3C_SIZE_PRECISION;
-            chunk->v3c_unit_sizes.push_back(unit_size);
-            size_t old_size = chunk->data->size();
-            chunk->data->resize(old_size + unit_size);
-            std::memcpy(chunk->data->data() + old_size, ptr, unit_size);
-            ptr += unit_size;
-            // std::cerr << "Stream size for current unit type of GOF " << static_cast<int>(chunk->gof_id) << " : " << i << " : " << static_cast<int>(unit_size) << "\n" << std::flush;
-        }
+        v3c_unit_size = read_value(ptr, v3c_args->V3C_SIZE_PRECISION);
+        ptr += v3c_args->V3C_SIZE_PRECISION;
+        data.resize(v3c_unit_size);
+        std::memcpy(data.data(), ptr, v3c_unit_size);
+        chunk->vps_unit->data.swap(data);
+        chunk->vps_unit->v3c_unit_size = v3c_unit_size;
+        ptr += v3c_unit_size;
 
-        // printf("GOF successfully recieved!\n");
+        v3c_unit_size = read_value(ptr, v3c_args->V3C_SIZE_PRECISION);
+        ptr += v3c_args->V3C_SIZE_PRECISION;
+        data.resize(v3c_unit_size);
+        std::memcpy(data.data(), ptr, v3c_unit_size);
+        chunk->ad_unit->data.swap(data);
+        chunk->ad_unit->v3c_unit_size = v3c_unit_size;
+        ptr += v3c_unit_size;
+
+        v3c_unit_size = read_value(ptr, v3c_args->V3C_SIZE_PRECISION);
+        ptr += v3c_args->V3C_SIZE_PRECISION;
+        data.resize(v3c_unit_size);
+        std::memcpy(data.data(), ptr, v3c_unit_size);
+        chunk->ovd_unit->data.swap(data);
+        chunk->ovd_unit->v3c_unit_size = v3c_unit_size;
+        ptr += v3c_unit_size;
+
+        v3c_unit_size = read_value(ptr, v3c_args->V3C_SIZE_PRECISION);
+        ptr += v3c_args->V3C_SIZE_PRECISION;
+        data.resize(v3c_unit_size);
+        std::memcpy(data.data(), ptr, v3c_unit_size);
+        uvgvpcc_dec::API::vuh_unit gvd_unit;
+        gvd_unit.data.swap(data);
+        gvd_unit.v3c_unit_size = v3c_unit_size;
+        chunk->gvd_units->push_back(gvd_unit);
+        ptr += v3c_unit_size;
+
+        v3c_unit_size = read_value(ptr, v3c_args->V3C_SIZE_PRECISION);
+        ptr += v3c_args->V3C_SIZE_PRECISION;
+        data.resize(v3c_unit_size);
+        std::memcpy(data.data(), ptr, v3c_unit_size);
+        uvgvpcc_dec::API::vuh_unit avd_unit;
+        avd_unit.data.swap(data);
+        avd_unit.v3c_unit_size = v3c_unit_size;
+        chunk->avd_units->push_back(avd_unit);
+        // ptr += v3c_unit_size;
+
 
         available_input_slot.acquire();
         args->chunk_in = chunk;
         if (returnValue == Retval::Failure) {
             args->retval = Retval::Failure;
-            // printf("Failed Break!\n");
             break;
         } else {
             assert(returnValue == Retval::Running && args->retval == Retval::Running);
@@ -1163,369 +1061,6 @@ void v3c_receiver_unit(const std::shared_ptr<input_handler_args>& args) {
 
 }
 
-void v3c_receiver_(const std::shared_ptr<input_handler_args>& args) {
-#ifdef ENABLE_V3CRTP
-    uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::TRACE>(
-        "V3CRTP",
-        "Using uvgV3CRTP lib version " + uvgV3CRTP::get_version() + "\n");
-
-    std::cerr << "Initialize state...\n" << std::flush;
-    uvgV3CRTP::V3C_UNIT_TYPE expected_units[] = { uvgV3CRTP::V3C_VPS, uvgV3CRTP::V3C_AD, uvgV3CRTP::V3C_OVD, uvgV3CRTP::V3C_GVD, uvgV3CRTP::V3C_AVD };
-    
-    uint16_t ports[uvgV3CRTP::NUM_V3C_UNIT_TYPES] = {};
-
-    // Use lambda to pick correct constructor to get correct scope for state object
-    uvgV3CRTP::V3C_State<uvgV3CRTP::V3C_Receiver> state = ([&]() {
-        if (args->opts.srcPort.size() == 1) {
-            // Set ports to the same value
-            std::fill(std::begin(ports), std::end(ports), args->opts.srcPort.front());
-            return uvgV3CRTP::V3C_State<uvgV3CRTP::V3C_Receiver>(
-                uvgV3CRTP::INIT_FLAGS::AD | uvgV3CRTP::INIT_FLAGS::OVD | uvgV3CRTP::INIT_FLAGS::GVD | uvgV3CRTP::INIT_FLAGS::AVD |
-                    uvgV3CRTP::INIT_FLAGS::VPS,  
-                args->opts.srcAddress.c_str(), args->opts.srcPort.front()                                                    // Receiver address and port
-            );
-        } else {
-            std::copy(args->opts.srcPort.begin(), args->opts.srcPort.end(), ports);  // Use all given ports
-
-            return uvgV3CRTP::V3C_State<uvgV3CRTP::V3C_Receiver>(
-                uvgV3CRTP::INIT_FLAGS::AD | uvgV3CRTP::INIT_FLAGS::OVD | uvgV3CRTP::INIT_FLAGS::GVD | uvgV3CRTP::INIT_FLAGS::AVD |
-                    uvgV3CRTP::INIT_FLAGS::VPS,  
-                args->opts.srcAddress.c_str(), ports                                                               // Receiver address and ports
-            );
-        }
-    })();
-
-    // Define necessary information for receiving a v3c stream
-    uint8_t v3c_size_precision   = AUTO_PRECISION_MODE ? static_cast<uint8_t>(-1) : V3C_SIZE_PRECISION;
-    uint8_t atlas_size_precision = AUTO_PRECISION_MODE ? static_cast<uint8_t>(-1) : AtlasNAL_SIZE_PRECISION;
-    uint8_t video_size_precision = AUTO_PRECISION_MODE ? static_cast<uint8_t>(-1) : Video_SIZE_PRECISION;
-    
-    size_t expected_number_of_gof = AUTO_EXPECTED_NUM_MODE ? static_cast<size_t>(-1) : EXPECTED_NUM_GOFs;
-    size_t num_vps                = AUTO_EXPECTED_NUM_MODE ? static_cast<size_t>(-1) : EXPECTED_NUM_VPSs;
-    size_t num_ad_nalu            = AUTO_EXPECTED_NUM_MODE ? static_cast<size_t>(-1) : EXPECTED_NUM_AD_NALU;
-    size_t num_ovd_nalu           = AUTO_EXPECTED_NUM_MODE ? static_cast<size_t>(-1) : EXPECTED_NUM_OVD_NALU;
-    size_t num_gvd_nalu           = AUTO_EXPECTED_NUM_MODE ? static_cast<size_t>(-1) : EXPECTED_NUM_GVD_NALU;
-    size_t num_avd_nalu           = AUTO_EXPECTED_NUM_MODE ? static_cast<size_t>(-1) : EXPECTED_NUM_AVD_NALU;
-    size_t num_pvd_nalu           = 0;
-    size_t num_cad_nalu           = 0;
-
-    // Auto size precision if set to 0 (may not match orig bitstream)
-    uint8_t size_precisions[uvgV3CRTP::NUM_V3C_UNIT_TYPES] = {
-        0,
-        atlas_size_precision,
-        video_size_precision,
-        video_size_precision,
-        video_size_precision,
-        video_size_precision,
-        atlas_size_precision,
-    };
-    size_t num_nalus[uvgV3CRTP::NUM_V3C_UNIT_TYPES] = {
-        num_vps,
-        num_ad_nalu,
-        num_ovd_nalu,
-        num_gvd_nalu,
-        num_avd_nalu,
-        num_pvd_nalu,
-        num_cad_nalu,
-    };
-
-    uvgV3CRTP::HeaderStruct header_defs[uvgV3CRTP::NUM_V3C_UNIT_TYPES] = {
-        {uvgV3CRTP::V3C_VPS},
-        {uvgV3CRTP::V3C_AD, 0, 0},
-        {uvgV3CRTP::V3C_OVD, 0, 0},
-        {uvgV3CRTP::V3C_GVD, 0, 0, 0, 0, 0, false},
-        {uvgV3CRTP::V3C_AVD, 0, 0, 0, 0, 0, false},
-        {uvgV3CRTP::V3C_PVD, 0, 0},
-        {uvgV3CRTP::V3C_CAD, 0},
-    };
-
-    // ************************************************************************************
-    const std::shared_ptr<v3c_input_gof_handler_args> v3c_remote_gof_args = std::make_shared<v3c_input_gof_handler_args>();
-    v3c_remote_gof_args->V3C_SIZE_PRECISION = v3c_size_precision;
-
-    std::thread v3c_remote_inputTh = std::thread(&v3c_remote_input_thread, v3c_remote_gof_args, args);
-    
-    std::cerr << "Initialize state sample stream...\n" << std::flush;
-    uvgV3CRTP::ERROR_TYPE error_status = state.init_sample_stream(v3c_size_precision); //Init sample stream here since receive_gof() assumes data is initialized
-    std::cerr << "Done\n" << std::flush;
-
-    std::cerr << "Receiving bitstream...\n" << std::flush;
-    if (v3c_size_precision == 0) {
-        std::cerr << "Error: V3C_SIZE_PRECISION cannot be 0 since it is used to determine if size precision is included in the bitstream. Please set it to a value larger than 0 or set AUTO_PRECISION_MODE to true." << std::endl;
-        throw std::runtime_error("Invalid V3C_SIZE_PRECISION");
-    }
-    
-    size_t min_unit_size = 4*8 + v3c_size_precision; // 4 bytes for header + size precision
-
-    while (state.get_error_flag() == uvgV3CRTP::ERROR_TYPE::OK) {
-        // std::cerr << "  Receiving GoF...\n";
-
-        // error_status = uvgV3CRTP::receive_gof(&state, size_precisions, num_nalus, header_defs, TIMEOUT);
-        // state.last_gof();
-        // if (state.cur_gof_has_unit(uvgV3CRTP::V3C_VPS) && num_nalus[uvgV3CRTP::V3C_VPS] > 0)
-        // {
-        //     num_nalus[uvgV3CRTP::V3C_VPS] -= 1;
-        //     if (num_nalus[uvgV3CRTP::V3C_VPS] != 0)
-        //     {
-        //         for (auto& unit_header : header_defs)
-        //         {
-        //             unit_header.vuh_v3c_parameter_set_id += 1;
-        //         }
-        //     }
-        // } else {
-
-        // }
-
-        // if (state.get_error_flag() == uvgV3CRTP::ERROR_TYPE::TIMESTAMP) {
-        //     // std::cerr << " Timestamp error: " << state.get_error_msg() << std::endl;
-        //     state.reset_error_flag();
-        // }
-
-        // if (state.get_error_flag() == uvgV3CRTP::ERROR_TYPE::OK) {
-        //     state.last_gof();
-        //     size_t rec_len = 0;
-        //     auto rec = state.get_bitstream_cur_gof(&rec_len);
-        //     // auto rec = std::unique_ptr<char, decltype(&free)>(state.get_bitstream_cur_gof(&rec_len), &free);
-        //     if (!rec || rec_len < min_unit_size) { // Arbitrary minimum size check to ensure we have a valid bitstream (32 bytes for headers + size precision)
-        //         std::cerr << "No reconstructed bitstream available for GoF\n";
-        //         continue;
-        //         // break;
-        //     }
-
-        //     const uint8_t* ptr = reinterpret_cast<const uint8_t*>(rec);
-        //     // const uint8_t* ptr = reinterpret_cast<const uint8_t*>(rec.get());
-
-        //     v3c_remote_gof_ptr gof_ptr;
-        //     gof_ptr.ptr = ptr;
-        //     gof_ptr.gof_size = rec_len;
-
-        //     v3c_remote_gof_args->gof_ptrs.push(std::move(gof_ptr));
-        //     std::cerr << "Send GoF\n";
-
-        //     v3c_remote_gof_args->available_gof.release();
-        // }
-
-    }
-
-
-    v3c_remote_gof_args->gof_ptrs.emplace();
-    v3c_remote_gof_args->available_gof.release();
-
-    if (v3c_remote_inputTh.joinable() ) v3c_remote_inputTh.join();
-
-    std::cerr << "Done Receiving GoFs\n" << std::flush;
-#else
-    throw std::runtime_error("V3C RTP not enabled, re-run cmake with '-DENABLE_V3CRTP=ON'.");
-#endif
-
-}
-
-void v3c_receiver_old_working(const std::shared_ptr<input_handler_args>& args) {
-#ifdef ENABLE_V3CRTP
-    uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::TRACE>(
-        "V3CRTP",
-        "Using uvgV3CRTP lib version " + uvgV3CRTP::get_version() + "\n");
-
-    std::cerr << "Initialize state...\n" << std::flush;
-    uvgV3CRTP::V3C_UNIT_TYPE expected_units[] = { uvgV3CRTP::V3C_VPS, uvgV3CRTP::V3C_AD, uvgV3CRTP::V3C_OVD, uvgV3CRTP::V3C_GVD, uvgV3CRTP::V3C_AVD };
-    
-    uint16_t ports[uvgV3CRTP::NUM_V3C_UNIT_TYPES] = {};
-
-    // Use lambda to pick correct constructor to get correct scope for state object
-    uvgV3CRTP::V3C_State<uvgV3CRTP::V3C_Receiver> state = ([&]() {
-        if (args->opts.srcPort.size() == 1) {
-            // Set ports to the same value
-            std::fill(std::begin(ports), std::end(ports), args->opts.srcPort.front());
-            return uvgV3CRTP::V3C_State<uvgV3CRTP::V3C_Receiver>(
-                uvgV3CRTP::INIT_FLAGS::AD | uvgV3CRTP::INIT_FLAGS::OVD | uvgV3CRTP::INIT_FLAGS::GVD | uvgV3CRTP::INIT_FLAGS::AVD |
-                    uvgV3CRTP::INIT_FLAGS::VPS,  
-                args->opts.srcAddress.c_str(), args->opts.srcPort.front()                                                    // Receiver address and port
-            );
-        } else {
-            std::copy(args->opts.srcPort.begin(), args->opts.srcPort.end(), ports);  // Use all given ports
-
-            return uvgV3CRTP::V3C_State<uvgV3CRTP::V3C_Receiver>(
-                uvgV3CRTP::INIT_FLAGS::AD | uvgV3CRTP::INIT_FLAGS::OVD | uvgV3CRTP::INIT_FLAGS::GVD | uvgV3CRTP::INIT_FLAGS::AVD |
-                    uvgV3CRTP::INIT_FLAGS::VPS,  
-                args->opts.srcAddress.c_str(), ports                                                               // Receiver address and ports
-            );
-        }
-    })();
-
-    // uvgV3CRTP::V3C_State<uvgV3CRTP::V3C_Receiver> state(
-    //     uvgV3CRTP::INIT_FLAGS::VPS |
-    //     uvgV3CRTP::INIT_FLAGS::AD  |
-    //     uvgV3CRTP::INIT_FLAGS::OVD |
-    //     uvgV3CRTP::INIT_FLAGS::GVD |
-    //     uvgV3CRTP::INIT_FLAGS::AVD,
-    //     dst_address.c_str(), dst_port.front()
-    // ); // Create a new state in a receiver configuration
-    // //state.init_sample_stream(v3c_size_precision); //Don't init sample stream here since receive_bistream() will create one
-    // std::cerr << "Done\n" << std::flush;
-
-    // Define necessary information for receiving a v3c stream
-    uint8_t v3c_size_precision   = AUTO_PRECISION_MODE ? static_cast<uint8_t>(-1) : V3C_SIZE_PRECISION;
-    uint8_t atlas_size_precision = AUTO_PRECISION_MODE ? static_cast<uint8_t>(-1) : AtlasNAL_SIZE_PRECISION;
-    uint8_t video_size_precision = AUTO_PRECISION_MODE ? static_cast<uint8_t>(-1) : Video_SIZE_PRECISION;
-    
-    size_t expected_number_of_gof = AUTO_EXPECTED_NUM_MODE ? static_cast<size_t>(-1) : EXPECTED_NUM_GOFs;
-    size_t num_vps                = AUTO_EXPECTED_NUM_MODE ? static_cast<size_t>(-1) : EXPECTED_NUM_VPSs;
-    size_t num_ad_nalu            = AUTO_EXPECTED_NUM_MODE ? static_cast<size_t>(-1) : EXPECTED_NUM_AD_NALU;
-    size_t num_ovd_nalu           = AUTO_EXPECTED_NUM_MODE ? static_cast<size_t>(-1) : EXPECTED_NUM_OVD_NALU;
-    size_t num_gvd_nalu           = AUTO_EXPECTED_NUM_MODE ? static_cast<size_t>(-1) : EXPECTED_NUM_GVD_NALU;
-    size_t num_avd_nalu           = AUTO_EXPECTED_NUM_MODE ? static_cast<size_t>(-1) : EXPECTED_NUM_AVD_NALU;
-    size_t num_pvd_nalu           = 0;
-    size_t num_cad_nalu           = 0;
-
-    // Auto size precision if set to 0 (may not match orig bitstream)
-    uint8_t size_precisions[uvgV3CRTP::NUM_V3C_UNIT_TYPES] = {
-        0,
-        atlas_size_precision,
-        video_size_precision,
-        video_size_precision,
-        video_size_precision,
-        video_size_precision,
-        atlas_size_precision,
-    };
-    size_t num_nalus[uvgV3CRTP::NUM_V3C_UNIT_TYPES] = {
-        num_vps,
-        num_ad_nalu,
-        num_ovd_nalu,
-        num_gvd_nalu,
-        num_avd_nalu,
-        num_pvd_nalu,
-        num_cad_nalu,
-    };
-
-    uvgV3CRTP::HeaderStruct header_defs[uvgV3CRTP::NUM_V3C_UNIT_TYPES] = {
-        {uvgV3CRTP::V3C_VPS},
-        {uvgV3CRTP::V3C_AD, 0, 0},
-        {uvgV3CRTP::V3C_OVD, 0, 0},
-        {uvgV3CRTP::V3C_GVD, 0, 0, 0, 0, 0, false},
-        {uvgV3CRTP::V3C_AVD, 0, 0, 0, 0, 0, false},
-        {uvgV3CRTP::V3C_PVD, 0, 0},
-        {uvgV3CRTP::V3C_CAD, 0},
-    };
-
-    // ************************************************************************************
-    std::cerr << "Initialize state sample stream...\n" << std::flush;
-    state.init_sample_stream(v3c_size_precision); //Init sample stream here since receive_gof() assumes data is initialized
-    std::cerr << "Done\n" << std::flush;
-
-    std::cerr << "Receiving bitstream...\n" << std::flush;
-    if (v3c_size_precision == 0) {
-        std::cerr << "Error: V3C_SIZE_PRECISION cannot be 0 since it is used to determine if size precision is included in the bitstream. Please set it to a value larger than 0 or set AUTO_PRECISION_MODE to true." << std::endl;
-        throw std::runtime_error("Invalid V3C_SIZE_PRECISION");
-    }
-    
-    size_t min_unit_size = 4*8 + v3c_size_precision; // 4 bytes for header + size precision
-    int chunk_count = 0;
-    Retval returnValue = Retval::Running;
-
-    while (state.get_error_flag() == uvgV3CRTP::ERROR_TYPE::OK /*&& receiving*/) {
-        bool receiving = true;
-        std::cerr << "  Receiving GoF...\n" << std::flush;
-
-        std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk = std::make_shared<uvgvpcc_dec::API::v3c_chunk>();
-        chunk->data = std::make_unique<std::vector<uint8_t>>();
-        std::vector<uint8_t>* chunk_data = chunk->data.get();
-
-        for (auto unit_type : expected_units) {
-            // std::cerr << "  Receiving Unit...\n" << std::flush;
-            uvgV3CRTP::receive_unit(&state, unit_type, size_precisions[unit_type], num_nalus[unit_type], header_defs[unit_type], TIMEOUT);
-
-            //Increment VPS id in headers when a new vps is expected (headers should be given as out-of-band info)
-            if ((unit_type == uvgV3CRTP::V3C_VPS) && num_nalus[uvgV3CRTP::V3C_VPS] != 0)
-            {
-                num_nalus[uvgV3CRTP::V3C_VPS] -= 1;
-            }
-            else if (num_nalus[uvgV3CRTP::V3C_VPS] != 0)
-            {
-                header_defs[unit_type].vuh_v3c_parameter_set_id += 1;
-            }
-
-            // Dont't stop receiving even if timestamp error occurs, just print the error
-            if (state.get_error_flag() == uvgV3CRTP::ERROR_TYPE::TIMESTAMP) {
-                // std::cerr << " Timestamp error: " << state.get_error_msg() << std::endl;
-                state.reset_error_flag();
-            }
-
-            if (state.get_error_flag() == uvgV3CRTP::ERROR_TYPE::OK) {
-                state.last_gof();
-                // state.print_cur_gof_bitstream_info(unit_type);
-                // std::cerr << " Received:\n" << std::flush;
-
-                size_t rec_len = 0;
-                // auto rec = state.get_bitstream_cur_gof_unit(unit_type, &rec_len);            
-                auto rec = std::unique_ptr<char, decltype(&free)>(state.get_bitstream_cur_gof_unit(unit_type, &rec_len), &free);;
-                if (!rec || rec_len < min_unit_size) { // Arbitrary minimum size check to ensure we have a valid bitstream (32 bytes for headers + size precision)
-                    std::cerr << "No reconstructed bitstream available for unit type " << unit_type << "\n" << std::flush;
-                    receiving = false;
-                    break;
-                    // continue;
-                    // break;
-                }
-
-                chunk->gof_id = state.cur_gof_ind();
-                const uint8_t* ptr = reinterpret_cast<const uint8_t*>(rec.get());
-                size_t unit_size = rec_len - v3c_size_precision;
-                ptr += v3c_size_precision;
-                chunk->v3c_unit_sizes.push_back(unit_size);
-                size_t old_size = chunk->data->size();
-                chunk->data->resize(old_size + unit_size);
-                std::memcpy(chunk->data->data() + old_size, ptr, unit_size);
-
-                std::cerr << "Stream size for current unit type of GOF " << static_cast<int>(chunk->gof_id) << " : " << unit_type << " : " << static_cast<int>(unit_size) << "\n" << std::flush;
-            } else {
-                std::cerr << "Failed receiving GOF\n" << std::flush;
-                receiving = false;
-                continue;
-                // break;
-            }
-
-        }
-
-        // if (receiving) {
-        //     available_input_slot.acquire();
-        //     args->chunk_in = chunk;
-        //     if (returnValue == Retval::Failure) {
-        //         args->retval = Retval::Failure;
-        //         printf("Failed Break!\n");
-        //         break;
-        //     } else {
-        //         assert(returnValue == Retval::Running && args->retval == Retval::Running);
-        //     }
-        //     chunk_count++;
-        //     filled_input_slot.release();
-        // }
-
-        available_input_slot.acquire();
-        args->chunk_in = chunk;
-        if (returnValue == Retval::Failure) {
-            args->retval = Retval::Failure;
-            printf("Failed Break!\n");
-            break;
-        } else {
-            assert(returnValue == Retval::Running && args->retval == Retval::Running);
-        }
-        chunk_count++;
-        filled_input_slot.release();
-
-    }
-    available_input_slot.acquire();
-    args->chunk_in = nullptr;
-    args->retval = Retval::Eof;
-    filled_input_slot.release();
-    
-    printf("Chunks received: %d\n", chunk_count);
-
-    std::cerr << "Done Receiving GoFs\n" << std::flush;
-#else
-    throw std::runtime_error("V3C RTP not enabled, re-run cmake with '-DENABLE_V3CRTP=ON'.");
-#endif
-
-}
-
 void inputReadThread_old(const std::shared_ptr<input_handler_args>& args) {
     Retval returnValue = Retval::Running;
     std::ifstream file (args->input_path);
@@ -1576,67 +1111,6 @@ void inputReadThread_old(const std::shared_ptr<input_handler_args>& args) {
     file.close();
 
     // Signal that all input frames has been load
-    available_input_slot.acquire();
-    args->chunk_in = nullptr;
-    args->retval = Retval::Eof;
-    filled_input_slot.release();
-    
-}
-
-void inputReadThread_(const std::shared_ptr<input_handler_args>& args, uvgvpcc_dec::API::point_cloud_frame_stream* output) {
-    Retval returnValue = Retval::Running;
-    std::ifstream file (args->input_path);
-    if (!file.is_open()) {
-        throw std::runtime_error("Bitstream writing : Could not open input file " + args->input_path);
-    }
-
-    uint8_t v3c_sample_stream_header = 0;
-    file.read(reinterpret_cast<char*> (&v3c_sample_stream_header), sizeof(uint8_t));
-    const size_t v3c_unit_size_precision = (v3c_sample_stream_header >> 5U) + 1U;
-
-    size_t gof_id = 0;
-
-    while (file.peek() != EOF)
-    {
-        std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk = std::make_shared<uvgvpcc_dec::API::v3c_chunk>();
-        chunk->data = std::make_unique<std::vector<uint8_t>>();
-        std::vector<uint8_t>* chunk_data = chunk->data.get();
-
-        for (size_t i = 0; i < 5; i++) { // 0:V3C_VPS, 1:V3C_AD, 2:V3C_OVD, 3:V3C_GVD, 4:V3C_AVD
-            uint8_t v3c_size_array[v3c_unit_size_precision];
-            file.read(reinterpret_cast<char*>(v3c_size_array), v3c_unit_size_precision);
-
-            size_t v3c_unit_size = read_value(v3c_size_array, v3c_unit_size_precision);;
-            chunk->v3c_unit_sizes.push_back(v3c_unit_size);
-
-            size_t old_size = chunk_data->size();
-
-            chunk_data->resize(old_size + v3c_unit_size);
-            file.read(reinterpret_cast<char*>(&(*chunk_data)[old_size]), v3c_unit_size);
-
-            printf("Read V3C unit of size %d\n", (int)v3c_unit_size);
-        }
-        chunk->gof_id = gof_id++;
-
-        // Signal that an item has been produced
-        available_input_slot.acquire();
-        args->chunk_in = chunk;
-        uvgvpcc_dec::API::decodedGOF decodedGOF = {};
-        output->available_gofs.push_back(decodedGOF);
-        if (returnValue == Retval::Failure) {
-            args->retval = Retval::Failure;
-            break;
-        } else {
-            assert(returnValue == Retval::Running && args->retval == Retval::Running);
-        }
-        filled_input_slot.release();
-        
-    }
-    file.close();
-
-    output->total_gof = static_cast<int>(gof_id);
-
-    // Signal that all input frames has been loaded
     available_input_slot.acquire();
     args->chunk_in = nullptr;
     args->retval = Retval::Eof;
@@ -1730,63 +1204,6 @@ void inputReadThread(const std::shared_ptr<input_handler_args>& args, uvgvpcc_de
         }
         filled_input_slot.release();
     }
-
-    output->total_gof = static_cast<int>(gof_id);
-
-    // Signal that all input frames has been loaded
-    available_input_slot.acquire();
-    args->chunk_in = nullptr;
-    args->retval = Retval::Eof;
-    filled_input_slot.release();
-    
-}
-
-void inputReadThread__(const std::shared_ptr<input_handler_args>& args, uvgvpcc_dec::API::point_cloud_frame_stream* output) {
-    Retval returnValue = Retval::Running;
-    std::ifstream file (args->input_path);
-    if (!file.is_open()) {
-        throw std::runtime_error("Bitstream writing : Could not open input file " + args->input_path);
-    }
-
-    uint8_t v3c_sample_stream_header = 0;
-    file.read(reinterpret_cast<char*> (&v3c_sample_stream_header), sizeof(uint8_t));
-    const size_t v3c_unit_size_precision = (v3c_sample_stream_header >> 5U) + 1U;
-
-    size_t gof_id = 0;
-
-    while (file.peek() != EOF)
-    {
-        std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk = std::make_shared<uvgvpcc_dec::API::v3c_chunk>(true);
-
-        for (size_t i = 0; i < 5; i++) { // 0:V3C_VPS, 1:V3C_AD, 2:V3C_OVD, 3:V3C_GVD, 4:V3C_AVD
-            uint8_t v3c_size_array[v3c_unit_size_precision];
-            file.read(reinterpret_cast<char*>(v3c_size_array), v3c_unit_size_precision);
-
-            size_t v3c_unit_size = read_value(v3c_size_array, v3c_unit_size_precision);
-            chunk->v3c_unit_sizes.push_back(v3c_unit_size);
-
-            chunk->vuh_units[i]->resize(v3c_unit_size);
-            file.read(reinterpret_cast<char*>(&(*chunk->vuh_units[i]->data())), v3c_unit_size);
-
-            printf("Read V3C unit of size %d\n", (int)v3c_unit_size);
-        }
-        chunk->gof_id = gof_id++;
-
-        // Signal that an item has been produced
-        available_input_slot.acquire();
-        args->chunk_in = chunk;
-        uvgvpcc_dec::API::decodedGOF decodedGOF = {};
-        output->available_gofs.push_back(decodedGOF);
-        if (returnValue == Retval::Failure) {
-            args->retval = Retval::Failure;
-            break;
-        } else {
-            assert(returnValue == Retval::Running && args->retval == Retval::Running);
-        }
-        filled_input_slot.release();
-        
-    }
-    file.close();
 
     output->total_gof = static_cast<int>(gof_id);
 

@@ -182,7 +182,7 @@ void API::decodeFrame_remote_output(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk>
     currentGOF->gofCount = chunk->gof_count;
 
 
-    BitstreamParsing::parseV3CGOFBitstream_parallel(currentGOF, v3c_gof_, *(p_), chunk);
+    BitstreamParsing::parseV3CGOFBitstream_separate_vuh_units(currentGOF, v3c_gof_, *(p_), chunk);
     try
     {
         MapDecoding::decodeGOFMaps(currentGOF);
@@ -366,7 +366,7 @@ void API::decodeFrame_delay(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, 
     currentGOF->gofId = chunk->gof_id;
     currentGOF->gofCount = chunk->gof_count;
 
-    BitstreamParsing::parseV3CGOFBitstream_parallel(currentGOF, v3c_gof_, *(p_), chunk);
+    BitstreamParsing::parseV3CGOFBitstream_separate_vuh_units(currentGOF, v3c_gof_, *(p_), chunk);
     try
     {
         MapDecoding::decodeGOFMaps(currentGOF);
