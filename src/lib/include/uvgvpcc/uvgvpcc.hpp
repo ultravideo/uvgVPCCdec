@@ -346,17 +346,17 @@ void setParameter(const std::string& parameterName, const std::string& parameter
 // void decodeFrame(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, const std::string& outputFilePath);
 // void decodeFrame_parallel(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, const std::string& outputFilePath);
 
-void decodeFrame(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, uvgvpcc_dec::API::point_cloud_frame_stream* output, const bool in_order_output, const std::string& outputFilePath);
-void decodeFrame_parallel(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, uvgvpcc_dec::API::point_cloud_frame_stream* output, const bool in_order_output, const std::string& outputFilePath);
+void decodeFrame(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk>& chunk, uvgvpcc_dec::API::point_cloud_frame_stream* output, const bool in_order_output, const std::string& outputFilePath);
+void decodeFrame_parallel(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk>& chunk, uvgvpcc_dec::API::point_cloud_frame_stream* output, const bool in_order_output, const std::string& outputFilePath);
 
-void decodeFrame_delay(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, uvgvpcc_dec::API::point_cloud_frame_stream* output);
-void decodeFrame_parallel_delay(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, uvgvpcc_dec::API::point_cloud_frame_stream* output);
+void decodeFrame_delay(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk>& chunk, uvgvpcc_dec::API::point_cloud_frame_stream* output);
+void decodeFrame_parallel_delay(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk>& chunk, uvgvpcc_dec::API::point_cloud_frame_stream* output);
 
-void decodeFrame_in_order(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, uvgvpcc_dec::API::point_cloud_frame_stream* output);
-void decodeFrame_parallel_in_order(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, uvgvpcc_dec::API::point_cloud_frame_stream* output);
+void decodeFrame_in_order(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk>& chunk, uvgvpcc_dec::API::point_cloud_frame_stream* output);
+void decodeFrame_parallel_in_order(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk>& chunk, uvgvpcc_dec::API::point_cloud_frame_stream* output);
 
-void decodeFrame_remote_output(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, const std::shared_ptr<zmqHandler> zmq_handler);
-void decodeFrame_parallel_remote_output(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, const std::shared_ptr<zmqHandler> zmq_handler);
+void decodeFrame_remote_output(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk>& chunk, const std::shared_ptr<zmqHandler>& zmq_handler);
+void decodeFrame_parallel_remote_output(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk>& chunk, const std::shared_ptr<zmqHandler>& zmq_handler);
 
 void emptyFrameQueue(std::shared_ptr<uvgvpcc_dec::ThreadQueue>& queue, std::shared_ptr<uvgvpcc_dec::Job>& last_out);
 void emptyFrameQueue();

@@ -479,6 +479,7 @@ void Adaptation::adapt(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, uvgvpcc_dec::A
                     outputFilePath.c_str(),
                     std::min(static_cast<int>(frame->gofId), 9999),
                     std::min(static_cast<int>(frame->frameId), 9999));
+                    
         write_point_cloud_with_attri(filename, frame.get(), false);
         // write_point_cloud(filename, frame.get(), true);
     }
@@ -492,7 +493,7 @@ void Adaptation::adapt(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, uvgvpcc_dec::A
     }
 }
 
-void Adaptation::adaptPointCloudFrame(std::shared_ptr<uvgvpcc_dec::Frame> frame, uvgvpcc_dec::API::point_cloud_frame_stream* output, const bool& in_order_output, const std::string& outputFilePath) {
+void Adaptation::adaptPointCloudFrame(std::shared_ptr<uvgvpcc_dec::Frame>& frame, uvgvpcc_dec::API::point_cloud_frame_stream* output, const bool& in_order_output, const std::string& outputFilePath) {
     if (p_->useTMC2AttributeYUVConversion) {
         convertYUV16ToRGB8(frame->pointsAttribute16bits, frame->pointsAttribute);
     } else {
@@ -517,7 +518,7 @@ void Adaptation::adaptPointCloudFrame(std::shared_ptr<uvgvpcc_dec::Frame> frame,
     // write_point_cloud(filename, frame.get(), true);
 }
 
-void Adaptation::adapt_remote_output(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, const std::shared_ptr<zmqHandler> zmq_handler) {
+void Adaptation::adapt_remote_output(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, const std::shared_ptr<zmqHandler>& zmq_handler) {
     std::mutex io_mutex;
     for (int i = 0; i < gofUVG->frames.size(); i++) {
         auto &frame = gofUVG->frames[i];

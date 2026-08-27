@@ -173,7 +173,7 @@ void API::initializeDecoder() {
     initializeContext();
 }
 
-void API::decodeFrame_remote_output(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, const std::shared_ptr<zmqHandler> zmq_handler) {
+void API::decodeFrame_remote_output(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk>& chunk, const std::shared_ptr<zmqHandler>& zmq_handler) {
 
     auto v3c_gof_ = std::make_shared<v3c_gof>();
     auto currentGOF = std::make_shared<GOF>();
@@ -214,7 +214,7 @@ void API::decodeFrame_remote_output(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk>
     uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::INFO>("API", "GOF " + std::to_string(currentGOF->gofId) + " decoded and adapted.\n");
 }
 
-void API::decodeFrame_parallel_remote_output(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, const std::shared_ptr<zmqHandler> zmq_handler) {
+void API::decodeFrame_parallel_remote_output(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk>& chunk, const std::shared_ptr<zmqHandler>& zmq_handler) {
 
     auto chunk_copy = std::make_shared<uvgvpcc_dec::API::v3c_chunk>(std::move(*chunk));
 
@@ -242,7 +242,7 @@ void API::decodeFrame_parallel_remote_output(std::shared_ptr<uvgvpcc_dec::API::v
     JobManager::submitCurrentGOFJobs();
 }
 
-void API::decodeFrame(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, uvgvpcc_dec::API::point_cloud_frame_stream* output, const bool in_order_output, const std::string& outputFilePath) {
+void API::decodeFrame(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk>& chunk, uvgvpcc_dec::API::point_cloud_frame_stream* output, const bool in_order_output, const std::string& outputFilePath) {
 
     auto v3c_gof_ = std::make_shared<v3c_gof>();
     auto currentGOF = std::make_shared<GOF>();
@@ -273,7 +273,7 @@ void API::decodeFrame(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, uvgvpc
     uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::INFO>("API", "GOF " + std::to_string(currentGOF->gofId) + " decoded and adapted.\n");
 }
 
-void API::decodeFrame_parallel(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, uvgvpcc_dec::API::point_cloud_frame_stream* output, const bool in_order_output, const std::string& outputFilePath) {
+void API::decodeFrame_parallel(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk>& chunk, uvgvpcc_dec::API::point_cloud_frame_stream* output, const bool in_order_output, const std::string& outputFilePath) {
     if (chunk->gof_id > 9999) {
         std::cout << "Warning : chunk->gof_id is random data (it is not properly initialized) " << chunk->gof_id << std::endl;
     }
@@ -302,7 +302,7 @@ void API::decodeFrame_parallel(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chun
     JobManager::submitCurrentGOFJobs();
 }
 
-void API::decodeFrame_in_order(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, uvgvpcc_dec::API::point_cloud_frame_stream* output) {
+void API::decodeFrame_in_order(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk>& chunk, uvgvpcc_dec::API::point_cloud_frame_stream* output) {
 
     auto v3c_gof_ = std::make_shared<v3c_gof>();
     auto currentGOF = std::make_shared<GOF>();
@@ -330,7 +330,7 @@ void API::decodeFrame_in_order(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chun
     uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::INFO>("API", "GOF " + std::to_string(currentGOF->gofId) + " decoded and adapted.\n");
 }
 
-void API::decodeFrame_parallel_in_order(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, uvgvpcc_dec::API::point_cloud_frame_stream* output) {
+void API::decodeFrame_parallel_in_order(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk>& chunk, uvgvpcc_dec::API::point_cloud_frame_stream* output) {
 
     auto chunk_copy = std::make_shared<uvgvpcc_dec::API::v3c_chunk>(std::move(*chunk));
 
@@ -359,7 +359,7 @@ void API::decodeFrame_parallel_in_order(std::shared_ptr<uvgvpcc_dec::API::v3c_ch
 }
 
 
-void API::decodeFrame_delay(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, uvgvpcc_dec::API::point_cloud_frame_stream* output) {
+void API::decodeFrame_delay(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk>& chunk, uvgvpcc_dec::API::point_cloud_frame_stream* output) {
     auto v3c_gof_ = std::make_shared<v3c_gof>();
     auto currentGOF = std::make_shared<GOF>();
 
@@ -383,7 +383,7 @@ void API::decodeFrame_delay(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, 
     uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::INFO>("API", "GOF " + std::to_string(currentGOF->gofId) + " decoded and adapted.\n");
 }
 
-void API::decodeFrame_parallel_delay(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk, uvgvpcc_dec::API::point_cloud_frame_stream* output) {
+void API::decodeFrame_parallel_delay(std::shared_ptr<uvgvpcc_dec::API::v3c_chunk>& chunk, uvgvpcc_dec::API::point_cloud_frame_stream* output) {
     auto chunk_copy = std::make_shared<uvgvpcc_dec::API::v3c_chunk>(std::move(*chunk));
 
     JobManager::submitCurrentFrameJobs();

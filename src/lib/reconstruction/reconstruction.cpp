@@ -1116,7 +1116,7 @@ void reconstruct_singleTile(
 } // anonymous namespace
 
 
-void Reconstruction::reconstructPointCloud(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, std::shared_ptr<v3c_gof> gof_) {
+void Reconstruction::reconstructPointCloud(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, std::shared_ptr<v3c_gof>& gof_) {
     const vps* vps = gof_->get_v3c_vps();
     const atlas_sequence_parameter_set& asps = gof_->get_v3c_atlas_context()->get_asps();
 
@@ -1145,7 +1145,7 @@ void Reconstruction::setReconstructionParameters(std::shared_ptr<uvgvpcc_dec::GO
     set_reconstruction_parameters(gofUVG, gof_, rec_params->rec_opts, rec_params->rec_sei_info, rec_params->common_rec_params, rec_params->other_rec_params);
 }
 
-void Reconstruction::reconstructPointCloudFrame(std::shared_ptr<uvgvpcc_dec::Frame> frame, std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, common_reconstruction_parameters& rec_params) {
+void Reconstruction::reconstructPointCloudFrame(std::shared_ptr<uvgvpcc_dec::Frame>& frame, std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, common_reconstruction_parameters& rec_params) {
     std::vector<size_t> block_to_patch(rec_params.blockCount);
     std::vector<Vector3<typeGeometryInput>> pointsGeometry(2);
     std::fill(block_to_patch.begin(), block_to_patch.end(), 0);
@@ -1262,7 +1262,7 @@ void Reconstruction::reconstructPointCloudFrame(std::shared_ptr<uvgvpcc_dec::Fra
     _ Patch block filtering: pbf_enable_flag == False
     _ Poin local reconstruction: plr_enabled_flag == False
 */
-void Reconstruction::reconstructPointCloud_(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, std::shared_ptr<v3c_gof> gof_) {
+void Reconstruction::reconstructPointCloud_(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, std::shared_ptr<v3c_gof>& gof_) {
     const vps* vps = gof_->get_v3c_vps();
 
     // General Reconstruction Options

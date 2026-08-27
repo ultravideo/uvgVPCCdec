@@ -23,7 +23,7 @@
 using namespace uvgvpcc_dec;
 
 
-void BitstreamParsing::parseV3CGOFBitstream(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, std::shared_ptr<v3c_gof> gof_, 
+void BitstreamParsing::parseV3CGOFBitstream(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, std::shared_ptr<v3c_gof>& gof_, 
                                             const uvgvpcc_dec::Parameters& param, uvgvpcc_dec::API::v3c_chunk& chunk) {
     printf("Start parsing GOF %zu bitstream.\n", gofUVG->gofId);
 
@@ -63,8 +63,8 @@ void BitstreamParsing::parseV3CGOFBitstream(std::shared_ptr<uvgvpcc_dec::GOF>& g
     // printf("GOF %zu: Bitstream parsing completed.\n", gofUVG->gofId);
 }
 
-void BitstreamParsing::parseV3CGOFBitstream_parallel(std::shared_ptr<uvgvpcc_dec::GOF> gofUVG, std::shared_ptr<v3c_gof> gof_, 
-                                            const uvgvpcc_dec::Parameters& param, std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk) {
+void BitstreamParsing::parseV3CGOFBitstream_parallel(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, std::shared_ptr<v3c_gof>& gof_, 
+                                            const uvgvpcc_dec::Parameters& param, std::shared_ptr<uvgvpcc_dec::API::v3c_chunk>& chunk) {
     // printf("Start parsing GOF %zu bitstream.\n", gofUVG->gofId);
 
     uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::INFO>(
@@ -103,8 +103,8 @@ void BitstreamParsing::parseV3CGOFBitstream_parallel(std::shared_ptr<uvgvpcc_dec
     // printf("GOF %zu: Bitstream parsing completed.\n", gofUVG->gofId);
 }
 
-void BitstreamParsing::parseV3CGOFBitstream_separate_vuh_units(std::shared_ptr<uvgvpcc_dec::GOF> gofUVG, std::shared_ptr<v3c_gof> gof_, 
-                                            const uvgvpcc_dec::Parameters& param, std::shared_ptr<uvgvpcc_dec::API::v3c_chunk> chunk) {
+void BitstreamParsing::parseV3CGOFBitstream_separate_vuh_units(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, std::shared_ptr<v3c_gof>& gof_, 
+                                            const uvgvpcc_dec::Parameters& param, std::shared_ptr<uvgvpcc_dec::API::v3c_chunk>& chunk) {
     // printf("Start parsing GOF %zu bitstream.\n", gofUVG->gofId);
 
     uvgvpcc_dec::Logger::log<uvgvpcc_dec::LogLevel::INFO>(

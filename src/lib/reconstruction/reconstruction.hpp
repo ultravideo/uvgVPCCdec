@@ -133,9 +133,9 @@ struct reconstruction_parameters {
 
 class Reconstruction {
   public:
-  static void reconstructPointCloud_(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, std::shared_ptr<v3c_gof> gof_);
-  static void reconstructPointCloud(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, std::shared_ptr<v3c_gof> gof_);
-  static void reconstructPointCloudFrame(std::shared_ptr<uvgvpcc_dec::Frame> frame, std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, common_reconstruction_parameters& rec_params);
+  static void reconstructPointCloud_(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, std::shared_ptr<v3c_gof>& gof_);
+  static void reconstructPointCloud(std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, std::shared_ptr<v3c_gof>& gof_);
+  static void reconstructPointCloudFrame(std::shared_ptr<uvgvpcc_dec::Frame>& frame, std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, common_reconstruction_parameters& rec_params);
   static void setReconstructionParameters(
     std::shared_ptr<uvgvpcc_dec::GOF>& gofUVG, std::shared_ptr<v3c_gof>& gof_, 
     std::shared_ptr<reconstruction_parameters>& rec_params
